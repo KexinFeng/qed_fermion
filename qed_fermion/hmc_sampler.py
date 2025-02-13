@@ -35,13 +35,15 @@ class HmcSampler(object):
         self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
 
         # Leapfrog
-        self.delta_t = 0.1
-        self.N_leapfrog = 50
+        self.delta_t = 0.05
+        total_t = 1
+        self.N_leapfrog = int(total_t // self.delta_t)
+        # self.N_leapfrog = 20
 
         # Debug
-        
-        
-    
+        torch.manual_seed(0)
+        self.debug_pde = False
+
     def initialize_boson(self):
         """
         Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
@@ -49,7 +51,7 @@ class HmcSampler(object):
         :return: None
         """
         # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau)
-        self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau) * 0.1
+        self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau) * 1
         
     def draw_momentum(self):
         """
@@ -85,34 +87,38 @@ class HmcSampler(object):
         H0 = self.action(p, x).item()
         dt = self.delta_t
         
-        # # Initialize plot
-        # plt.ion()  # Turn on interactive mode
-        # fig, ax = plt.subplots()
-        # Hs = [H0]
+        if self.debug_pde:
+            # Initialize plot
+            plt.ion()  # Turn on interactive mode
+            fig, ax = plt.subplots()
+            Hs = [H0]
 
-        # # Plot setup
-        # line, = ax.plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
-        # ax.set_xlabel('Leapfrog Step')
-        # ax.set_ylabel('Hamiltonian (H)')
-        # ax.set_title('Real-Time Evolution of H_s')
-        # ax.legend()
-        # plt.grid()
+            # Plot setup
+            line, = ax.plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
+            ax.set_xlabel('Leapfrog Step')
+            ax.set_ylabel('Hamiltonian (H)')
+            ax.set_title('Real-Time Evolution of H_s')
+            ax.legend()
+            plt.grid()
+
         for i in range(self.N_leapfrog):
             x = x + dt * p
             p = p + dt * self.force(x)
             x = x + dt * p
 
-            # Hs.append(self.action(p, x).item())  # Append new H value
+            if self.debug_pde:
+                Hs.append(self.action(p, x).item())  # Append new H value
 
-            # # Update plot
-            # line.set_ydata(Hs)
-            # line.set_xdata(range(len(Hs)))
-            # ax.relim()  # Recalculate limits
-            # ax.autoscale_view()  # Rescale view
+                # Update plot
+                line.set_ydata(Hs)
+                line.set_xdata(range(len(Hs)))
+                ax.relim()  # Recalculate limits
+                ax.autoscale_view()  # Rescale view
 
-            # plt.draw()
-            # plt.pause(0.01)  # Pause for smooth animation
+                plt.draw()
+                plt.pause(0.01)  # Pause for smooth animation
 
+        dbstop = 1
         return x, p, p0
     
 
@@ -144,7 +150,10 @@ class HmcSampler(object):
         H_old = self.action(p_old, self.boson)
         H_new = self.action(p_new, boson_new)
         print(H_old, H_new)
-        if torch.rand(1) < torch.exp(H_old - H_new):
+        accp =  torch.rand(1) < torch.exp(H_old - H_new)
+        print(accp.item())
+        print(torch.linalg.norm(p_old))
+        if accp:
             self.boson = boson_new
             return self.boson, True
         else:
@@ -161,12 +170,12 @@ class HmcSampler(object):
         :return: a vector of shape [num_dtau]
         """
         correlations = []
-        boson_polar = boson[self.polar]
+        boson_elem = boson[self.polar, 0, 1]
         for dtau in range(self.num_tau):
             if dtau == 0:
-                corr = torch.mean(boson_polar * boson_polar, dim=(0, 1, 2))
+                corr = torch.mean(boson_elem * boson_elem, dim=(0))
             else:
-                corr = torch.mean(boson_polar[..., :-dtau] * boson_polar[..., dtau:], dim=(0, 1, 2))
+                corr = torch.mean(boson_elem[..., :-dtau] * boson_elem[..., dtau:], dim=(0))
             correlations.append(corr)
 
         return torch.stack(correlations)
