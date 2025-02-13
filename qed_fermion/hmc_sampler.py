@@ -10,7 +10,7 @@ class HmcSampler(object):
     def __init__(self, config=None):
         self.Lx = 10
         self.Ly = 12
-        self.Ltau = 8
+        self.Ltau = 20
         self.J = 1
         self.boson = None
         self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J)
@@ -35,10 +35,11 @@ class HmcSampler(object):
         self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
 
         # Leapfrog
-        self.delta_t = 0.05
-        self.N_leapfrog = 5
+        self.delta_t = 0.1
+        self.N_leapfrog = 50
 
-        # Random
+        # Debug
+        
         
     
     def initialize_boson(self):
@@ -47,8 +48,8 @@ class HmcSampler(object):
 
         :return: None
         """
-        self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau)
-        # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau)
+        # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau)
+        self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau) * 0.1
         
     def draw_momentum(self):
         """
@@ -67,9 +68,10 @@ class HmcSampler(object):
         return -torch.einsum('ijklmnop,mnop->ijkl', self.A, x)
 
     def leapfrog_proposer(self):
-        """
+        """          
         Propose new boson according self.boson, which consists of traj_length steps. At each step the force will be evaluated.
 
+        The action S = 1/2 * boson.T * self.A * boson + momentum**2. The prob ~ e^{-S}.
         x_{n+1/2} = x_{n} + 2p_{n} dt/2
         p_{n+1} = p_{n} + F(x_{n+1/2}) dt
         x_{n+1} = x_{n+1/2} + 2p_{n+1} dt/2
@@ -80,23 +82,49 @@ class HmcSampler(object):
         p0 = self.draw_momentum()
         p = p0.clone()
         x = self.boson.clone()
+        H0 = self.action(p, x).item()
         dt = self.delta_t
-        for _ in range(self.N_leapfrog):
+        
+        # # Initialize plot
+        # plt.ion()  # Turn on interactive mode
+        # fig, ax = plt.subplots()
+        # Hs = [H0]
+
+        # # Plot setup
+        # line, = ax.plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
+        # ax.set_xlabel('Leapfrog Step')
+        # ax.set_ylabel('Hamiltonian (H)')
+        # ax.set_title('Real-Time Evolution of H_s')
+        # ax.legend()
+        # plt.grid()
+        for i in range(self.N_leapfrog):
             x = x + dt * p
             p = p + dt * self.force(x)
             x = x + dt * p
+
+            # Hs.append(self.action(p, x).item())  # Append new H value
+
+            # # Update plot
+            # line.set_ydata(Hs)
+            # line.set_xdata(range(len(Hs)))
+            # ax.relim()  # Recalculate limits
+            # ax.autoscale_view()  # Rescale view
+
+            # plt.draw()
+            # plt.pause(0.01)  # Pause for smooth animation
+
         return x, p, p0
     
 
     def action(self, momentum, boson):
         """
-        The action S = 1/2 * boson.transpose * self.A * boson + 1/2 * momentum**2. The prob ~ e^{-S}.
+        The action S = 1/2 * boson.transpose * self.A * boson + momentum**2. The prob ~ e^{-S}.
 
         :param momentum: [2, Lx, Ly, Ltau] tensor
         :param boson: [2, Lx, Ly, Ltau] tensor
         :return: the action
         """
-        kinetic = torch.sum(momentum ** 2) / 2
+        kinetic = torch.sum(momentum ** 2)
         potential = 1/2 * torch.einsum('ijkl,ijkl->', boson, -self.force(boson))
         return kinetic + potential
 

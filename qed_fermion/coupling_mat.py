@@ -30,9 +30,9 @@ def initialize_coupling_mat(Lx, Ly, Ltau, J,  K=1, delta_tau=1):
                     y2.append(y)
                     tau2.append((tau+1) % Ltau)
 
-    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = 0.5/J/delta_tau
+    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = 1/J/delta_tau
     for ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2 in zip(pol1, x1, y1, tau1, pol2, x2, y2, tau2): 
-        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += 0.5/J/delta_tau
+        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += 1/J/delta_tau
 
     pol1, x1, y1, tau1, pol2, x2, y2, tau2 = [], [], [], [], [], [], [], []
     for pol in range(2):
@@ -61,9 +61,9 @@ def initialize_coupling_mat(Lx, Ly, Ltau, J,  K=1, delta_tau=1):
                     y2.append(y)
                     tau2.append(tau)  
 
-    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = -0.5/J/delta_tau
+    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = -1/J/delta_tau
     for ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2 in zip(pol1, x1, y1, tau1, pol2, x2, y2, tau2): 
-        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += -0.5/J/delta_tau
+        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += -1/J/delta_tau
 
     # ------ K terms ------
     pol1, x1, y1, tau1, pol2, x2, y2, tau2 = [], [], [], [], [], [], [], []
@@ -106,9 +106,9 @@ def initialize_coupling_mat(Lx, Ly, Ltau, J,  K=1, delta_tau=1):
                 y2.extend([y, y])
                 tau2.extend([tau, tau])
 
-    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = 0.5 * K * delta_tau
+    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = 1 * K * delta_tau
     for ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2 in zip(pol1, x1, y1, tau1, pol2, x2, y2, tau2): 
-        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += 0.5 * K * delta_tau
+        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += 1 * K * delta_tau
 
 
     pol1, x1, y1, tau1, pol2, x2, y2, tau2 = [], [], [], [], [], [], [], []
@@ -132,8 +132,8 @@ def initialize_coupling_mat(Lx, Ly, Ltau, J,  K=1, delta_tau=1):
                     tau1.extend([idxs[iidx][3], idxs[iidy][3]])
                     tau2.extend([idxs[iidy][3], idxs[iidx][3]])
                     
-    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = -0.5* K * delta_tau
+    # A[pol1, x1, y1, tau1, pol2, x2, y2, tau2] = -1* K * delta_tau
     for ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2 in zip(pol1, x1, y1, tau1, pol2, x2, y2, tau2): 
-        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += -0.5* K * delta_tau
+        A[ppol1, xx1, yy1, ttau1, ppol2, xx2, yy2, ttau2] += -1* K * delta_tau
 
     return A
