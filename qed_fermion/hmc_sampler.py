@@ -4,6 +4,9 @@ from tqdm import tqdm
 import sys
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 
+import os
+import pickle
+
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
 
 
@@ -121,7 +124,6 @@ class HmcSampler(object):
                 plt.pause(0.01)  # Pause for smooth animation
 
         return x, p, p0
-    
 
     def action(self, momentum, boson):
         """
@@ -208,7 +210,23 @@ class HmcSampler(object):
             self.H_list[i + self.N_therm_step] = H
             self.S_list[i + self.N_therm_step] = S
 
-        return self.G_list.mean(dim=0), self.G_list.std(dim=0)
+        res = {'mean': self.G_list.mean(dim=0),
+               'std': self.G_list.std(dim=0)}
+
+        # Save to file
+        data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/tau_dependence/data_hmc/"
+        file_name = f"corr_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_tau-max_{self.num_tau}"
+        self.save_to_file(res, data_folder, file_name)
+
+        return res['mean'], res['std']
+
+    # ------- Save to file -------
+    def save_to_file(self, res, data_folder, filename):
+        os.makedirs(data_folder, exist_ok=True)
+        filepath = os.path.join(data_folder, f"{filename}.pkl")
+        with open(filepath, "wb") as f:
+            pickle.dump(res, f)
+        print(f"Data saved to {data_folder + filepath}")
 
     # ------- Visualization -------
     def total_monitoring(self):
