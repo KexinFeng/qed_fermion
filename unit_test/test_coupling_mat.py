@@ -9,7 +9,7 @@ from qed_fermion.coupling_mat import initialize_coupling_mat
 Lx = 2
 Ly = 3
 Ltau = 3
-A = initialize_coupling_mat(Lx, Ly, Ltau, J=1, K=1, delta_tau=1)
+A = initialize_coupling_mat(Lx, Ly, Ltau, J=1, delta_tau=1)
 A = A.to(torch.int32)
 
 A = A.permute([3, 2, 1, 0, 7, 6, 5, 4])

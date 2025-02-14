@@ -8,9 +8,9 @@ from qed_fermion.coupling_mat import initialize_coupling_mat
 
 class HmcSampler(object):
     def __init__(self, config=None):
-        self.Lx = 10
-        self.Ly = 12
-        self.Ltau = 20
+        self.Lx = 16
+        self.Ly = 16
+        self.Ltau = 16
         self.J = 1
         self.boson = None
         self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J)
@@ -31,12 +31,16 @@ class HmcSampler(object):
         self.N_therm_step = 30
         self.N_step = 100
         self.step = 0
+        self.thrm_bool = False
         self.G_list = torch.zeros(self.N_step, self.num_tau)
         self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
+        self.accp_rate = torch.zeros(self.N_step)
 
         # Leapfrog
+        self.delta_t_thrm = 0.01
         self.delta_t = 0.05
         total_t = 1
+        self.N_leapfrog_thrm = int(total_t // self.delta_t)
         self.N_leapfrog = int(total_t // self.delta_t)
         # self.N_leapfrog = 20
 
@@ -85,7 +89,7 @@ class HmcSampler(object):
         p = p0.clone()
         x = self.boson.clone()
         H0 = self.action(p, x).item()
-        dt = self.delta_t
+        dt = self.delta_t_thrm if self.thrm_bool else self.delta_t
         
         if self.debug_pde:
             # Initialize plot
@@ -101,7 +105,7 @@ class HmcSampler(object):
             ax.legend()
             plt.grid()
 
-        for i in range(self.N_leapfrog):
+        for i in range(self.N_leapfrog_thrm if self.thrm_bool else self.N_leapfrog):
             x = x + dt * p
             p = p + dt * self.force(x)
             x = x + dt * p
@@ -118,7 +122,6 @@ class HmcSampler(object):
                 plt.draw()
                 plt.pause(0.01)  # Pause for smooth animation
 
-        dbstop = 1
         return x, p, p0
     
 
@@ -149,10 +152,10 @@ class HmcSampler(object):
         boson_new, p_new, p_old = self.leapfrog_proposer()
         H_old = self.action(p_old, self.boson)
         H_new = self.action(p_new, boson_new)
-        print(H_old, H_new)
+        print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_old - H_new}")
+        print(f"threshold: {torch.exp(H_old - H_new).item()}")
         accp =  torch.rand(1) < torch.exp(H_old - H_new)
         print(accp.item())
-        print(torch.linalg.norm(p_old))
         if accp:
             self.boson = boson_new
             return self.boson, True
@@ -189,14 +192,19 @@ class HmcSampler(object):
         self.initialize_boson()
 
         # Thermalize
+        self.thrm_bool = True
+        # boson = None
         for i in range(self.N_therm_step):
-            _, accp = self.metropolis_update()
+            boson, accp = self.metropolis_update()
+        self.G_list[-1] = self.greens_function(boson)
 
         # Take sample
+        self.thrm_bool = False
         for i in tqdm(range(self.N_step)):
             boson, accp = self.metropolis_update()
             self.accp_list[i] = accp
-            self.G_list[i] = self.greens_function(boson) if accp else self.G_list[-1]
+            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float)).item()
+            self.G_list[i] = self.greens_function(boson) if accp else self.G_list[i-1]
 
             # Visualization
             # self.total_monitoring()
@@ -212,7 +220,7 @@ class HmcSampler(object):
 
         :return: None
         """
-        plt.plot(self.accp_list.numpy())
+        plt.plot(self.accp_rate.numpy())
         plt.xlabel("Steps")
         plt.ylabel("Acceptance Rate")
         plt.show()
@@ -240,7 +248,7 @@ class HmcSampler(object):
         plt.figure()
         fig, axes = plt.subplots(2, 1, figsize=(10, 8))
 
-        axes[0].plot(self.accp_list.numpy())
+        axes[0].plot(self.accp_rate.numpy())
         axes[0].set_xlabel("Steps")
         axes[0].set_ylabel("Acceptance Rate")
         axes[0].set_title("Acceptance Rate Over Steps")
