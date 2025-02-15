@@ -3,6 +3,9 @@ import torch
 from tqdm import tqdm
 import os
 import sys
+
+from typing_extensions import override
+
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 
 from qed_fermion.hmc_sampler import HmcSampler
@@ -16,11 +19,11 @@ print(f"device: {device}")
 class GaussianSampler(HmcSampler):
     def __init__(self, config=None):
         self.Lx = 10
-        self.Ly = 12
+        self.Ly = 10
         self.Ltau = 10
         self.J = 1
         self.boson = None
-        self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J)
+        self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J).to(device)
 
         # Plot
         self.num_tau = self.Ltau
@@ -35,23 +38,34 @@ class GaussianSampler(HmcSampler):
         self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
         self.accp_rate = torch.zeros(self.N_step)
         self.S_list = torch.zeros(self.N_step + self.N_therm_step)
-        self.H_list = torch.zeros(self.N_step + self.N_therm_step)
+        # self.H_list = torch.zeros(self.N_step + self.N_therm_step)
 
         # Debug
         torch.manual_seed(0)
         self.debug_pde = False
-   
-    def action(self, momentum, boson):
+
+    def force_batch(self, x):
+        """
+        F = -dS/dx = -Ax
+
+        :param x: [bs, 2, Lx, Ly, Ltau] tensor
+        :return: evaluation of the force at given x. [bs, 2, Lx, Ly, Ltau]
+        """
+        dim = 2 * self.Lx * self.Ly * self.Ltau
+        A = self.A.reshape(dim, dim)
+        tmp =  - A @ x.permute(1, 2, 3, 4, 0).view(dim, -1)
+        return tmp.T.view(-1, 2, self.Lx, self.Ly, self.Ltau)
+        # return -torch.einsum('ijklmnop,bmnop->bijkl', self.A, x)
+
+    def action_batch(self, boson):
         """
         The action S = 1/2 * boson.T * self.A * boson + momentum**2. The prob ~ e^{-S}.
 
-        :param momentum: [2, Lx, Ly, Ltau] tensor
-        :param boson: [2, Lx, Ly, Ltau] tensor
-        :return: the action
+        :param boson: [bs, 2, Lx, Ly, Ltau] tensor
+        :return: the action [bs]
         """
-        kinetic = torch.sum(momentum ** 2)
-        potential = 1/2 * torch.einsum('ijkl,ijkl->', boson, -self.force(boson))
-        return kinetic + potential, potential
+        potential = 1/2 * torch.einsum('bijkl,bijkl->b', boson, -self.force_batch(boson))
+        return potential
 
     def greens_function_batch(self, boson):
         """
@@ -83,12 +97,12 @@ class GaussianSampler(HmcSampler):
         A = self.A.permute([3, 2, 1, 0, 7, 6, 5, 4]) # [2, Lx, Ly, Ltau]
         A = A.view(dim, dim)
 
-        # eigvals, eigvecs = np.linalg.eigh(A.numpy()) # torch.linalg.eigh
-        # eigvals = torch.from_numpy(eigvals)
-        # eigvecs = torch.from_numpy(eigvecs)
-        eigvals, eigvecs = torch.linalg.eigh(A.to('cpu'))
-        eigvals = eigvals.to(device)
-        eigvecs = eigvecs.to(device)
+        eigvals, eigvecs = np.linalg.eigh(A.cpu().numpy()) # torch.linalg.eigh
+        eigvals = torch.from_numpy(eigvals).to(device)
+        eigvecs = torch.from_numpy(eigvecs).to(device)
+        # eigvals, eigvecs = torch.linalg.eigh(A.to('cpu'))
+        # eigvals = eigvals.to(device)
+        # eigvecs = eigvecs.to(device)
         
         # Ensure positive definiteness by clamping small/negative eigenvalues
         eigvals = torch.clamp(eigvals, min=0)
@@ -106,6 +120,7 @@ class GaussianSampler(HmcSampler):
         # Greens function
         res = self.greens_function_batch(bosons).cpu()  # res: [num_tau, batch_size]
         self.G_list = res.T
+        self.S_list = self.action_batch(bosons).cpu()
 
         return res.mean(dim=-1), res.std(dim=-1)/torch.tensor([self.N_step])**(1/2)
 

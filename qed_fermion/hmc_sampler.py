@@ -16,8 +16,8 @@ print(f"device: {device}")
 class HmcSampler(object):
     def __init__(self, config=None):
         self.Lx = 10
-        self.Ly = 12
-        self.Ltau = 14
+        self.Ly = 10
+        self.Ltau = 10
         self.J = 1
         self.boson = None
         self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J).to(device)
@@ -236,9 +236,9 @@ class HmcSampler(object):
         plt.figure()
         fig, axes = plt.subplots(3, 1, figsize=(10, 8))
 
-        axes[0].plot(self.accp_rate.numpy())
-        axes[0].set_xlabel("Steps")
-        axes[0].set_ylabel("Acceptance Rate")
+        axes[2].plot(self.accp_rate.numpy())
+        axes[2].set_xlabel("Steps")
+        axes[2].set_ylabel("Acceptance Rate")
 
         idx = [0, self.num_tau // 2, -2]
         axes[1].plot(self.G_list[:, idx[0]].numpy(), label=f'G[0]')
@@ -252,8 +252,8 @@ class HmcSampler(object):
         # axes[2].plot(self.H_list[self.N_therm_step:].numpy())
         # axes[2].set_ylabel("H")
 
-        axes[2].plot(self.S_list[self.N_therm_step:].numpy())
-        axes[2].set_ylabel("S")
+        axes[0].plot(self.S_list[self.N_therm_step:].numpy())
+        axes[0].set_ylabel("S")
 
 
         plt.tight_layout()
