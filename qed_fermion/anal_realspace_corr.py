@@ -2,15 +2,15 @@ import torch
 import sys
 
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
-from qed_fermion.coupling_mat import initialize_coupling_mat
+from qed_fermion.coupling_mat2 import initialize_coupling_mat
 
 import matplotlib.pyplot as plt
 
 # device = 
 
-Lx = 20
-Ly = 20
-Ltau = 20
+Lx = 16
+Ly = 16
+Ltau = 16
 A = initialize_coupling_mat(Lx, Ly, Ltau, J=1, delta_tau=1)
 A = A.permute([3, 2, 1, 0, 7, 6, 5, 4])
 A = A.reshape([Ltau * Ly * Lx * 2, Ltau * Ly * Lx * 2])

@@ -2,7 +2,7 @@ import torch
 import sys
 
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
-from qed_fermion.coupling_mat import initialize_coupling_mat
+from qed_fermion.deprecated.coupling_mat import initialize_coupling_mat
 
 
 # small lattice elementwise test
@@ -14,7 +14,7 @@ A = A.to(torch.int32)
 
 A = A.permute([3, 2, 1, 0, 7, 6, 5, 4])
 A = A.reshape([Ltau * Ly * Lx * 2, Ltau * Ly * Lx * 2])
-print(A[:9, :9])
+print(A[:14, :14])
 
 A_expect = torch.tensor([[ 1, -1,  0,  1, -1,  0,  0,  0, -1],
         [-1,  1,  1, -1,  1,  0, -1,  0,  0],
