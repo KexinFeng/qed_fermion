@@ -3,17 +3,16 @@ import torch
 from tqdm import tqdm
 import os
 import sys
-
-from typing_extensions import override
-
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 
 from qed_fermion.hmc_sampler import HmcSampler
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
 import numpy as np
 
+script_path = os.path.dirname(os.path.abspath(__file__))
+
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-# device = 'cpu'
+device = 'cpu'
 print(f"device: {device}")
 
 class GaussianSampler(HmcSampler):
@@ -31,7 +30,7 @@ class GaussianSampler(HmcSampler):
 
         # Statistics
         self.N_therm_step = 20
-        self.N_step = 100
+        self.N_step = 5000
         self.step = 0
         self.thrm_bool = False
         self.G_list = torch.zeros(self.N_step, self.num_tau + 1)
@@ -43,6 +42,9 @@ class GaussianSampler(HmcSampler):
         # Debug
         torch.manual_seed(0)
         self.debug_pde = False
+
+        # Numeric
+        self.chol = True
 
     def force_batch(self, x):
         """
@@ -75,17 +77,49 @@ class GaussianSampler(HmcSampler):
         obsrv = [mean(phi[a, :, :, :_taus] * phi[a, :, :, :_taus + dtau], axis = [0, 1, 2]) for dtau in range(0, num_dtau)]
 
         :param boson: [batch_size, 2, Lx, Ly, Ltau] tensor
-        :return: a vector of shape [num_dtau, batch_size]
+        :return: a vector of shape [bs, num_dtau]
         """
         correlations = []
-        boson_elem = boson[:, self.polar, 0, 0]
+        boson_elem = boson[:, self.polar]
         for dtau in range(self.num_tau + 1):
             idx1 = list(range(self.Ltau))
             idx2 = [(i+dtau) % self.Ltau for i in idx1]
-            corr = torch.mean(boson_elem[..., idx1] * boson_elem[..., idx2], dim=(1))
+            corr = torch.mean(boson_elem[..., idx1] * boson_elem[..., idx2], dim=(1, 2, 3))
             correlations.append(corr)
 
-        return torch.stack(correlations)
+        return torch.stack(correlations).T
+
+    def curl_greens_function_batch(self, boson):
+        """
+        Evaluate the Green's function of the curl of boson field.
+        obsrv = curl(phi) at (x, y, tau1) * curl(phi) at (x, y, tau2),
+        summed over (x, y) and averaged over the batch.
+
+        :param boson: [batch_size, 2, Lx, Ly, Ltau] tensor
+        :return: a tensor of shape [bs, num_dtau]
+        """
+        batch_size, _, Lx, Ly, Ltau = boson.shape
+        
+        # Compute the curl of boson
+        phi_x = boson[:, 0]  # Shape: [batch_size, Lx, Ly, Ltau]
+        phi_y = boson[:, 1]  # Shape: [batch_size, Lx, Ly, Ltau]
+
+        curl_phi = (
+            phi_x
+            + torch.roll(phi_y, shifts=-1, dims=1)  # y-component at (x+1, y)
+            - torch.roll(phi_x, shifts=-1, dims=2)  # x-component at (x, y+1)
+            - phi_y
+        )  # Shape: [batch_size, Lx, Ly, Ltau]
+
+        correlations = []
+        for dtau in range(self.num_tau + 1):
+            idx1 = list(range(Ltau))
+            idx2 = [(i + dtau) % Ltau for i in idx1]
+            
+            corr = torch.mean(curl_phi[..., idx1] * curl_phi[..., idx2], dim=(1, 2, 3))
+            correlations.append(corr)
+
+        return torch.stack(correlations).T  # Shape: [num_dtau, batch_size]
     
     def measure(self):
         """
@@ -97,36 +131,64 @@ class GaussianSampler(HmcSampler):
         A = self.A.permute([3, 2, 1, 0, 7, 6, 5, 4]) # [2, Lx, Ly, Ltau]
         A = A.view(dim, dim)
 
-        eigvals, eigvecs = np.linalg.eigh(A.cpu().numpy()) # torch.linalg.eigh
-        eigvals = torch.from_numpy(eigvals).to(device)
-        eigvecs = torch.from_numpy(eigvecs).to(device)
-        # eigvals, eigvecs = torch.linalg.eigh(A.to('cpu'))
-        # eigvals = eigvals.to(device)
-        # eigvecs = eigvecs.to(device)
+        # # Multivariant Gaussian sampling
+        # eigvals, eigvecs = np.linalg.eigh(A.cpu().numpy()) # torch.linalg.eigh
+        # eigvals = torch.from_numpy(eigvals).to(device)
+        # eigvecs = torch.from_numpy(eigvecs).to(device)
+        # # eigvals, eigvecs = torch.linalg.eigh(A.to('cpu'))
+        # # eigvals = eigvals.to(device)
+        # # eigvecs = eigvecs.to(device)
         
-        # Ensure positive definiteness by clamping small/negative eigenvalues
-        eigvals = torch.clamp(eigvals, min=0)
+        # # Ensure positive definiteness by clamping small/negative eigenvalues
+        # eigvals = torch.clamp(eigvals, min=0)
         
-        # Construct sqrt(A) using modified eigenvalues
-        L = eigvecs @ torch.diag(torch.sqrt(eigvals))
+        # # Construct sqrt(A) using modified eigenvalues
+        # L = eigvecs @ torch.diag(torch.sqrt(eigvals))
         
-        # Generate standard normal samples
-        z = torch.randn((A.shape[0], self.N_step), device=device)
-        bosons = L @ z  # Transform to get boson samples [dim, bs]
+        # # Generate standard normal samples
+        # z = torch.randn((A.shape[0], self.N_step), device=device)
+        # bosons = L @ z  # Transform to get boson samples [dim, bs]
+
+        # Multivariant Gaussian sampling 2
+        z = torch.randn((dim, self.N_step), device=device)  # [dim, bs]
         
-        bosons = bosons.T
-        bosons = bosons.view(self.N_step, 2, self.Lx, self.Ly, self.Ltau)
+        if self.chol:
+            try:
+                eps = 1e-5
+                A_reg = A + eps * torch.eye(dim, device=A.device)
+                L = torch.linalg.cholesky(A_reg.cpu())  # A = LL^H
+                L = L.to(device)
+                # S ^ {- 1/2 * boson^T L L^H boson}
+                bosons = torch.linalg.solve(L.T, z) # L^H @ boson = z
+                # Transform to get boson samples [dim, bs]
+            except RuntimeError as e:
+                error_info = str(e)
+                raise RuntimeError(f"An error occurred: {error_info}")
+        else:
+            eps = 1e-5
+            A += eps * torch.eye(dim, device=A.device)
+            eigvals, eigvecs = np.linalg.eigh(A.cpu().numpy())
+            eigvals = torch.from_numpy(eigvals).to(device)
+            eigvecs = torch.from_numpy(eigvecs).to(device)
+
+            eigvals = torch.clamp(eigvals, min=eps)
+            L_trans = torch.diag(eigvals) @ eigvecs.T
+            # L_trans @ phi = z
+            bosons = torch.linalg.solve(L_trans, z) # [dim, bs]
+            # bosons = torch.linalg.solve(A_inv_sqrt, z) # A_inv_sqrt @ z
+
+        # Reshape bosons back to expected shape
+        bosons = bosons.T.reshape(self.N_step, 2, self.Lx, self.Ly, self.Ltau)
 
         # Greens function
-        res = self.greens_function_batch(bosons).cpu()  # res: [num_tau, batch_size]
-        self.G_list = res.T
+        # res = self.greens_function_batch(bosons).cpu()  # res: [bs, num_tau]
+        self.G_list = self.curl_greens_function_batch(bosons).cpu()
         self.S_list = self.action_batch(bosons).cpu()
 
         return res.mean(dim=-1), res.std(dim=-1)/torch.tensor([self.N_step])**(1/2)
 
     # ------- Visualization -------
-    @staticmethod
-    def visualize_final_greens(G_avg, G_std):
+    def visualize_final_greens(self, G_avg, G_std):
         """
         Visualize green functions with error bar
         """
@@ -135,8 +197,15 @@ class GaussianSampler(HmcSampler):
         plt.xlabel(r"$\tau$")
         plt.ylabel(r"$|G(\tau)|$")
 
-    @staticmethod
-    def visualize_final_greens_loglog(G_avg, G_std):
+        class_name = self.__class__.__name__
+        method_name = "greens"
+        save_dir = os.path.join(script_path, f"figure_{class_name}")
+        os.makedirs(save_dir, exist_ok=True) 
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
+        
+    def visualize_final_greens_loglog(self, G_avg, G_std):
         """
         Visualize green functions with error bar
         """
@@ -148,15 +217,23 @@ class GaussianSampler(HmcSampler):
 
         # Add labels and title
         plt.xlabel('X-axis label')
-        plt.ylabel('G values')
-        plt.title('Log-Log Plot of G_avg and G_std')
+        plt.ylabel('log10(|G|) values')
+        plt.title('Log-Log Plot of G_avg')
         plt.legend()
 
+        # save_plot
+        class_name = self.__class__.__name__
+        method_name = "greens_loglog"
+        save_dir = os.path.join(script_path, f"figure_{class_name}")
+        os.makedirs(save_dir, exist_ok=True) 
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
 
 
 if __name__ == '__main__':
 
-    folder = "/Users/kx/Desktop/hmc/qed_fermion/data_gaussian/"
+    folder = "/Users/kx/Desktop/hmc/qed_fermion/data_gaussian_curl/"
     gmc = GaussianSampler()
 
     # Execution
@@ -164,6 +241,7 @@ if __name__ == '__main__':
 
     gmc.total_monitoring()
     gmc.visualize_final_greens(G_avg, G_std)
+    gmc.visualize_final_greens_loglog(G_avg, G_std)
 
     # save
     os.makedirs(folder, exist_ok=True)

@@ -9,6 +9,7 @@ import pickle
 
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
 
+script_path = os.path.dirname(os.path.abspath(__file__))
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"device: {device}")
@@ -184,6 +185,8 @@ class HmcSampler(object):
     
     def measure(self):
         """
+        boson: [2, Lx, Ly, Ltau]
+
         Do self.N_step metropolis updates, compute greens function for each sample, and store them in self.G_list. Also store the acceptance result in self.accp_list.
 
         :return: G_avg, G_std
@@ -210,22 +213,26 @@ class HmcSampler(object):
             self.H_list[i + self.N_therm_step] = H
             self.S_list[i + self.N_therm_step] = S
 
-        res = {'mean': self.G_list.mean(dim=0),
-               'std': self.G_list.std(dim=0)}
+        G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
+
+        res = {'G_avg': G_avg,
+               'G_std': G_std,
+               'G_list': self.G_list}
 
         # Save to file
         data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/tau_dependence/data_hmc/"
         file_name = f"corr_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_tau-max_{self.num_tau}"
         self.save_to_file(res, data_folder, file_name)
 
-        return res['mean'], res['std']
+        return G_avg, G_std
 
     # ------- Save to file -------
     def save_to_file(self, res, data_folder, filename):
         os.makedirs(data_folder, exist_ok=True)
-        filepath = os.path.join(data_folder, f"{filename}.pkl")
-        with open(filepath, "wb") as f:
-            pickle.dump(res, f)
+        filepath = os.path.join(data_folder, f"{filename}.pt")
+        # with open(filepath, "wb") as f:
+        #     pickle.dump(res, f)
+        torch.save(res, filepath)
         print(f"Data saved to {data_folder + filepath}")
 
     # ------- Visualization -------
@@ -255,12 +262,18 @@ class HmcSampler(object):
         axes[0].plot(self.S_list[self.N_therm_step:].numpy())
         axes[0].set_ylabel("S")
 
-
         plt.tight_layout()
         # plt.show()
 
-    @staticmethod
-    def visualize_final_greens(G_avg):
+        class_name = self.__class__.__name__
+        method_name = "totol_monit"
+        save_dir = os.path.join(script_path, f"figure_{class_name}")
+        os.makedirs(save_dir, exist_ok=True) 
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
+
+    def visualize_final_greens(self, G_avg):
         """
         Visualize green functions with error bar
         """
@@ -268,7 +281,14 @@ class HmcSampler(object):
         plt.plot(G_avg.numpy())
         plt.xlabel("dtau")
         plt.ylabel("Greens Function")
-        # plt.show()
+
+        class_name = self.__class__.__name__
+        method_name = "greens"
+        save_dir = os.path.join(script_path, f"figure_{class_name}")
+        os.makedirs(save_dir, exist_ok=True) 
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
 
 
 if __name__ == '__main__':
