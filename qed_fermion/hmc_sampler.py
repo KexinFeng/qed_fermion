@@ -31,6 +31,7 @@ class HmcSampler(object):
         self.N_therm_step = 20
         self.N_step = 2000
         self.step = 0
+        self.cur_step = 0
         self.thrm_bool = False
         self.G_list = torch.zeros(self.N_step, self.num_tau + 1)
         self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
@@ -240,17 +241,17 @@ class HmcSampler(object):
         """
         Visualize obsrv and accp in subplots.
         """
-        plt.figure()
+        # plt.figure()
         fig, axes = plt.subplots(3, 1, figsize=(10, 8))
 
-        axes[2].plot(self.accp_rate.numpy())
+        axes[2].plot(self.accp_rate[:self.cur_step].numpy())
         axes[2].set_xlabel("Steps")
         axes[2].set_ylabel("Acceptance Rate")
 
         idx = [0, self.num_tau // 2, -2]
-        axes[1].plot(self.G_list[:, idx[0]].numpy(), label=f'G[0]')
-        axes[1].plot(self.G_list[:, idx[1]].numpy(), label=f'G[{self.num_tau // 2}]')
-        axes[1].plot(self.G_list[:, idx[2]].numpy(), label=f'G[-2]')
+        axes[1].plot(self.G_list[: self.cur_step, idx[0]].numpy(), label=f'G[0]')
+        axes[1].plot(self.G_list[: self.cur_step, idx[1]].numpy(), label=f'G[{self.num_tau // 2}]')
+        axes[1].plot(self.G_list[: self.cur_step, idx[2]].numpy(), label=f'G[-2]')
         axes[1].set_xlabel("Steps")
         axes[1].set_ylabel("Greens Function")
         axes[1].set_title("Greens Function Over Steps")
@@ -259,7 +260,7 @@ class HmcSampler(object):
         # axes[2].plot(self.H_list[self.N_therm_step:].numpy())
         # axes[2].set_ylabel("H")
 
-        axes[0].plot(self.S_list[self.N_therm_step:].numpy())
+        axes[0].plot(self.S_list[self.N_therm_step: self.N_therm_step + self.cur_step].numpy())
         axes[0].set_ylabel("S")
 
         plt.tight_layout()
@@ -269,8 +270,8 @@ class HmcSampler(object):
         method_name = "totol_monit"
         save_dir = os.path.join(script_path, f"figure_{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
-        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
-        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.png")
+        plt.savefig(file_path)
         print(f"Figure saved at: {file_path}")
 
     def visualize_final_greens(self, G_avg):
@@ -286,8 +287,8 @@ class HmcSampler(object):
         method_name = "greens"
         save_dir = os.path.join(script_path, f"figure_{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
-        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
-        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.png")
+        plt.savefig(file_path)
         print(f"Figure saved at: {file_path}")
 
 

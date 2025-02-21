@@ -12,17 +12,20 @@ import numpy as np
 script_path = os.path.dirname(os.path.abspath(__file__))
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-device = 'cpu'
+# device = 'cpu'
 print(f"device: {device}")
 
 class GaussianSampler(HmcSampler):
     def __init__(self, config=None):
         self.Lx = 10
         self.Ly = 10
-        self.Ltau = 10
-        self.J = 1
+        self.Ltau = 20
+        self.J = 1.1
+        self.K = 1
         self.boson = None
-        self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J).to(device)
+        # [2, Lx, Ly, Ltau,  2, Lx, Ly, Ltau]
+        self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J, K=self.K)[0].to(device)
+        # self.A[0, 0, 0, 0,  0, 0, 0, 0] += 1 
 
         # Plot
         self.num_tau = self.Ltau
@@ -30,8 +33,9 @@ class GaussianSampler(HmcSampler):
 
         # Statistics
         self.N_therm_step = 20
-        self.N_step = 5000
+        self.N_step = int(1e4)
         self.step = 0
+        self.cur_step = self.N_step
         self.thrm_bool = False
         self.G_list = torch.zeros(self.N_step, self.num_tau + 1)
         self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
@@ -44,7 +48,7 @@ class GaussianSampler(HmcSampler):
         self.debug_pde = False
 
         # Numeric
-        self.chol = True
+        self.chol = False
 
     def force_batch(self, x):
         """
@@ -166,15 +170,24 @@ class GaussianSampler(HmcSampler):
                 raise RuntimeError(f"An error occurred: {error_info}")
         else:
             eps = 1e-5
-            A += eps * torch.eye(dim, device=A.device)
+            # A += eps * torch.eye(dim, device=A.device)
+            # eigvecs.T @ A @ eigvecs = diag(eigvals)
+            # eigvecs @ psi = boson
             eigvals, eigvecs = np.linalg.eigh(A.cpu().numpy())
             eigvals = torch.from_numpy(eigvals).to(device)
             eigvecs = torch.from_numpy(eigvecs).to(device)
 
             eigvals = torch.clamp(eigvals, min=eps)
-            L_trans = torch.diag(eigvals) @ eigvecs.T
+            eigvals[0: self.Lx * self.Ly+1] = 1e12
+
+            # L_trans = torch.diag(eigvals**(-1/2)) @ eigvecs.T
+            # bosons = L_trans @ z
+            plt.semilogy(eigvals.cpu(), '*', linestyle='')
+
+            bosons = eigvecs @ torch.diag(eigvals**(-1/2)) @ z
+
             # L_trans @ phi = z
-            bosons = torch.linalg.solve(L_trans, z) # [dim, bs]
+            # bosons = torch.linalg.solve(L_trans, z) # [dim, bs]
             # bosons = torch.linalg.solve(A_inv_sqrt, z) # A_inv_sqrt @ z
 
         # Reshape bosons back to expected shape
@@ -182,10 +195,12 @@ class GaussianSampler(HmcSampler):
 
         # Greens function
         # res = self.greens_function_batch(bosons).cpu()  # res: [bs, num_tau]
-        self.G_list = self.curl_greens_function_batch(bosons).cpu()
+        res = self.curl_greens_function_batch(bosons).cpu().T
+        self.G_list = res.T
         self.S_list = self.action_batch(bosons).cpu()
 
         return res.mean(dim=-1), res.std(dim=-1)/torch.tensor([self.N_step])**(1/2)
+
 
     # ------- Visualization -------
     def visualize_final_greens(self, G_avg, G_std):
@@ -193,7 +208,7 @@ class GaussianSampler(HmcSampler):
         Visualize green functions with error bar
         """
         plt.figure()
-        plt.errorbar(x=list(range(len(G_avg))), y=abs(G_avg.numpy()), yerr=G_std.numpy(), linestyle='-', marker='o', )
+        plt.errorbar(x=list(range(len(G_avg))), y=G_avg.numpy(), yerr=G_std.numpy(), linestyle='-', marker='o', )
         plt.xlabel(r"$\tau$")
         plt.ylabel(r"$|G(\tau)|$")
 
@@ -214,6 +229,9 @@ class GaussianSampler(HmcSampler):
 
         plt.figure()
         plt.plot(np.log10(x+1), np.log10(abs(G_avg)), linestyle='-', marker='o', label='log|G_avg|', color='blue', lw=2)
+        # plt.errorbar((x+1), G_avg, yerr=G_std, linestyle='-', marker='o', label='log|G_avg|', color='blue', lw=2)
+        # plt.xscale('log')
+        # plt.yscale('log')
 
         # Add labels and title
         plt.xlabel('X-axis label')
