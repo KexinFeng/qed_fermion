@@ -17,8 +17,10 @@ print("kx shape:", kx.shape)
 print("ky shape:", ky.shape)
 print("w shape:", w.shape)
 
-curl = lambda kx, ky, phi: phi[0] - phi[1] + phi[1] * torch.exp(1j*kx) - phi[0] * torch.exp(1j*ky)
+curl = lambda kx, ky, phi: phi[0] * (1 - torch.exp(1j*ky)) + phi[1] * (-1 + torch.exp(1j*kx)) 
 moment = lambda kx, ky: torch.cos(kx) + torch.cos(ky) - 2
+
+curl_vec = lambda kx, ky: torch.tensor([1 - torch.exp(1j*ky), -1 + torch.exp(1j*kx)]).unsqueeze(0)
 
 Lmd = torch.zeros(Nt, Ny, Nx, 2)
 cnt = 0
@@ -44,6 +46,8 @@ for x, kx in enumerate(kx_vals):
                 for iother in idx_other.tolist():
                     print(f'curl = {curl(kx, ky, eigvec[:, iother])}')
                     print(f'local_curl, momentum= {moment(kx, ky)}')
+                    if abs(curl(kx, ky, eigvec[:, iother])) > 0:
+                        dbstop = 0
                 print('\n')
                 cnt += 1
                 if (curl(kx, ky, eigvec[:, iother])).abs().item() < 1e-8:
