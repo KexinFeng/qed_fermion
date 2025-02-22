@@ -5,7 +5,7 @@ import os
 import sys
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 
-from qed_fermion.hmc_sampler import HmcSampler
+from qed_fermion.hmc_sampler2 import HmcSampler
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
 import numpy as np
 

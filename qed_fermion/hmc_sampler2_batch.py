@@ -12,7 +12,6 @@ import sys
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 
 import os
-import pickle
 
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
 
@@ -29,6 +28,7 @@ class HmcSampler(object):
         self.J = 1
         self.boson = None
         self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J)[0].to(device)
+        self.bs = 5
 
         # Plot
         self.num_tau = self.Ltau
@@ -40,24 +40,30 @@ class HmcSampler(object):
         self.step = 0
         self.cur_step = 0
         self.thrm_bool = False
-        self.G_list = torch.zeros(self.N_step, self.num_tau + 1)
-        self.accp_list = torch.zeros(self.N_step, dtype=torch.bool)
-        self.accp_rate = torch.zeros(self.N_step)
-        self.S_list = torch.zeros(self.N_therm_step + self.N_step)
-        self.H_list = torch.zeros(self.N_therm_step + self.N_step)
+        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1, device=device)
+        self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
+        self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
+        self.S_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
+        self.H_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
 
         # Leapfrog
         self.m = 1/2 * 4
-        self.delta_t_thrm = 0.05
         self.delta_t = 0.05
-        total_t = 1 * 5
-        self.N_leapfrog_thrm = int(total_t // self.delta_t_thrm)
+        
+        # m = 2, T = 1.5, 
+        # T/4 = 0.375
+
+        total_t = 0.375
         self.N_leapfrog = int(total_t // self.delta_t)
-        # self.N_leapfrog = 20
+
+        self.N_leapfrog = 7
+        # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
+
+        # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2, but ]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
         # Debug
         torch.manual_seed(0)
-        self.debug_pde = True
+        self.debug_pde = False
 
     def initialize_boson(self):
         """
@@ -66,75 +72,25 @@ class HmcSampler(object):
         :return: None
         """
         # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau, device=device)
-        self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
-        
+        # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
+
+        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.5, 1, self.bs, device=device).view(-1, 1, 1, 1, 1)
+       
     def draw_momentum(self):
         """
         Draw momentum tensor from gaussian distribution.
-        :return: [2, Lx, Ly, Ltau] gaussian tensor
+        :return: [bs, 2, Lx, Ly, Ltau] gaussian tensor
         """
-        return torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * math.sqrt(self.m)
+        return torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * math.sqrt(self.m)
 
     def force(self, x):
         """
         F = -dS/dx = -Ax
 
-        :param x: [2, Lx, Ly, Ltau] tensor
+        :param x: [bs, 2, Lx, Ly, Ltau] tensor
         :return: evaluation of the force at given x.
         """
-        return -torch.einsum('ijklmnop,mnop->ijkl', self.A, x)
-
-    def leapfrog_proposer_2nd(self):
-        """          
-        Propose new boson according self.boson, which consists of traj_length steps. At each step the force will be evaluated.
-
-        The action S = 1/2 * boson.T * self.A * boson + momentum**2. The prob ~ e^{-S}.
-        x_{n+1/2} = x_{n} + 2p_{n} dt/2
-        p_{n+1} = p_{n} + F(x_{n+1/2}) dt
-        x_{n+1} = x_{n+1/2} + 2p_{n+1} dt/2
-
-        :return: trial_boson, trial_momentum
-        """
-
-        p0 = self.draw_momentum()
-        p = p0.clone()
-        x = self.boson.clone()
-        H0 = self.action(p, x)[0].item()
-        dt = self.delta_t_thrm if self.thrm_bool else self.delta_t
-        
-        if self.debug_pde:
-            # Initialize plot
-            plt.ion()  # Turn on interactive mode
-            fig, ax = plt.subplots()
-            Hs = [H0]
-
-            # Plot setup
-            line, = ax.plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
-            ax.set_xlabel('Leapfrog Step')
-            ax.set_ylabel('Hamiltonian (H)')
-            ax.set_title('Real-Time Evolution of H_s')
-            ax.legend()
-            plt.grid()
-
-        leapfrog_step = self.N_leapfrog_thrm if self.thrm_bool else self.N_leapfrog
-        for _ in range(leapfrog_step):
-            x = x + dt * p
-            p = p + dt * self.force(x)
-            x = x + dt * p
-
-            if self.debug_pde:
-                Hs.append(self.action(p, x)[0].item())  # Append new H value
-
-                # Update plot
-                line.set_ydata(Hs)
-                line.set_xdata(range(len(Hs)))
-                ax.relim()  # Recalculate limits
-                ax.autoscale_view()  # Rescale view
-
-                plt.draw()
-                plt.pause(0.01)  # Pause for smooth animation
-
-        return x, p, p0
+        return -torch.einsum('ijklmnop,bmnop->bijkl', self.A, x)
 
 
     def leapfrog_proposer(self):
@@ -152,11 +108,6 @@ class HmcSampler(object):
 
         p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
 
-        # 2nd order
-        x_{n+1/2} = x_{n} + 2p_{n} dt/2
-        p_{n+1} = p_{n} + F(x_{n+1/2}) dt
-        x_{n+1} = x_{n+1/2} + 2p_{n+1} dt/2
-
         :return: trial_boson, trial_momentum
         """
 
@@ -164,22 +115,23 @@ class HmcSampler(object):
         p = p0.clone()
         x = self.boson.clone()
         H0, S0 = self.action(p, x)
-        dt = self.delta_t_thrm if self.thrm_bool else self.delta_t
+        dt = self.delta_t
 
         p_last = p
         p = p_last + dt /2 * self.force(x)
         
         if self.debug_pde:
+            b_idx = 3
+            
             # Initialize plot
             # plt.ion()  # Turn on interactive mode
             # fig, ax = plt.subplots()
             fig, axs = plt.subplots(2, 1, figsize=(6, 8))  # Two rows, one column
 
-            Hs = [H0.item()]
-            Ss = [S0.item()] 
+            Hs = [H0[b_idx].item()]
+            Ss = [S0[b_idx].item()] 
 
             # Setup for first subplot (Hs)
-            # axs[0].set_title('Real-Time Evolution of H_s')
             line_Hs, = axs[0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
             axs[0].set_ylabel('Hamiltonian (H)')
             axs[0].legend()
@@ -193,7 +145,7 @@ class HmcSampler(object):
             axs[1].legend()
             axs[1].grid()
 
-        leapfrog_step = self.N_leapfrog_thrm if self.thrm_bool else self.N_leapfrog
+        leapfrog_step = self.N_leapfrog
         for _ in range(leapfrog_step):
             # x_{n+1} = x_{n} + 2 * p_{n+1/2} dt
             # p_{n+3/2} = p_{n+1/2} + F(x_{n+1}) dt  
@@ -204,8 +156,8 @@ class HmcSampler(object):
 
             if self.debug_pde:
                 Hd, Sd = self.action((p + p_last)/2, x)  # Append new H value   
-                Hs.append(Hd.item())
-                Ss.append(Sd.item())
+                Hs.append(Hd[b_idx].item())
+                Ss.append(Sd[b_idx].item())
 
                 # Update data for both subplots
                 line_Hs.set_data(range(len(Hs)), Hs)
@@ -215,12 +167,12 @@ class HmcSampler(object):
                 axs[0].relim()
                 axs[0].autoscale_view()
                 amp = max(Hs) - min(Hs)
-                axs[0].set_title(f'dt={self.delta_t:.2f}, m={self.m}, amp={amp:.2f}')
+                axs[0].set_title(f'dt={self.delta_t:.2f}, m={self.m}, amp={amp:.2f}, N={leapfrog_step}')
 
                 axs[1].relim()
                 axs[1].autoscale_view()
                 amp = max(Ss) - min(Ss)
-                axs[1].set_title(f'dt={self.delta_t:.2f}, m={self.m}, amp={amp:.2f}') 
+                axs[1].set_title(f'dt={self.delta_t:.2f}, m={self.m}, amp={amp:.2f}, N={leapfrog_step}') 
 
                 plt.pause(0.1)   # Small delay to update the plot
 
@@ -231,12 +183,12 @@ class HmcSampler(object):
         """
         The action S = 1/2 * boson.transpose * self.A * boson + momentum**2. The prob ~ e^{-S}.
 
-        :param momentum: [2, Lx, Ly, Ltau] tensor
-        :param boson: [2, Lx, Ly, Ltau] tensor
+        :param momentum: [bs, 2, Lx, Ly, Ltau] tensor
+        :param boson: [bs, 2, Lx, Ly, Ltau] tensor
         :return: the action
         """
-        kinetic = torch.sum(momentum ** 2) / (2 * self.m)
-        potential = 0.5 * torch.einsum('ijkl,ijkl->', boson, -self.force(boson))
+        kinetic = torch.sum(momentum ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        potential = 0.5 * torch.einsum('bijkl,bijkl->b', boson, -self.force(boson))
         return kinetic + potential, potential
 
     def metropolis_update(self):
@@ -257,12 +209,9 @@ class HmcSampler(object):
         # print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
         # print(f"threshold: {torch.exp(H_old - H_new).item()}")
 
-        accp =  torch.rand(1, device=device) < torch.exp(H_old - H_new)
-        if accp:
-            self.boson = boson_new
-            return self.boson, True, H_new, S_new
-        else:
-            return self.boson, False, H_old, S_old
+        accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
+        self.boson[accp] = boson_new[accp]
+        return self.boson, accp, S_old, S_new
 
 
     def curl_greens_function_batch(self, boson):
@@ -314,28 +263,26 @@ class HmcSampler(object):
         :return: G_avg, G_std
         """
         self.initialize_boson()
-        self.G_list[-1] = self.curl_greens_function_batch(self.boson).unsqueeze(0)
+        self.G_list[-1] = self.curl_greens_function_batch(self.boson)
 
-        # Thermalize
-        self.thrm_bool = True
-        boson = None
-        for i in range(self.N_therm_step):
-            boson, accp, H, S = self.metropolis_update()
-            self.H_list[i] = H
-            self.S_list[i] = S
-        self.G_list[-1] = self.curl_greens_function_batch(boson).unsqueeze(0)
+        # # Thermalize
+        # self.thrm_bool = True
+        # boson = None
+        # for i in range(self.N_therm_step):
+        #     boson, accp, H, S = self.metropolis_update()
+        #     self.H_list[i] = H
+        #     self.S_list[i] = S
+        # self.G_list[-1] = self.curl_greens_function_batch(boson)
 
         plt.figure()
         # Take sample
         self.thrm_bool = False
         for i in tqdm(range(self.N_step)):
-            boson, accp, H, S = self.metropolis_update()
+            boson, accp, Sold, Snew = self.metropolis_update()
             self.accp_list[i] = accp
-            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float)).item()
-            self.G_list[i] = self.curl_greens_function_batch(boson).unsqueeze(0) if accp else self.G_list[i-1]
-            self.H_list[i + self.N_therm_step] = H
-            self.S_list[i + self.N_therm_step] = S
-
+            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
+            self.G_list[i] = accp.view(-1, 1) * self.curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
+            self.S_list[i] = torch.where(accp, Snew, Sold)
             self.step += 1
             self.cur_step += 1
             
@@ -349,21 +296,24 @@ class HmcSampler(object):
             # checkpointing
             if i % 200 == 0:
                 res = {'boson': boson,
-                        'step': self.step,
-                        'G_list': self.G_list}
+                       'step': self.step,
+                       'mass': self.m,
+                       'G_list': self.G_list.cpu()}
                 
-                data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point/"
+                data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_step_{self.step}"
                 self.save_to_file(res, data_folder, file_name)           
 
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
-
         res = {'boson': boson,
-                'step': self.step,
-                'G_list': self.G_list}
+               'step': self.step,
+               'mass': self.m,
+               'G_avg': G_avg,
+               'G_std': G_std,
+               'G_list': self.G_list.cpu()}
 
         # Save to file
-        data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point/"
+        data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/"
         file_name = f"ckpt_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_step_{self.step}"
         self.save_to_file(res, data_folder, file_name)           
 
@@ -386,16 +336,17 @@ class HmcSampler(object):
         # plt.figure()
         fig, axes = plt.subplots(3, 1, figsize=(10, 8))
         
+        start = 50
 
-        axes[2].plot(self.accp_rate[:self.cur_step].cpu().numpy())
+        axes[2].plot(self.accp_rate[start:self.cur_step].cpu().numpy())
         axes[2].set_xlabel("Steps")
         axes[2].set_ylabel("Acceptance Rate")
 
         idx = [0, self.num_tau // 2, -2]
         # for b in range(self.G_list.size(1)):
-        axes[1].plot(self.G_list[:self.cur_step, ..., idx[0]].cpu().numpy(), label=f'G[0]')
-        axes[1].plot(self.G_list[:self.cur_step, ..., idx[1]].cpu().numpy(), label=f'G[{self.num_tau // 2}]')
-        axes[1].plot(self.G_list[:self.cur_step, ..., idx[2]].cpu().numpy(), label=f'G[-2]')
+        axes[1].plot(self.G_list[start:self.cur_step, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
+        axes[1].plot(self.G_list[start:self.cur_step, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
+        axes[1].plot(self.G_list[start:self.cur_step, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
         axes[1].set_xlabel("Steps")
         axes[1].set_ylabel("Greens Function")
         axes[1].set_title("Greens Function Over Steps")
@@ -403,18 +354,19 @@ class HmcSampler(object):
 
         # axes[2].plot(self.H_list[self.N_therm_step:].cpu().numpy())
         # axes[2].set_ylabel("H")
-        axes[0].plot(self.S_list[self.N_therm_step: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
+        axes[0].plot(self.S_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
         axes[0].set_ylabel("S")
+
 
         plt.tight_layout()
         # plt.show(block=False)
 
-        class_name = self.__class__.__name__
+        class_name = __file__.split('/')[-1].replace('.py', '')
         method_name = "totol_monit"
         save_dir = os.path.join(script_path, f"./figures/figure_{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
-        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.png")
-        plt.savefig(file_path)
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}_{self.Ly}_Ltau_{self.Ltau}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
 
@@ -423,24 +375,24 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     Visualize green functions with error bar
     """
     # Load numerical data
-    data_folder_num = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_point/"
 
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
 
-    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
     res = torch.load(filename)
 
     G_list = res['G_list']
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
-    start, end = 0, step
-    seq_idx = np.arange(start, end, 1)
 
+    start = 100
+    end = step
+    seq_idx = np.arange(start, end, 1)
 
     ## Plot
     plt.figure()
-    plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=0), yerr=G_list[seq_idx].numpy().std(axis=0)/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
 
     plt.xlabel(r"$\tau$")
     plt.ylabel(r"$|G(\tau)|$")
@@ -458,9 +410,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
 
     # -------- Log plot -------- #
     plt.figure()
-    plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=0), yerr=G_list[seq_idx].numpy().std(axis=0)/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
 
-    G_mean = G_list[seq_idx].numpy().mean(axis=0)
+    G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
 
     # Analytical data
     data_folder_anal = "/Users/kx/Desktop/hmc/correlation_kspace/code/tau_dependence/data_tau_dependence"
@@ -471,7 +423,6 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
         loaded_data_anal = json.load(f)
 
     G_mean_anal = np.array(loaded_data_anal['corr'])[:, -1]
-    taus = np.array(loaded_data_anal['taus'])  # The last element is the same as the first one due to the tau periodic boundary, and is thus removed.
 
     # Scale G_mean_anal to match G_mean based on their first elements
     idx_ref = 1
@@ -507,9 +458,9 @@ if __name__ == '__main__':
 
     G_avg, G_std = hmc.measure()
 
-    # Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-    Lx, Ly, Ltau = 20, 20, 20
-    step = 1000
+    Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+    # Lx, Ly, Ltau = 20, 20, 20
+    step = 1100
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), step)
 
     plt.show()

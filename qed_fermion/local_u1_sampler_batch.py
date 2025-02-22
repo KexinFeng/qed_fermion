@@ -9,7 +9,7 @@ sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 script_path = os.path.dirname(os.path.abspath(__file__))
 
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
-from qed_fermion.hmc_sampler import HmcSampler
+from qed_fermion.deprecated.hmc_sampler import HmcSampler
 import math
 import numpy as np
 
@@ -19,8 +19,8 @@ print(f"device: {device}")
 
 class LocalU1Sampler(HmcSampler):
     def __init__(self, N_step=int(1000 * 100), config=None):
-        self.Lx = 15
-        self.Ly = 15
+        self.Lx = 10
+        self.Ly = 10
         self.Ltau = 20
         self.J = 1
         self.K = 1
@@ -224,7 +224,7 @@ class LocalU1Sampler(HmcSampler):
         
         # torch.testing.assert_close(d_action, d_action0, atol=5e-4, rtol=1e-3)
 
-        accp =  torch.rand(1, device=device) < torch.exp(-d_action)
+        accp =  torch.rand(self.bs, device=device) < torch.exp(-d_action)
         if self.debug and self.thrm_bool:
             # print(f"diff: {S_old - S_new}")
             print(f"diff: {d_action}")
@@ -444,8 +444,8 @@ class LocalU1Sampler(HmcSampler):
         method_name = "totol_monit"
         save_dir = os.path.join(script_path, f"figure_{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
-        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.png")
-        plt.savefig(file_path)
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
     # ------- Visualization -------
@@ -561,7 +561,6 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     Visualize green functions with error bar
     """
     # Load numerical data
-    data_folder_num = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_point/"
 
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
@@ -569,7 +568,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     num_site = Lx*Ly*Ltau
     # step = 1600000
     swp = math.ceil(step / num_site)
-    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point_local_update/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
     res = torch.load(filename)
 
     G_list = res['G_list']
@@ -587,7 +586,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     plt.ylabel(r"$|G(\tau)|$")
     plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={swp}")
 
-    ## Log plot
+    # -------- Log plot -------- #
     plt.figure()
     plt.errorbar(x+1, abs(G_list[seq_idx].numpy().mean(axis=(0, 1))), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
 
@@ -635,14 +634,14 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
 
 if __name__ == '__main__':
 
-    # hmc = LocalU1Sampler()
+    hmc = LocalU1Sampler()
     # G_avg, G_std = hmc.measure()
     # hmc.total_monitoring()
 
-    Lx, Ly, Ltau = 20, 20, 20
-    step = 5989464
-    # Lx, Ly, Ltau = 10, 10, 20
-    # step = int(16e5)
+    # Lx, Ly, Ltau = 20, 20, 20
+    # step = 5989464
+    Lx, Ly, Ltau = 10, 10, 20
+    step = int(16e5)
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), step)
     # load_visualize_final_greens()
 

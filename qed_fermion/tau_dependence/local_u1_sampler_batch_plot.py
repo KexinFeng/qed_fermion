@@ -8,8 +8,6 @@ import sys
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 script_path = os.path.dirname(os.path.abspath(__file__))
 
-from qed_fermion.coupling_mat2 import initialize_coupling_mat
-from qed_fermion.hmc_sampler import HmcSampler
 import math
 import numpy as np
 
