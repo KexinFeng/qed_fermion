@@ -13,7 +13,7 @@ sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 
 import os
 
-from qed_fermion.coupling_mat2 import initialize_coupling_mat
+from qed_fermion.coupling_mat3 import initialize_coupling_mat3
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,8 +26,10 @@ class HmcSampler(object):
         self.Ly = 10
         self.Ltau = 20
         self.J = 1
+        self.dtau = 1
+        self.K = 1
         self.boson = None
-        self.A = initialize_coupling_mat(self.Lx, self.Ly, self.Ltau, self.J)[0]
+        self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
         assert self.A[0, 0, 0, 0, 0, 0, 0, 0].item() > 0, f'incorrect input of A'
         self.A = self.A.to(device)
         assert self.A[0, 0, 0, 0, 0, 0, 0, 0].item() > 0, f'device: {device} may have silently failed on large tensor'
@@ -60,10 +62,7 @@ class HmcSampler(object):
         # self.N_leapfrog = int(total_t // self.delta_t)
         # 1st exp: t = 1, delta_t = 0.05, N_leapfrog = 20
 
-        self.N_leapfrog = 21
-         # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
-
-        # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
+        self.N_leapfrog = 21 
 
         # Debug
         torch.manual_seed(0)

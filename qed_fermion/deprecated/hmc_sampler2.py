@@ -507,8 +507,8 @@ if __name__ == '__main__':
 
     G_avg, G_std = hmc.measure()
 
-    # Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-    Lx, Ly, Ltau = 20, 20, 20
+    Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+    # Lx, Ly, Ltau = 20, 20, 20
     step = 1000
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), step)
 

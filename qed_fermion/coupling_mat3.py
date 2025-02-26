@@ -2,17 +2,17 @@ import os
 import torch
 import sys
 
-def initialize_coupling_mat(Lx, Ly, Ltau, J,  K=1):
+def initialize_coupling_mat3(Lx, Ly, Ltau, J, dtau, K=1):
     cache_dir = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/cache/"
-    file_name = f"cpl_mat_{Lx}_{Ly}_{Ltau}_{J}.pt"
+    file_name = f"cpl_mat_{Lx}_{Ly}_{Ltau}_{J}_{dtau}.pt"
     filepath = os.path.join(cache_dir, file_name)
     if os.path.exists(filepath):
         loaded = torch.load(filepath)
         print(f'Loaded: {filepath}')
         return loaded[0], loaded[1]
     
-    # # Warning:
-    # J = J * delta_tau**2
+    # Warning:
+    J = 1/J * dtau**2
 
     Lpol = 2
     dim = Ltau * Ly * Lx * Lpol

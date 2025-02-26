@@ -337,7 +337,7 @@ class LocalU1Sampler(HmcSampler):
                 res = {'boson': boson,
                         'step': self.step,
                         'wsz': self.w,
-                        'G_list': self.G_list}
+                        'G_list': self.G_list.cpu()}
                 
                 data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point/"
                 file_name = f"ckpt_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_step_{self.step}"
@@ -349,7 +349,7 @@ class LocalU1Sampler(HmcSampler):
                'wsz': self.w,
                'G_avg': G_avg,
                'G_std': G_std,
-               'G_list': self.G_list}
+               'G_list': self.G_list.cpu()}
 
         # # Save to file
         # data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/tau_dependence/data_local_u1/"

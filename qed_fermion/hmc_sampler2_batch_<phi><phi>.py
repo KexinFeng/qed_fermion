@@ -51,7 +51,7 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4
-        self.delta_t = 0.035
+        self.delta_t = 0.05
         # m = 2, T(~sqrt(m/k)) = 1.5, N = T / 0.05 = 30
         # m = 1/2, T = 0.75, N = T / 0.05 = 15
         # T/4 = 0.375
@@ -60,7 +60,7 @@ class HmcSampler(object):
         # self.N_leapfrog = int(total_t // self.delta_t)
         # 1st exp: t = 1, delta_t = 0.05, N_leapfrog = 20
 
-        self.N_leapfrog = 21
+        self.N_leapfrog = 15
          # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
@@ -235,6 +235,7 @@ class HmcSampler(object):
             boson = boson.unsqueeze(0)
         
         Ltau = boson.shape[-1]
+        bs = boson.shape[0]
 
         # Compute the curl of boson
         phi_x = boson[:, 0]  # Shape: [batch_size, Lx, Ly, Ltau]
@@ -253,7 +254,10 @@ class HmcSampler(object):
             idx2 = [(i + dtau) % Ltau for i in idx1]
             
             corr = torch.mean(curl_phi[..., idx1] * curl_phi[..., idx2], dim=(1, 2, 3))
-            correlations.append(corr)
+            # correlations.append(corr)
+            
+            # correlations.append(torch.mean(curl_phi.view(bs, -1), dim=(1,)))
+            correlations.append(torch.mean(curl_phi.view(bs, -1)[:, [1, 2, 3]], dim=(1,)))
 
         return torch.stack(correlations).T  # Shape: [bs, num_dtau]
 
@@ -390,7 +394,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 300
+    start = 0
     end = step
     sample_step = 1
     seq_idx = np.arange(start, end, sample_step)
@@ -400,7 +404,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
 
     plt.xlabel(r"$\tau$")
-    plt.ylabel(r"$G(\tau)$")
+    plt.ylabel(r"$|G(\tau)|$")
     plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
 
     # Save plot
@@ -415,9 +419,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
 
     # -------- Log plot -------- #
     plt.figure()
-    plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x+1, abs(G_list[seq_idx].numpy().mean(axis=(0, 1))), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
 
-    G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
+    G_mean = abs(G_list[seq_idx].numpy().mean(axis=(0, 1)))
 
     # Analytical data
     data_folder_anal = "/Users/kx/Desktop/hmc/correlation_kspace/code/tau_dependence/data_tau_dependence"
@@ -439,7 +443,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
 
     # Add labels and title
     plt.xlabel('X-axis label')
-    plt.ylabel('log10(G) values')
+    plt.ylabel('log10(|G|) values')
     plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
     plt.legend()
   
@@ -464,7 +468,7 @@ if __name__ == '__main__':
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     # Lx, Ly, Ltau = 30, 30, 20
-    step = 1100
+    step = hmc.N_step
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), step)
 
     plt.show()
