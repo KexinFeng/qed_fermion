@@ -2,9 +2,11 @@ import os
 import torch
 import sys
 
-def initialize_curl_mat(Lx, Ly, Ltau, K):
+def initialize_curl_mat(Lx, Ly):
     """
     boson: [bs, 2, Lx, Ly, Ltau]
+
+    :return curl_mat: [Ly*Lx, Ly*Lx*2]
     """
     Vs = Lx * Ly
     curl_mat = torch.zeros(Vs, 2*Vs)   # [Lx*Ly, 2*Lx*Ly]
