@@ -7,18 +7,19 @@ def initialize_curl_mat(Lx, Ly, Ltau, K):
     boson: [bs, 2, Lx, Ly, Ltau]
     """
     Vs = Lx * Ly
-    curl_mat = torch.zeros(Vs, 2*Vs)
+    curl_mat = torch.zeros(Vs, 2*Vs)   # [Lx*Ly, 2*Lx*Ly]
     for x in range(Lx):
         for y in range(Ly):
-            idx = 0 + x * 2 + y*Lx*2
-            idx2 = idx
-            curl_mat[idx, idx2] = 1
+            # phi_r^x + phi_{r+ex}^y - phi_{r+ey}^x - phi_r^y
+            idx_r = x + y*Lx
+            idx2 = 0 + x*2 + y*2*Lx
+            curl_mat[idx_r, idx2] = 1
             idx2 = 1 + (x+1)%Lx * 2 + y*Lx*2
-            curl_mat[idx, idx2] = 1
+            curl_mat[idx_r, idx2] = 1
             idx2 = 0 + x*2 + (y+1)%Ly * Lx*2
-            curl_mat[idx, idx2] = -1
+            curl_mat[idx_r, idx2] = -1
             idx2 = 1 + x*2 + y * Lx*2
-            curl_mat[idx, idx2] = -1
+            curl_mat[idx_r, idx2] = -1
 
     return curl_mat
 
