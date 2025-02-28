@@ -2,6 +2,26 @@ import os
 import torch
 import sys
 
+def initialize_curl_mat(Lx, Ly, Ltau, K):
+    """
+    boson: [bs, 2, Lx, Ly, Ltau]
+    """
+    Vs = Lx * Ly
+    curl_mat = torch.zeros(Vs, 2*Vs)
+    for x in range(Lx):
+        for y in range(Ly):
+            idx = 0 + x * 2 + y*Lx*2
+            idx2 = idx
+            curl_mat[idx, idx2] = 1
+            idx2 = 1 + (x+1)%Lx * 2 + y*Lx*2
+            curl_mat[idx, idx2] = 1
+            idx2 = 0 + x*2 + (y+1)%Ly * Lx*2
+            curl_mat[idx, idx2] = -1
+            idx2 = 1 + x*2 + y * Lx*2
+            curl_mat[idx, idx2] = -1
+
+    return curl_mat
+
 def initialize_coupling_mat3(Lx, Ly, Ltau, J, dtau, K=1):
     cache_dir = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/cache/"
     file_name = f"cpl_mat_{Lx}_{Ly}_{Ltau}_{J}_{dtau}.pt"
