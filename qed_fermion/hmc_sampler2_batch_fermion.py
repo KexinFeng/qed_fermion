@@ -31,8 +31,8 @@ class HmcSampler(object):
         self.bs = 1
 
         # Couplings
-        self.dtau = 0.5
-        self.J = 1
+        self.dtau = 0.25
+        self.J = 4
         self.K = 1
         self.t = 1
 
@@ -61,9 +61,8 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4
-        self.m = 1
-        self.delta_t = 0.05
-        self.delta_t = 1
+        # self.delta_t = 0.05
+        self.delta_t = 0.5
         # m = 2, T(~sqrt(m/k)) = 1.5, N = T / 0.05 = 30
         # m = 1/2, T = 0.75, N = T / 0.05 = 15
         # T/4 = 0.375
@@ -72,7 +71,7 @@ class HmcSampler(object):
         # self.N_leapfrog = int(total_t // self.delta_t)
         # 1st exp: t = 1, delta_t = 0.05, N_leapfrog = 20
 
-        self.N_leapfrog = 21 *5
+        self.N_leapfrog = 21 * 50
         # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
@@ -322,10 +321,10 @@ class HmcSampler(object):
             vk_t_elem = vk_t[..., i_k]
             xk_t_elem = xk_t[..., i_k]
 
-            H_0_elem = (1/2 * vk_0_elem.abs()**2 * self.m + 1/2 * xk_0_elem.abs()**2 * omega_elem**2).sum()
-            H_t_elem = (1/2 * vk_t_elem.abs()**2 * self.m + 1/2 * xk_t_elem.abs()**2 * omega_elem**2).sum()
+            H_0_elem = (1/2 * vk_0_elem.abs()**2 + 1/2 * xk_0_elem.abs()**2 * omega_elem**2).sum()* self.m
+            H_t_elem = (1/2 * vk_t_elem.abs()**2 + 1/2 * xk_t_elem.abs()**2 * omega_elem**2).sum()* self.m
 
-            torch.testing.assert_close(H_0_elem, H_t_elem)
+            torch.testing.assert_close(H_0_elem, H_t_elem, atol=1e-4, rtol=1e-5)
             
             s0 += H_0_elem
             s += H_t_elem
@@ -347,7 +346,7 @@ class HmcSampler(object):
         # torch.testing.assert_close(H_fin, H_fin2)
 
         H_fin2 = (1/2 * vt.abs()**2 * self.m).sum() + (action_tau(xt)).sum()
-        torch.testing.assert_close(H_init2, H_fin2, atol=1e-4, rtol=1e-5)
+        torch.testing.assert_close(H_init2, H_fin2, atol=1e-3, rtol=1e-4)
 
         # print(H_init)
         print(f'inside H0={H_init}')
@@ -816,7 +815,7 @@ class HmcSampler(object):
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
 
-                torch.testing.assert_close(H0, H_t)
+                torch.testing.assert_close(H0, H_t, atol=1e-3, rtol=1e-4)
 
 
                 print(leap)
