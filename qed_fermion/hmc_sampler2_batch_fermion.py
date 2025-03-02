@@ -71,7 +71,7 @@ class HmcSampler(object):
         # self.N_leapfrog = int(total_t // self.delta_t)
         # 1st exp: t = 1, delta_t = 0.05, N_leapfrog = 20
 
-        self.N_leapfrog = 21 * 50
+        self.N_leapfrog = 21 *5
         # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
@@ -147,7 +147,7 @@ class HmcSampler(object):
 
     def initialize_boson_staggered_pi(self):
         """
-        Corresponding to self.i_list_1, i.e. the group_1 sites, the corresponding plaquettes have the right staggered pi pattern. This is directly obtainable from self.curl_mat. 
+        Corresponding to self.i_list_1, i.e. the group_1 sites, the corresponding plaquettes have the right staggered pi pattern. This is directly obtainable from self.curl_mat
 
         "return boson: [bs, 2, Lx, Ly, Ltau]
         """
@@ -252,6 +252,7 @@ class HmcSampler(object):
             F_{r,k} = e^{irk}
             F'F/L = FF'/L = i.d.
             x_k = fft(x) = F'@x = sum_r e^{-irk} x_r
+            x_r = ifft(xk) = 1/L * F @ x_k = 1/L * sum_k e^{ikr} x_k
 
         S = 1/2 * x'@F @ F'@A@F @ F'@x / L**2
           = 1/2 * xk' @ F'F diag(A_k) @ xk / L**2
@@ -277,18 +278,9 @@ class HmcSampler(object):
         x:  [bs, 2, Lx, Ly, Ltau]
         p:  [bs, 2, Lx, Ly, Ltau]
         """
-        H_init = torch.sum(p0 ** 2/ (2 * self.m), axis=(1, 2, 3, 4)) + self.action_boson_tau(x0)
-
         v0 = p0 / self.m
         xk_0 = torch.fft.fft(x0, dim=-1)
         vk_0 = torch.fft.fft(v0, dim=-1)
-
-        def action_tau(x):
-            s = 0
-            for tau in range(self.Ltau):
-                s += 1/2 /self.J / self.dtau**2 * (x[..., (tau+1)%self.Ltau] - x[..., tau])**2
-            return s
-        H_init2 = (1/2 * v0.abs()**2 * self.m).sum() + (action_tau(x0)).sum()
 
         L = self.Ltau
         k = torch.fft.fftfreq(L)
@@ -309,49 +301,12 @@ class HmcSampler(object):
         xk_t[..., 0] = xk_0[..., 0] + vk_0[..., 0]* delta_t; 
         vk_t[..., 0] = vk_0[..., 0]
 
-        # Check energy conserv. per k
-        s = 0
-        s0 = 0
-        for i_k, ktau in enumerate(k):
-            ktau = ktau * 2*torch.pi
-            vk_0_elem = vk_0[..., i_k]
-            xk_0_elem = xk_0[..., i_k]
-            omega_elem = omega[i_k]
-
-            vk_t_elem = vk_t[..., i_k]
-            xk_t_elem = xk_t[..., i_k]
-
-            H_0_elem = (1/2 * vk_0_elem.abs()**2 + 1/2 * xk_0_elem.abs()**2 * omega_elem**2).sum()* self.m
-            H_t_elem = (1/2 * vk_t_elem.abs()**2 + 1/2 * xk_t_elem.abs()**2 * omega_elem**2).sum()* self.m
-
-            torch.testing.assert_close(H_0_elem, H_t_elem, atol=1e-4, rtol=1e-5)
-            
-            s0 += H_0_elem
-            s += H_t_elem
-
         # Transform back to position space
         xt = torch.fft.ifft(xk_t, dim=-1)
-        torch.testing.assert_close(torch.imag(xt), torch.zeros_like(xt, dtype=torch.float))
         xt = torch.real(xt)
 
         vt = torch.real(torch.fft.ifft(vk_t, dim=-1))
         pt = vt * self.m
-
-        H_fin = torch.sum(pt ** 2 / (2*self.m), axis=(1, 2, 3, 4)) + self.action_boson_tau(xt)
-
-        # xt2 = torch.fft.ifft(xk_t, dim=-1)
-        # vt2 = torch.fft.ifft(vk_t, dim=-1)
-        # pt2 = vt2 * self.m
-        # H_fin2 = torch.sum(pt2.abs() ** 2, axis=(1, 2, 3, 4)) / (2 * self.m) + self.action_boson_tau(xt2)
-        # torch.testing.assert_close(H_fin, H_fin2)
-
-        H_fin2 = (1/2 * vt.abs()**2 * self.m).sum() + (action_tau(xt)).sum()
-        torch.testing.assert_close(H_init2, H_fin2, atol=1e-3, rtol=1e-4)
-
-        # print(H_init)
-        print(f'inside H0={H_init}')
-        print(f'inside Hfin={H_fin}')
-        torch.testing.assert_close(H_init, H_fin, atol=0.1, rtol=0.05)
 
         return xt, pt
 
@@ -754,7 +709,7 @@ class HmcSampler(object):
             # axs[1].set_title('Real-Time Evolution of S_s')
             line_Ss, = axs[1].plot(Ss, marker='s', linestyle='-', color='r', label='S_s')
             axs[1].set_xlabel('Leapfrog Step')
-            axs[1].set_ylabel('S')
+            axs[1].set_ylabel('S_b')
             axs[1].legend()
             axs[1].grid()
     
@@ -815,7 +770,7 @@ class HmcSampler(object):
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
 
-                torch.testing.assert_close(H0, H_t, atol=1e-3, rtol=1e-4)
+                torch.testing.assert_close(H0, H_t, atol=1e-4, rtol=1e-5)
 
 
                 print(leap)

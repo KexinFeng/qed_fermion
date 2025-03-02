@@ -22,17 +22,16 @@ def action_boson_tau(x, Ltau):
 
     # F = torch.fft.fft(torch.eye(3), dim=0)
     # torch.eye(3) = 1/L * F.conj().T @ F
-    return coeff * (xk.abs()**2 * lmd).sum() / L
+    return coeff * (xk.abs()**2 * lmd).sum().view(-1) / L
 
 
 def action_tau(x, Ltau):
     s = 0
     for tau in range(Ltau):
         s += 1/2 * (x[..., (tau+1)%Ltau] - x[..., tau])**2
-    return s.sum()
+    return s.sum().view(-1)
 
 
-xt = torch.tensor([[ 0.5606,  0.5551,  0.7350,  0.6990,  0.9548,  0.9235]])
 xt = torch.tensor([[ 0, 1, 2, 3, 5]], dtype=torch.float)
 
 print(torch.fft.fft(xt, dim=1))
@@ -42,6 +41,9 @@ Ltau = xt.view(-1).size(0)
 print(action_boson_tau(xt, Ltau))
 print(action_tau(xt, Ltau))
 print(1/2 * xt @ get_A(Ltau) @ xt.T)
+
+torch.testing.assert_close(action_boson_tau(xt, Ltau), action_tau(xt, Ltau))
+torch.testing.assert_close((1/2 * xt @ get_A(Ltau) @ xt.T).view(-1), action_tau(xt, Ltau))
 print('=====')
 
 
@@ -51,9 +53,12 @@ print(F @ F.T.conj() / Ltau)
 A = get_A(Ltau).to(torch.complex64)
 Ak2 = 1/Ltau * F.T.conj() @ A @ F
 print(f'Ak2 = {torch.real(torch.diag(Ak2))}')
+Ak2 = torch.real(torch.diag(Ak2))
 
 lmd = 2 * (1 - torch.cos(k * 2*torch.pi))
 print(f'lmd={lmd}')
+
+torch.testing.assert_close(lmd, Ak2)
 
 print('------')
 
