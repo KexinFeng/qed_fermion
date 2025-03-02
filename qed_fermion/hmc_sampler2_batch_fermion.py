@@ -33,7 +33,7 @@ class HmcSampler(object):
         # Couplings
         self.dtau = 0.25
         self.J = 4
-        self.K = 1
+        self.K = 1.5
         self.t = 1
 
         self.boson = None
@@ -143,7 +143,7 @@ class HmcSampler(object):
         # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau, device=device)
         # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
 
-        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.5, 1, self.bs, device=device).view(-1, 1, 1, 1, 1)
+        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.5, 1, self.bs, device=device)
 
     def initialize_boson_staggered_pi(self):
         """
