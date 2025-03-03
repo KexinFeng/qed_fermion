@@ -22,13 +22,29 @@ def action_boson_plaq(boson):
                 )
     return s
 
+def action_boson_plaq(boson):
+    """
+    boson: [bs, 2, Lx, Ly, Ltau]
+    1/2 K * (curl phi = phix(r) + phiy(r+x) - phix(r+y) - phiy(r))**2
+    """
+    s = 0
+    bs, _, Lx, Ly, Ltau = boson.shape
+    for x in range(Lx):
+        for y in range(Ly):
+            for tau in range(Ltau):
+                s += 0.5 * (
+                    boson[0, 0, x, y, tau] + boson[0, 1, (x+1)%Lx, y, tau] \
+                - boson[0, 0, x, (y+1)%Ly, tau] - boson[0, 1, x, y, tau]
+                )**2
+    return s
+
+
 def test_action_plaq():
     hmc = HmcSampler()
 
     Lx, Ly, Ltau = 2, 2, 2
     hmc.Lx, hmc.Ly, hmc.Ltau = Lx, Ly, Ltau
-    hmc.curl_mat = initialize_curl_mat(Lx, Ly).to(hmc.curl_mat.device)
-    hmc.initialize_geometry()
+    hmc.reset()
 
     # staggered boson
     hmc.initialize_boson_staggered_pi()
@@ -40,5 +56,22 @@ def test_action_plaq():
     assert (hmc.action_boson_plaq(boson) == hmc.K * action_boson_plaq(boson)).all()
 
 
+def test_action_plaq_noncomp():
+    hmc = HmcSampler()
 
-test_action_plaq()
+    Lx, Ly, Ltau = 2, 2, 2
+    hmc.Lx, hmc.Ly, hmc.Ltau = Lx, Ly, Ltau
+    hmc.reset()
+
+    # staggered boson
+    hmc.initialize_boson_staggered_pi()
+    boson = hmc.boson
+    assert (hmc.action_boson_plaq_noncomp(boson) == hmc.K * action_boson_plaq(boson)).all()
+
+    hmc.initialize_boson()
+    boson = hmc.boson
+    assert (hmc.action_boson_plaq_noncomp(boson) == hmc.K * action_boson_plaq(boson)).all()
+
+
+
+test_action_plaq_noncomp()
