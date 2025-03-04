@@ -25,16 +25,16 @@ dtype = torch.float32
 class HmcSampler(object):
     def __init__(self, config=None):
         # Dims
-        self.Lx = 10
-        self.Ly = 10
-        self.Ltau = 20
+        self.Lx = 6
+        self.Ly = 6
+        self.Ltau = 10
         self.bs = 1
 
         # Couplings
         self.dtau = 0.5
         self.J = 4
         self.K = 1
-        self.t = 0.01
+        self.t = 0.0001
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -49,7 +49,7 @@ class HmcSampler(object):
 
         # Statistics
         self.N_therm_step = 0
-        self.N_step = int(3e2) + 100
+        self.N_step = int(1e3) + 100
         self.step = 0
         self.cur_step = 0
         self.thrm_bool = False
@@ -93,7 +93,7 @@ class HmcSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):
-        self.specifics = f"{self.Lx}_{self.Ly}_Ltau_{self.Ltau}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
+        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -203,11 +203,11 @@ class HmcSampler(object):
         boson_new, energies_old, energies_new = self.leapfrog_proposer3()
         Sf_new, Sb_new, H_new = energies_new
         Sf_old, Sb_old, H_old = energies_old
-        # print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
-        # print(f"threshold: {torch.exp(H_old - H_new).item()}")
+        print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
+        print(f"threshold: {torch.exp(H_old - H_new).item()}")
 
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        # print(f'Accp?: {accp.item()}')
+        print(f'Accp?: {accp.item()}')
         self.boson[accp] = boson_new[accp]
         return self.boson, accp, energies_old, energies_new
 
@@ -272,7 +272,7 @@ class HmcSampler(object):
         phi_x = boson[:, 0]  # Shape: [batch_size, Lx, Ly, Ltau]
         phi_y = boson[:, 1]  # Shape: [batch_size, Lx, Ly, Ltau]
 
-        curl_phi = (
+        sin_curl_phi = torch.sin(
             phi_x
             + torch.roll(phi_y, shifts=-1, dims=1)  # y-component at (x+1, y)
             - torch.roll(phi_x, shifts=-1, dims=2)  # x-component at (x, y+1)
@@ -284,10 +284,10 @@ class HmcSampler(object):
             idx1 = list(range(Ltau))
             idx2 = [(i + dtau) % Ltau for i in idx1]
             
-            corr = torch.mean(curl_phi[..., idx1] * curl_phi[..., idx2], dim=(1, 2, 3))
+            corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
             correlations.append(corr)
 
-        return torch.sin(torch.stack(correlations)).T  # Shape: [bs, num_dtau]
+        return torch.stack(correlations).T  # Shape: [bs, num_dtau]
 
 
     # =========== Turn on fermions =========
@@ -579,26 +579,20 @@ class HmcSampler(object):
         p = p0
 
         R = self.draw_psudo_fermion()
+        M0 = self.get_M(x)
+        psi = torch.einsum('rs,bs->br', M0.T.conj(), R)   
 
-        # Initial energies
-        with torch.enable_grad():
-            x = x.clone().requires_grad_(True)
-            M_auto = self.get_M(x)
-            psi = torch.einsum('rs,bs->br', M_auto.T.conj(), R)
-
-            Ot = M_auto.conj().T @ M_auto
-            L = torch.linalg.cholesky(Ot)
-            O_inv = torch.cholesky_inverse(L) 
-
-            Sf = torch.einsum('bi,ij,bj->b', psi.conj(), O_inv, psi)
-            torch.testing.assert_close(torch.imag(Sf), torch.zeros_like(torch.imag(Sf)), atol=1e-3, rtol=1e-4)
-            Sf0 = torch.real(Sf)
-            force_f = -torch.autograd.grad(Sf0, x, create_graph=False)[0]
+        force_f, xi_t = self.force_f(psi, M0, x)
+        
+        Sf0 = torch.einsum('bi,bi->b', psi.conj(), xi_t)
+        torch.testing.assert_close(torch.imag(Sf0), torch.zeros_like(torch.imag(Sf0)), atol=1e-4, rtol=1e-5)
+        Sf0 = torch.real(Sf0)
         
         assert x.grad is None
 
+
         Sb0 = self.action_boson_tau(x) + self.action_boson_plaq(x)
-        H0 = Sf0 + Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H0 = Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
         if self.debug_pde:
             print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -633,7 +627,6 @@ class HmcSampler(object):
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
          
         dt = self.delta_t
-        # force_f, xi_t = self.force_f(psi, M0, x)
 
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
@@ -657,24 +650,12 @@ class HmcSampler(object):
             
                 p = p + force_b * dt/2/M
 
-            # force_f, xi_t = self.force_f(psi, self.get_M(x), x)
-            with torch.enable_grad():
-                x = x.clone().requires_grad_(True)
-                M_auto = self.get_M(x)
-                psi = torch.einsum('rs,bs->br', M_auto.T.conj(), R)
 
-                Ot = M_auto.conj().T @ M_auto
-                L = torch.linalg.cholesky(Ot)
-                O_inv = torch.cholesky_inverse(L) 
-
-                Sf = torch.einsum('bi,ij,bj->b', psi.conj(), O_inv, psi)
-                torch.testing.assert_close(torch.imag(Sf), torch.zeros_like(torch.imag(Sf)), atol=1e-3, rtol=1e-3)
-                Sf = torch.real(Sf)
-                force_f = -torch.autograd.grad(Sf, x, create_graph=False)[0]
-
+            force_f, xi_t = self.force_f(psi, self.get_M(x), x)
             p = p + dt/2 * force_f
 
             if self.debug_pde:
+                # Sf = torch.real(torch.einsum('bi,bi->b', psi.conj(), xi_t))
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau(x)
                 H_t = Sf + Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
@@ -718,18 +699,18 @@ class HmcSampler(object):
 
 
         # Final energies
-        # Sf_fin = torch.einsum('br,br->b', psi.conj(), xi_t)
-        # torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32))
-        # Sf_fin = torch.real(Sf_fin)
+        Sf_fin = torch.einsum('br,br->b', psi.conj(), xi_t)
+        torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-4, rtol=1e-5)
+        Sf_fin = torch.real(Sf_fin)
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
-        H_fin = Sf + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H_fin = Sf_fin + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
         # torch.testing.assert_close(H0, H_fin, atol=1e-3, rtol=0.05)
 
-        return x, (Sf0, Sb0, H0), (Sf, Sb_fin, H_fin)
+        return x, (Sf0, Sb0, H0), (Sf_fin, Sb_fin, H_fin)
 
 
-    def leapfrog_proposer4_qed(self):
+    def leapfrog_proposer4_qed_comp(self):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
         Sf(t) = psi' * [M(xt)'M(xt)]^(-1) * psi := R'R at t=0
@@ -759,7 +740,7 @@ class HmcSampler(object):
 
         assert x.grad is None
 
-        Sb0 = self.action_boson_tau(x) + self.action_boson_plaq_noncomp(x)
+        Sb0 = self.action_boson_tau(x) + self.action_boson_plaq(x)
         H0 = Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
         if self.debug_pde:
@@ -797,7 +778,7 @@ class HmcSampler(object):
 
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
-            Sb_plaq = self.action_boson_plaq_noncomp(x)
+            Sb_plaq = self.action_boson_plaq(x)
             force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
 
         for leap in range(self.N_leapfrog):
@@ -810,13 +791,13 @@ class HmcSampler(object):
 
                 with torch.enable_grad():
                     x = x.clone().requires_grad_(True)
-                    Sb_plaq = self.action_boson_plaq_noncomp(x)
+                    Sb_plaq = self.action_boson_plaq(x)
                     force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
             
                 p = p + force_b * dt/2/M
 
             if self.debug_pde:
-                Sb_t = self.action_boson_plaq_noncomp(x) + self.action_boson_tau(x)
+                Sb_t = self.action_boson_plaq(x) + self.action_boson_tau(x)
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
                 torch.testing.assert_close(H0, H_t, atol=0.1, rtol=0.05)
@@ -855,7 +836,7 @@ class HmcSampler(object):
 
 
         # Final energies
-        Sb_fin = self.action_boson_plaq_noncomp(x) + self.action_boson_tau(x) 
+        Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
         H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
         # torch.testing.assert_close(H0, H_fin, atol=1e-3, rtol=0.05)
@@ -927,14 +908,14 @@ class HmcSampler(object):
             Sf_fin, Sb_fin, H_fin = energies_new
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
-            self.G_list[i] = accp.view(-1, 1) * self.curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-            self.S_list[i] = torch.where(accp, Sb_fin, Sb0)
+            self.G_list[i] = accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
+            self.S_list[i] = torch.where(accp, Sb_fin+Sf_fin, Sb0+Sf0)
 
             self.step += 1
             self.cur_step += 1
             
             # plotting
-            if i % 200 == 0:
+            if i % 50 == 0:
                 self.total_monitoring()
                 plt.show(block=False)
                 plt.pause(0.1)  # Pause for 5 seconds
@@ -973,7 +954,7 @@ class HmcSampler(object):
         # with open(filepath, "wb") as f:
         #     pickle.dump(res, f)
         torch.save(res, filepath)
-        print(f"Data saved to {data_folder + filepath}")
+        print(f"Data saved to {filepath}")
 
     # ------- Visualization -------
     def total_monitoring(self):
@@ -983,8 +964,8 @@ class HmcSampler(object):
         # plt.figure()
         fig, axes = plt.subplots(3, 1, figsize=(10, 8))
         
-        start = 50
-
+        start = 50  # to prevent from being out of scale due to init out-liers
+ 
         axes[2].plot(self.accp_rate[start:self.cur_step].cpu().numpy())
         axes[2].set_xlabel("Steps")
         axes[2].set_ylabel("Acceptance Rate")
@@ -1012,7 +993,7 @@ class HmcSampler(object):
         method_name = "totol_monit"
         save_dir = os.path.join(script_path, f"./figures/figure_{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
-        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}_{self.Ly}_Ltau_{self.Ltau}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}.pdf")
+        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}_Ltau_{self.Ltau}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}.pdf")
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
@@ -1028,12 +1009,13 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
     res = torch.load(filename)
+    print(f'Loaded: {filename}')
 
     G_list = res['G_list']
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 300
+    start = 500
     end = step
     sample_step = 1
     seq_idx = np.arange(start, end, sample_step)
@@ -1105,21 +1087,22 @@ if __name__ == '__main__':
 
     hmc = HmcSampler()
 
-    for t in [0.01, 0.1, 1]:
-        hmc.t = t
-        hmc.reset()
+    # for t in [0.01]:
 
-        # Measure
-        G_avg, G_std = hmc.measure()
+    # hmc.t = t
+    # hmc.reset()
 
-        Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-        # Lx, Ly, Ltau = 30, 30, 20
-        step = 200 + 100
-        load_visualize_final_greens_loglog((Lx, Ly, Ltau), step, hmc.specifics, True)
+    # Measure
+    G_avg, G_std = hmc.measure()
 
-        plt.show()
+    Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+    # Lx, Ly, Ltau = 30, 30, 20
+    # step = 200 + 100
+    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
 
-    dbstop = 1
+    plt.show()
+
+    # dbstop = 1
 
     # hmc = HmcSampler()
     # G_avg, G_std = hmc.measure()
