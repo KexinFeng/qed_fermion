@@ -590,9 +590,8 @@ class HmcSampler(object):
         
         assert x.grad is None
 
-
         Sb0 = self.action_boson_tau(x) + self.action_boson_plaq(x)
-        H0 = Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H0 = Sf0 + Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
         if self.debug_pde:
             print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -702,6 +701,7 @@ class HmcSampler(object):
         Sf_fin = torch.einsum('br,br->b', psi.conj(), xi_t)
         torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-4, rtol=1e-5)
         Sf_fin = torch.real(Sf_fin)
+
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
         H_fin = Sf_fin + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
