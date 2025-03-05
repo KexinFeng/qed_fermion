@@ -35,7 +35,7 @@ class HmcSampler(object):
         scale = self.dtau
         self.J = 1 / scale
         self.K = 1 * scale
-        self.t = 0.01
+        self.t = 0.001
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -50,7 +50,7 @@ class HmcSampler(object):
 
         # Statistics
         self.N_therm_step = 0
-        self.N_step = int(1e3) + 100
+        self.N_step = int(2e3) + 100
         self.step = 0
         self.cur_step = 0
         self.thrm_bool = False
@@ -62,7 +62,7 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4 / scale
-        self.delta_t = 0.1 / scale
+        self.delta_t = 0.05 / scale
         # self.delta_t = 0.001
         # self.delta_t = 0.05
         # self.delta_t = 0.1
@@ -101,7 +101,7 @@ class HmcSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):
-        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
+        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -722,7 +722,7 @@ class HmcSampler(object):
                     method_name = "fermion_couple"
                     save_dir = os.path.join(script_path, f"./figures/figure_leapfrog")
                     os.makedirs(save_dir, exist_ok=True) 
-                    file_path = os.path.join(save_dir, f"{method_name}_Lx_{self.Lx}_Ltau_{self.Ltau}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}.pdf")
+                    file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
                     plt.savefig(file_path, format="pdf", bbox_inches="tight")
                     print(f"Figure saved at: {file_path}")
 
@@ -860,7 +860,7 @@ class HmcSampler(object):
                     method_name = "harmonic"
                     save_dir = os.path.join(script_path, f"./figures/figure_leapfrog")
                     os.makedirs(save_dir, exist_ok=True) 
-                    file_path = os.path.join(save_dir, f"{method_name}_Lx_{self.Lx}_Ltau_{self.Ltau}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}.pdf")
+                    file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
                     plt.savefig(file_path, format="pdf", bbox_inches="tight")
                     print(f"Figure saved at: {file_path}")
 
@@ -1023,7 +1023,7 @@ class HmcSampler(object):
         method_name = "totol_monit"
         save_dir = os.path.join(script_path, f"./figures/figure_{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
-        file_path = os.path.join(save_dir, f"{method_name}_{self.Lx}_Ltau_{self.Ltau}_Jtau_{self.J * self.dtau**2}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}.pdf")
+        file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
