@@ -29,16 +29,23 @@ class HmcSampler(object):
         # Dims
         self.Lx = 6
         self.Ly = 6
-        self.Ltau = 20
+        self.Ltau = 30
         self.bs = 1
 
         # Couplings
-        J = 4
+        J = 40
         self.dtau = 1/J
         scale = self.dtau
         self.J = J / scale
-        self.K = 1 * scale
-        self.t = 0.1
+        self.K = 0.1 * scale
+        self.t = 1
+
+        # t * dtau < const
+        # fix t, increase J
+
+        # J,t = (4, 0.1) 40:  Ff=4, Fb=9.7, delta_t=0.2
+        # J,t = (20, 0.5) 40: Ff=4, Fb=9.7, delta_t=0.2
+        # J,t = (40, 1) 40:   Ff=4, Fb=1, delta_t=2
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -65,7 +72,8 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4 / scale
-        self.delta_t = 0.05 / scale
+        self.delta_t = min(0.05 / scale, 0.4)
+        print(f"delta_t = {self.delta_t}")
         # self.delta_t = 0.001
         # self.delta_t = 0.05
         # self.delta_t = 0.1
@@ -84,12 +92,13 @@ class HmcSampler(object):
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
-        # self.N_leapfrog = 15
-        self.N_leapfrog = 15 * 6
+        self.N_leapfrog = 15
+        self.N_leapfrog = 8
+        # self.N_leapfrog = 15 * 40
 
         # Debug
         torch.manual_seed(0)
-        self.debug_pde = True
+        self.debug_pde = False
 
         # Initialization
         self.reset()
@@ -634,6 +643,7 @@ class HmcSampler(object):
             # Setup for 1st subplot (Hs)
             line_Hs, = axs[0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
             axs[0].set_ylabel('Hamiltonian (H)')
+            axs[0].set_xticks([])  # Remove x-axis ticks
             axs[0].legend()
             axs[0].grid()
 
@@ -642,13 +652,14 @@ class HmcSampler(object):
             line_Ss, = axs[1].plot(Ss, marker='s', linestyle='-', color='r', label='S_s')
             # axs[1].set_xlabel('Leapfrog Step')
             axs[1].set_ylabel('S_b')
+            axs[1].set_xticks([])  # Remove x-axis ticks
             axs[1].legend()
             axs[1].grid()
 
             # Setup for 3rd subplot (force)
             # axs[1].set_title('Real-Time Evolution of S_s')
-            line_force_b, = axs[2].plot(force_bs, marker='s', linestyle='-', color='r', label='force_b')
-            line_force_f, = axs[2].plot(force_fs, marker='s', linestyle='-', color='b', label='force_f')
+            line_force_b, = axs[2].plot(force_bs, marker='s', linestyle='-', color='b', label='force_b')
+            line_force_f, = axs[2].plot(force_fs, marker='s', linestyle='-', color='r', label='force_f')
             axs[2].set_xlabel('Leapfrog Step')
             axs[2].set_ylabel('forces_norm')
             axs[2].legend()
@@ -803,7 +814,7 @@ class HmcSampler(object):
             # axs[1].set_title('Real-Time Evolution of S_s')
             line_Ss, = axs[1].plot(Ss, marker='s', linestyle='-', color='r', label='S_s')
             axs[1].set_xlabel('Leapfrog Step')
-            axs[1].set_ylabel('S_b')
+            axs[1].set_ylabel('S_b + S_f')
             axs[1].legend()
             axs[1].grid()
     
@@ -965,7 +976,7 @@ class HmcSampler(object):
                        'G_list': self.G_list.cpu()}
                 
                 data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/"
-                file_name = f"ckpt_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_step_{self.step}"
+                file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
                 self.save_to_file(res, data_folder, file_name)           
 
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
@@ -978,7 +989,7 @@ class HmcSampler(object):
 
         # Save to file
         data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/"
-        file_name = f"ckpt_N_{self.Ltau}_Nx_{self.Lx}_Ny_{self.Ly}_step_{self.step}"
+        file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
         self.save_to_file(res, data_folder, file_name)           
 
         return G_avg, G_std
@@ -1043,7 +1054,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
 
-    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+    if len(specifics) == 0:
+        filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+    else:
+        filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
