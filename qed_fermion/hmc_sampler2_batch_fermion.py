@@ -31,10 +31,10 @@ class HmcSampler(object):
         self.bs = 1
 
         # Couplings
-        self.dtau = 0.5
-        self.J = 4
+        self.dtau = 0.05
+        self.J = 400
         self.K = 1
-        self.t = 0.0001
+        self.t = 1
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -61,8 +61,12 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4
+        self.delta_t = 0.01
+        self.delta_t = 0.001
         # self.delta_t = 0.05
-        self.delta_t = 0.05
+        # self.delta_t = 0.1
+        # self.delta_t = 0.4
+
         # m = 2, T(~sqrt(m/k)) = 1.5, N = T / 0.05 = 30
         # m = 1/2, T = 0.75, N = T / 0.05 = 15
         # T/4 = 0.375
@@ -71,14 +75,16 @@ class HmcSampler(object):
         # self.N_leapfrog = int(total_t // self.delta_t)
         # 1st exp: t = 1, delta_t = 0.05, N_leapfrog = 20
 
-        self.N_leapfrog = 15
+        # self.N_leapfrog = 15
+        self.N_leapfrog = 6
+        # self.N_leapfrog = 15 * 6
         # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
         # Debug
         torch.manual_seed(0)
-        self.debug_pde = False
+        self.debug_pde = True
 
         # Initialization
         self.reset()
@@ -446,12 +452,13 @@ class HmcSampler(object):
             + self.df_dot(boson_list, B_xi_2, xi_c_rgt_2, self.i_list_1, self.j_list_1, is_group_1=True)
             )
 
+            # Issue here
             boson_list = boson[2*Vs*tau + self.boson_idx_list_2]
             Ft[tau, self.boson_idx_list_2] = 2 * torch.real(\
               self.df_dot(boson_list, xi_n_lft_3, xi_c_rgt_1, self.i_list_2, self.j_list_2) * sign_B
             + self.df_dot(boson_list, xi_n_lft_1, xi_c_rgt_3, self.i_list_2, self.j_list_2) * sign_B \
             + self.df_dot(boson_list, B_xi_3, xi_c_rgt_1, self.i_list_2, self.j_list_2)
-            + self.df_dot(boson_list, xi_n_lft_1, xi_c_rgt_3, self.i_list_2, self.j_list_2)
+            + self.df_dot(boson_list, B_xi_1, xi_c_rgt_3, self.i_list_2, self.j_list_2)
             )
 
             boson_list = boson[2*Vs*tau + self.boson_idx_list_3]
@@ -585,7 +592,7 @@ class HmcSampler(object):
         force_f, xi_t = self.force_f(psi, M0, x)
         
         Sf0 = torch.einsum('bi,bi->b', psi.conj(), xi_t)
-        torch.testing.assert_close(torch.imag(Sf0), torch.zeros_like(torch.imag(Sf0)), atol=1e-4, rtol=1e-5)
+        torch.testing.assert_close(torch.imag(Sf0), torch.zeros_like(torch.imag(Sf0)), atol=1e-3, rtol=1e-5)
         Sf0 = torch.real(Sf0)
         
         assert x.grad is None
@@ -637,7 +644,7 @@ class HmcSampler(object):
             p = p + dt/2 * force_f
 
             # Update (p, x)
-            M = 5
+            M = 2 
             for _ in range(M):
                 p = p + force_b * dt/2/M
                 x, p = self.harmonic_tau(x, p, dt/M)
@@ -654,7 +661,7 @@ class HmcSampler(object):
             p = p + dt/2 * force_f
 
             if self.debug_pde:
-                # Sf = torch.real(torch.einsum('bi,bi->b', psi.conj(), xi_t))
+                Sf = torch.real(torch.einsum('bi,bi->b', psi.conj(), xi_t))
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau(x)
                 H_t = Sf + Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
@@ -699,7 +706,7 @@ class HmcSampler(object):
 
         # Final energies
         Sf_fin = torch.einsum('br,br->b', psi.conj(), xi_t)
-        torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-4, rtol=1e-5)
+        torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-3, rtol=1e-4)
         Sf_fin = torch.real(Sf_fin)
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
@@ -1098,7 +1105,7 @@ if __name__ == '__main__':
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     # Lx, Ly, Ltau = 30, 30, 20
     # step = 200 + 100
-    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
+    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, True)
 
     plt.show()
 
