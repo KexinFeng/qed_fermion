@@ -3,7 +3,9 @@ import math
 import matplotlib
 import numpy as np
 matplotlib.use('MacOSX')
-# matplotlib.use('Qt5Agg')
+
+from matplotlib import rcParams
+rcParams['figure.raise_window'] = False
 
 import matplotlib.pyplot as plt
 import torch
@@ -31,11 +33,11 @@ class HmcSampler(object):
         self.bs = 1
 
         # Couplings
-        self.dtau = 1
+        self.dtau = 0.25
         scale = self.dtau
-        self.J = 1 / scale
+        self.J = 4 / scale
         self.K = 1 * scale
-        self.t = 0.001
+        self.t = 100
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -101,7 +103,7 @@ class HmcSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):
-        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J}_K_{self.K}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
+        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau}_K_{self.K/self.dtau}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -208,7 +210,7 @@ class HmcSampler(object):
 
         :return: None
         """
-        boson_new, energies_old, energies_new = self.leapfrog_proposer4_qed_comp()
+        boson_new, energies_old, energies_new = self.leapfrog_proposer3()
         Sf_new, Sb_new, H_new = energies_new
         Sf_old, Sb_old, H_old = energies_old
         print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
@@ -597,6 +599,7 @@ class HmcSampler(object):
         Sf0 = torch.einsum('bi,bi->b', psi.conj(), xi_t)
         torch.testing.assert_close(torch.imag(Sf0), torch.zeros_like(torch.imag(Sf0)), atol=1e-3, rtol=1e-5)
         Sf0 = torch.real(Sf0)
+        Sf0 = 0
         
         assert x.grad is None
 
@@ -656,7 +659,7 @@ class HmcSampler(object):
 
         for leap in range(self.N_leapfrog):
 
-            p = p + dt/2 * force_f
+            # p = p + dt/2 * force_f
 
             # Update (p, x)
             M = 5
@@ -672,8 +675,8 @@ class HmcSampler(object):
                 p = p + force_b * dt/2/M
 
 
-            force_f, xi_t = self.force_f(psi, self.get_M(x), x)
-            p = p + dt/2 * force_f
+            # force_f, xi_t = self.force_f(psi, self.get_M(x), x)
+            # p = p + dt/2 * force_f
 
             if self.debug_pde:
                 Sf = torch.real(torch.einsum('bi,bi->b', psi.conj(), xi_t))
@@ -731,6 +734,7 @@ class HmcSampler(object):
         Sf_fin = torch.einsum('br,br->b', psi.conj(), xi_t)
         torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-3, rtol=1e-4)
         Sf_fin = torch.real(Sf_fin)
+        Sf_fin = 0
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
         H_fin = Sf_fin + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
