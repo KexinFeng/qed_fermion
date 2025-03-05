@@ -27,7 +27,7 @@ class HmcSampler(object):
         # Dims
         self.Lx = 6
         self.Ly = 6
-        self.Ltau = 10
+        self.Ltau = 20
         self.bs = 1
 
         # Couplings
@@ -625,7 +625,7 @@ class HmcSampler(object):
             Ss = [(Sf0 + Sb0)[b_idx].item()] 
             force_bs = [torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item()]
             force_fs = [torch.linalg.norm(force_f.reshape(self.bs, -1), dim=1)[b_idx].item()]
-            # Ss = [Sb0[b_idx].item()] 
+            # Ss = [Sb0[b_idx].item()]
 
             # Setup for 1st subplot (Hs)
             line_Hs, = axs[0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
@@ -649,10 +649,10 @@ class HmcSampler(object):
             axs[2].set_ylabel('forces_norm')
             axs[2].legend()
             axs[2].grid()
-    
+
         # Multi-scale Leapfrog
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
-         
+
 
         for leap in range(self.N_leapfrog):
 
@@ -673,7 +673,6 @@ class HmcSampler(object):
 
 
             force_f, xi_t = self.force_f(psi, self.get_M(x), x)
-            # print(f'force_f_norm={torch.norm(force_f)}')
             p = p + dt/2 * force_f
 
             if self.debug_pde:
@@ -713,7 +712,7 @@ class HmcSampler(object):
 
                 axs[2].relim()
                 axs[2].autoscale_view()
-                axs[2].set_title(f'mean_force_b={sum(force_bs)/len(force_bs):.2g}, mean_force_f={sum(force_fs)/len(force_fs):.2g}') 
+                axs[2].set_title(f'mean_force_b={sum(force_bs)/len(force_bs):.2g}, mean_force_f={sum(force_fs)/len(force_fs):.2g}')
 
                 plt.pause(0.1)   # Small delay to update the plot
                 
@@ -1048,7 +1047,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     start = 500
     end = step
-    sample_step = 1
+    sample_step = 2
     seq_idx = np.arange(start, end, sample_step)
 
     ## Plot
