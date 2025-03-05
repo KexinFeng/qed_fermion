@@ -32,8 +32,9 @@ class HmcSampler(object):
 
         # Couplings
         self.dtau = 0.5
-        self.J = 4
-        self.K = 1
+        scale = self.dtau
+        self.J = 4 / scale
+        self.K = 1 * scale
         self.t = 1
 
         self.boson = None
@@ -60,8 +61,8 @@ class HmcSampler(object):
         self.H_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
 
         # Leapfrog
-        self.m = 1/2 * 4
-        self.delta_t = 0.05
+        self.m = 1/2 * 4 / scale
+        self.delta_t = 0.05 / scale
         # self.delta_t = 0.001
         # self.delta_t = 0.05
         # self.delta_t = 0.1
