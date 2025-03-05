@@ -33,11 +33,12 @@ class HmcSampler(object):
         self.bs = 1
 
         # Couplings
-        self.dtau = 0.25
+        J = 4
+        self.dtau = 1/J
         scale = self.dtau
-        self.J = 4 / scale
+        self.J = J / scale
         self.K = 1 * scale
-        self.t = 100
+        self.t = 0.1
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -83,12 +84,12 @@ class HmcSampler(object):
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
-        self.N_leapfrog = 15
-        # self.N_leapfrog = 15 * 6
+        # self.N_leapfrog = 15
+        self.N_leapfrog = 15 * 6
 
         # Debug
         torch.manual_seed(0)
-        self.debug_pde = False
+        self.debug_pde = True
 
         # Initialization
         self.reset()
@@ -599,7 +600,7 @@ class HmcSampler(object):
         Sf0 = torch.einsum('bi,bi->b', psi.conj(), xi_t)
         torch.testing.assert_close(torch.imag(Sf0), torch.zeros_like(torch.imag(Sf0)), atol=1e-3, rtol=1e-5)
         Sf0 = torch.real(Sf0)
-        Sf0 = 0
+        # Sf0 = 0
         
         assert x.grad is None
 
@@ -614,8 +615,8 @@ class HmcSampler(object):
             force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
 
         if self.debug_pde:
-            print(f"Sb_tau={self.action_boson_tau(x)}")
-            print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
+            # print(f"Sb_tau={self.action_boson_tau(x)}")
+            # print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
 
             b_idx = 0
             
@@ -659,7 +660,7 @@ class HmcSampler(object):
 
         for leap in range(self.N_leapfrog):
 
-            # p = p + dt/2 * force_f
+            p = p + dt/2 * force_f
 
             # Update (p, x)
             M = 5
@@ -675,20 +676,21 @@ class HmcSampler(object):
                 p = p + force_b * dt/2/M
 
 
-            # force_f, xi_t = self.force_f(psi, self.get_M(x), x)
-            # p = p + dt/2 * force_f
+            force_f, xi_t = self.force_f(psi, self.get_M(x), x)
+            p = p + dt/2 * force_f
 
             if self.debug_pde:
                 Sf = torch.real(torch.einsum('bi,bi->b', psi.conj(), xi_t))
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau(x)
                 H_t = Sf + Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
-                torch.testing.assert_close(H0, H_t, atol=0.1, rtol=0.05)
+                # torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-3)
+                torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-3)
 
-                print(leap)
-                print(f"Sb_tau={self.action_boson_tau(x)}")
-                print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
-                print(f'H={H_t}')
+                # print(leap)
+                # print(f"Sb_tau={self.action_boson_tau(x)}")
+                # print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
+                # print(f'H={H_t}')
 
                 # Hd, Sd = self.action((p + p_last)/2, x)  # Append new H value   
                 Hs.append(H_t[b_idx].item())
@@ -706,12 +708,12 @@ class HmcSampler(object):
                 axs[0].relim()
                 axs[0].autoscale_view()
                 amp = max(Hs) - min(Hs)
-                axs[0].set_title(f'dt={self.delta_t:.2f}, m={self.m}, amp={amp:.2g}, amp_rtol={amp/sum(Hs)*len(Hs):.2g}, N={self.N_leapfrog}')
+                axs[0].set_title(f'dt={self.delta_t:.2f}, m={self.m}, atol={amp:.2g}, rtol={amp/sum(Hs)*len(Hs):.2g}, N={self.N_leapfrog}')
 
                 axs[1].relim()
                 axs[1].autoscale_view()
                 amp = max(Ss) - min(Ss)
-                axs[1].set_title(f'dt={self.delta_t:.3f}, m={self.m}, amp={amp:.2g}, N={self.N_leapfrog}') 
+                axs[1].set_title(f'dt={self.delta_t:.3f}, m={self.m}, atol={amp:.2g}, N={self.N_leapfrog}') 
 
                 axs[2].relim()
                 axs[2].autoscale_view()
@@ -734,7 +736,7 @@ class HmcSampler(object):
         Sf_fin = torch.einsum('br,br->b', psi.conj(), xi_t)
         torch.testing.assert_close(torch.imag(Sf_fin).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-3, rtol=1e-4)
         Sf_fin = torch.real(Sf_fin)
-        Sf_fin = 0
+        # Sf_fin = 0
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
         H_fin = Sf_fin + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
