@@ -31,11 +31,11 @@ class HmcSampler(object):
         self.bs = 1
 
         # Couplings
-        self.dtau = 0.5
+        self.dtau = 1
         scale = self.dtau
-        self.J = 4 / scale
+        self.J = 1 / scale
         self.K = 1 * scale
-        self.t = 1
+        self.t = 0.01
 
         self.boson = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
@@ -62,7 +62,7 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4 / scale
-        self.delta_t = 0.05 / scale
+        self.delta_t = 0.1 / scale
         # self.delta_t = 0.001
         # self.delta_t = 0.05
         # self.delta_t = 0.1
@@ -77,15 +77,16 @@ class HmcSampler(object):
         # 1st exp: t = 1, delta_t = 0.05, N_leapfrog = 20
 
         # self.N_leapfrog = 15
-        self.N_leapfrog = 6
-        self.N_leapfrog = 15 * 6
         # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
+        self.N_leapfrog = 15
+        # self.N_leapfrog = 15 * 6
+
         # Debug
         torch.manual_seed(0)
-        self.debug_pde = True
+        self.debug_pde = False
 
         # Initialization
         self.reset()
@@ -345,6 +346,7 @@ class HmcSampler(object):
         k = torch.fft.fftfreq(L)
         assert k[0].item() == 0
 
+        # The unit is checked using `dtau * S_tau + dtau * p**2/(2m) + psi' (M'M)**(-1) psi`
         omega = torch.sqrt(1/self.m * 2 * (1 - torch.cos(k * 2*torch.pi)) / self.J / self.dtau**2).to(x0.device)
 
         # Evolve
@@ -601,6 +603,13 @@ class HmcSampler(object):
         Sb0 = self.action_boson_tau(x) + self.action_boson_plaq(x)
         H0 = Sf0 + Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
+        dt = self.delta_t
+
+        with torch.enable_grad():
+            x = x.clone().requires_grad_(True)
+            Sb_plaq = self.action_boson_plaq(x)
+            force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
+
         if self.debug_pde:
             print(f"Sb_tau={self.action_boson_tau(x)}")
             print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
@@ -610,42 +619,47 @@ class HmcSampler(object):
             # Initialize plot
             # plt.ion()  # Turn on interactive mode
             # fig, ax = plt.subplots()
-            fig, axs = plt.subplots(2, 1, figsize=(6, 8))  # Two rows, one column
+            fig, axs = plt.subplots(3, 1, figsize=(6, 8))  # Two rows, one column
 
             Hs = [H0[b_idx].item()]
             Ss = [(Sf0 + Sb0)[b_idx].item()] 
+            force_bs = [torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item()]
+            force_fs = [torch.linalg.norm(force_f.reshape(self.bs, -1), dim=1)[b_idx].item()]
             # Ss = [Sb0[b_idx].item()] 
 
-            # Setup for first subplot (Hs)
+            # Setup for 1st subplot (Hs)
             line_Hs, = axs[0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
             axs[0].set_ylabel('Hamiltonian (H)')
             axs[0].legend()
             axs[0].grid()
 
-            # Setup for second subplot (Ss)
+            # Setup for 2nd subplot (Ss)
             # axs[1].set_title('Real-Time Evolution of S_s')
             line_Ss, = axs[1].plot(Ss, marker='s', linestyle='-', color='r', label='S_s')
-            axs[1].set_xlabel('Leapfrog Step')
+            # axs[1].set_xlabel('Leapfrog Step')
             axs[1].set_ylabel('S_b')
             axs[1].legend()
             axs[1].grid()
+
+            # Setup for 3rd subplot (force)
+            # axs[1].set_title('Real-Time Evolution of S_s')
+            line_force_b, = axs[2].plot(force_bs, marker='s', linestyle='-', color='r', label='force_b')
+            line_force_f, = axs[2].plot(force_fs, marker='s', linestyle='-', color='b', label='force_f')
+            axs[2].set_xlabel('Leapfrog Step')
+            axs[2].set_ylabel('forces_norm')
+            axs[2].legend()
+            axs[2].grid()
     
         # Multi-scale Leapfrog
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
          
-        dt = self.delta_t
-
-        with torch.enable_grad():
-            x = x.clone().requires_grad_(True)
-            Sb_plaq = self.action_boson_plaq(x)
-            force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
 
         for leap in range(self.N_leapfrog):
 
             p = p + dt/2 * force_f
 
             # Update (p, x)
-            M = 2 
+            M = 5
             for _ in range(M):
                 p = p + force_b * dt/2/M
                 x, p = self.harmonic_tau(x, p, dt/M)
@@ -659,6 +673,7 @@ class HmcSampler(object):
 
 
             force_f, xi_t = self.force_f(psi, self.get_M(x), x)
+            # print(f'force_f_norm={torch.norm(force_f)}')
             p = p + dt/2 * force_f
 
             if self.debug_pde:
@@ -676,10 +691,14 @@ class HmcSampler(object):
                 # Hd, Sd = self.action((p + p_last)/2, x)  # Append new H value   
                 Hs.append(H_t[b_idx].item())
                 Ss.append((Sf + Sb_t)[b_idx].item())
+                force_bs.append(torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item())
+                force_fs.append(torch.norm(force_f.reshape(self.bs, -1), dim=1)[b_idx].item())
 
                 # Update data for both subplots
                 line_Hs.set_data(range(len(Hs)), Hs)
                 line_Ss.set_data(range(len(Ss)), Ss)
+                line_force_b.set_data(range(len(force_bs)), force_bs)
+                line_force_f.set_data(range(len(force_fs)), force_fs)
 
                 # Adjust limits dynamically
                 axs[0].relim()
@@ -691,6 +710,10 @@ class HmcSampler(object):
                 axs[1].autoscale_view()
                 amp = max(Ss) - min(Ss)
                 axs[1].set_title(f'dt={self.delta_t:.3f}, m={self.m}, amp={amp:.2g}, N={self.N_leapfrog}') 
+
+                axs[2].relim()
+                axs[2].autoscale_view()
+                axs[2].set_title(f'mean_force_b={sum(force_bs)/len(force_bs):.2g}, mean_force_f={sum(force_fs)/len(force_fs):.2g}') 
 
                 plt.pause(0.1)   # Small delay to update the plot
                 
@@ -923,7 +946,7 @@ class HmcSampler(object):
             self.cur_step += 1
             
             # plotting
-            if i % 50 == 0:
+            if i % 100 == 0:
                 self.total_monitoring()
                 plt.show(block=False)
                 plt.pause(0.1)  # Pause for 5 seconds
