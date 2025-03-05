@@ -31,8 +31,8 @@ class HmcSampler(object):
         self.bs = 1
 
         # Couplings
-        self.dtau = 0.05
-        self.J = 400
+        self.dtau = 0.5
+        self.J = 4
         self.K = 1
         self.t = 1
 
@@ -61,8 +61,8 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4
-        self.delta_t = 0.01
-        self.delta_t = 0.001
+        self.delta_t = 0.05
+        # self.delta_t = 0.001
         # self.delta_t = 0.05
         # self.delta_t = 0.1
         # self.delta_t = 0.4
@@ -77,7 +77,7 @@ class HmcSampler(object):
 
         # self.N_leapfrog = 15
         self.N_leapfrog = 6
-        # self.N_leapfrog = 15 * 6
+        self.N_leapfrog = 15 * 6
         # Fixing the total number of leapfrog step, then the larger delta_t, the longer time the Hamiltonian dynamic will reach, the less correlated is the proposed config to the initial config, where the correlation is in the sense that, in the small delta_t limit, almost all accpeted and p being stochastic, then the larger the total_t, the less autocorrelation. But larger delta_t increases the error amp and decreases the acceptance rate.
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
@@ -206,7 +206,7 @@ class HmcSampler(object):
 
         :return: None
         """
-        boson_new, energies_old, energies_new = self.leapfrog_proposer3()
+        boson_new, energies_old, energies_new = self.leapfrog_proposer4_qed_comp()
         Sf_new, Sb_new, H_new = energies_new
         Sf_old, Sb_old, H_old = energies_old
         print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
