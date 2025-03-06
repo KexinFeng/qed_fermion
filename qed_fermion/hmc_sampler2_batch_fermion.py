@@ -29,16 +29,16 @@ class HmcSampler(object):
         # Dims
         self.Lx = 6
         self.Ly = 6
-        self.Ltau = 30
+        self.Ltau = 20
         self.bs = 1
 
         # Couplings
-        J = 40
+        J = 20
         self.dtau = 1/J
         scale = self.dtau
         self.J = J / scale
-        self.K = 0.1 * scale
-        self.t = 1
+        self.K = 1 * scale
+        self.t = 0.5
 
         # t * dtau < const
         # fix t, increase J
@@ -72,7 +72,7 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4 / scale
-        self.delta_t = min(0.05 / scale, 0.4)
+        self.delta_t = min(0.05 / scale, 0.2)
         print(f"delta_t = {self.delta_t}")
         # self.delta_t = 0.001
         # self.delta_t = 0.05
@@ -93,7 +93,6 @@ class HmcSampler(object):
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
         self.N_leapfrog = 15
-        self.N_leapfrog = 8
         # self.N_leapfrog = 15 * 40
 
         # Debug
