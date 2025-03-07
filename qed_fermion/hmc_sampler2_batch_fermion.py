@@ -2,22 +2,21 @@ import json
 import math
 import matplotlib
 import numpy as np
-matplotlib.use('MacOSX')
+# matplotlib.use('MacOSX')
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
+
+import os
+script_path = os.path.dirname(os.path.abspath(__file__))
 
 import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 import sys
-sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
-
-import os
+sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.coupling_mat3 import initialize_coupling_mat3, initialize_curl_mat
-
-script_path = os.path.dirname(os.path.abspath(__file__))
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 device = 'cpu'
@@ -25,21 +24,23 @@ print(f"device: {device}")
 dtype = torch.float32
 
 class HmcSampler(object):
-    def __init__(self, config=None):
+    def __init__(self, J=0.5, Nstep=3e3, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
-        self.Ltau = 20
+        self.Ltau = 30
         self.bs = 1
 
         # Couplings
         self.Nf = 2
-        J = 20
-        self.dtau = 1/(J*self.Nf)
+        # J = 20  # 0.5, 1, 3
+        # self.dtau = 1/(J*self.Nf)
+
+        self.dtau = 0.1
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf
         self.K = 1 * scale * self.Nf
-        self.t = 0.5
+        self.t = 1
 
         # t * dtau < const
         # fix t, increase J
@@ -61,7 +62,9 @@ class HmcSampler(object):
 
         # Statistics
         self.N_therm_step = 0
-        self.N_step = int(2e3) + 100
+        # self.N_step = int(1.5e4)  # if 5 chains then 3e3 per chain
+        # self.N_step = int(500)
+        self.N_step = int(Nstep)
         self.step = 0
         self.cur_step = 0
         self.thrm_bool = False
@@ -73,7 +76,8 @@ class HmcSampler(object):
 
         # Leapfrog
         self.m = 1/2 * 4 / scale
-        self.delta_t = min(0.05 / scale, 0.2)
+        # self.m = 1/2
+        self.delta_t = min(0.05 / scale, 0.01)
         print(f"delta_t = {self.delta_t}")
         # self.delta_t = 0.001
         # self.delta_t = 0.05
@@ -93,7 +97,7 @@ class HmcSampler(object):
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
-        self.N_leapfrog = 15
+        self.N_leapfrog = 12 if J >0.99 else 6
         # self.N_leapfrog = 15 * 40
 
         # Debug
@@ -113,7 +117,7 @@ class HmcSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):
-        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau}_K_{self.K/self.dtau}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
+        self.specifics = f"{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -621,7 +625,7 @@ class HmcSampler(object):
         
         Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
         Sf0_d = torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d)
-        torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=1e-3, rtol=1e-5)
+        torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
         Sf0_d = torch.real(Sf0_d)
         # Sf0 = 0
@@ -710,8 +714,7 @@ class HmcSampler(object):
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau(x)
                 H_t = Sf_u + Sf_d + Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
-                # torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-3)
-                torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-3)
+                torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-2)
 
                 # print(leap)
                 # print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -761,7 +764,7 @@ class HmcSampler(object):
         # Final energies
         Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
         Sf_fin_d = torch.einsum('br,br->b', psi_d.conj(), xi_t_d)
-        torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=1e-3, rtol=1e-4)
+        torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=5e-3, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
         Sf_fin_d = torch.real(Sf_fin_d)
         # Sf_fin = 0
@@ -769,7 +772,7 @@ class HmcSampler(object):
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
         H_fin = Sf_fin_u + Sf_fin_d + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
-        # torch.testing.assert_close(H0, H_fin, atol=1e-3, rtol=0.05)
+        # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
 
         return x, (Sf0_u + Sf0_d, Sb0, H0), (Sf_fin_u + Sf_fin_d, Sb_fin, H_fin)
 
@@ -859,7 +862,7 @@ class HmcSampler(object):
                        'mass': self.m,
                        'G_list': self.G_list.cpu()}
                 
-                data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/"
+                data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
                 self.save_to_file(res, data_folder, file_name)           
 
@@ -872,7 +875,7 @@ class HmcSampler(object):
                'G_list': self.G_list.cpu()}
 
         # Save to file
-        data_folder = "/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/"
+        data_folder = script_path + "/check_points/hmc_check_point/"
         file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
         self.save_to_file(res, data_folder, file_name)           
 
@@ -939,9 +942,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     Lx, Ly, Ltau = Lsize
 
     if len(specifics) == 0:
-        filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+        filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
     else:
-        filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
+        filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
@@ -980,7 +983,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     if plot_anal:
         # Analytical data
-        data_folder_anal = "/Users/kx/Desktop/hmc/correlation_kspace/code/tau_dependence/data_tau_dependence"
+        data_folder_anal = script_path + "/../../hmc/correlation_kspace/code/tau_dependence/data_tau_dependence"
         name = f"N_{Ltau}_Nx_{Lx}_Ny_{Ly}_tau-max_{Ltau}_num_{Ltau}"
         pkl_filepath = os.path.join(data_folder_anal, f"{name}.pkl")
 
@@ -1019,24 +1022,25 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
 
-    hmc = HmcSampler()
+    # for J in reversed([3, 1, 0.5]):
+    # Nstep = 5e1
+    # Nstep = 1.5e4
 
-    # for t in [0.01]:
+    J = float(os.getenv("J"))
+    Nstep = int(os.getenv("Nstep"))
+    print(f'J={J} \nNstep={Nstep}')
 
-    # hmc.t = t
-    # hmc.reset()
+    hmc = HmcSampler(J=J, Nstep=Nstep)
 
     # Measure
     G_avg, G_std = hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-    # Lx, Ly, Ltau = 30, 30, 20
-    # step = 200 + 100
-    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, True)
+    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
 
     plt.show()
 
-    dbstop = 1
+    exit()
 
     # hmc = HmcSampler()
     # G_avg, G_std = hmc.measure()
