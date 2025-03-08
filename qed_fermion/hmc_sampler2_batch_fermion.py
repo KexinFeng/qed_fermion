@@ -97,7 +97,8 @@ class HmcSampler(object):
 
         # Increasing m, say by 4, the sigma(p) increases by 2. omega = sqrt(k/m) slows down by 2 [cos(wt) ~ 1 - 1/2 * k/m * t^2]. The S amplitude is not affected (since it's decided by initial cond.), but somehow H amplitude decreases by 4, similar to omega^2 decreases by 4. 
 
-        self.N_leapfrog = 12 if J >0.99 else 6
+        # self.N_leapfrog = 12 if J >0.99 else 6
+        self.N_leapfrog = 6
         # self.N_leapfrog = 15 * 40
 
         # Debug
@@ -820,8 +821,8 @@ class HmcSampler(object):
 
         :return: G_avg, G_std
         """
-        # self.initialize_boson_staggered_pi()
-        self.initialize_boson()
+        self.initialize_boson_staggered_pi()
+        # self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
 
         # # Thermalize
