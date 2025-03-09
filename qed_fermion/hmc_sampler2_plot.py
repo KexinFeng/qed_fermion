@@ -28,9 +28,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     Lx, Ly, Ltau = Lsize
 
     if len(specifics) == 0:
-        filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+        filename = script_path + f"/check_points/hmc_check_point_cmp/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
     else:
-        filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
+        filename = script_path + f"/check_points/hmc_check_point_cmp/ckpt_N_{specifics}_step_{step}.pt"
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
@@ -46,7 +46,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     # Parse specifics
     parts = specifics.split('_')
     jtau_index = parts.index('Jtau')  # Find position of 'Jtau'
-    jtau_value = float(parts[jtau_index + 1])  # Get the next element
+    jtau_value = float(parts[jtau_index + 1]) * 4  # Get the next element
     
     # ======== Plot ======== #
     plt.figure()
@@ -129,7 +129,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     # --------- save_plot ---------
     class_name = __file__.split('/')[-1].replace('.py', '')
-    method_name = "greens_loglog"
+    method_name = "greens_log"
     save_dir = os.path.join(script_path, f"./figures/figure_{class_name}")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
@@ -147,13 +147,12 @@ if __name__ == '__main__':
         print(f'J={J} \nNstep={Nstep}')
 
         hmc = HmcSampler(J=J, Nstep=Nstep)
-        hmc.N_leapfrog = 12 if J > 0.99 else 6
         hmc.reset()
         
-        step = 7401
+        step = 8000
         # Measure
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-        load_visualize_final_greens_loglog((Lx, Ly, Ltau), step=step, specifics=hmc.specifics, plot_anal=False, plot_dqmc=True, start=2000, sample_step=1)
+        load_visualize_final_greens_loglog((Lx, Ly, Ltau), step=step, specifics=hmc.get_specifics(), plot_anal=False, plot_dqmc=True, start=2000, sample_step=1)
 
         plt.show(block=False)
 
