@@ -1,8 +1,12 @@
 import json
 import math
-import matplotlib
 import numpy as np
-# matplotlib.use('MacOSX')
+
+import matplotlib
+matplotlib.use('MacOSX')
+
+import matplotlib.pyplot as plt
+plt.ion()
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
@@ -24,7 +28,7 @@ print(f"device: {device}")
 dtype = torch.float32
 
 class HmcSampler(object):
-    def __init__(self, J=0.5, Nstep=3e3, config=None):
+    def __init__(self, J=0.5, Nstep=8e3, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
@@ -50,6 +54,7 @@ class HmcSampler(object):
         # J,t = (40, 1) 40:   Ff=4, Fb=1, delta_t=2
 
         self.boson = None
+        self.boson_energy = None
         # self.A = initialize_coupling_mat3(self.Lx, self.Ly, self.Ltau, self.J, self.dtau, self.K)[0]
         # self.initialize_curl_mat()
 
@@ -74,12 +79,15 @@ class HmcSampler(object):
         # Leapfrog
         self.m = 1/2 * 4 / scale
         # self.m = 1/2
-        self.delta_t = min(0.05 / scale, 0.01)
+        # self.delta_t = min(0.05 / scale, 0.01)
+        self.delta_t = 0.02
         print(f"delta_t = {self.delta_t}")
 
         # self.N_leapfrog = 12 if J >0.99 else 6
         self.N_leapfrog = 6
         # self.N_leapfrog = 15 * 40
+        
+        self.w = 0.08 * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -101,7 +109,7 @@ class HmcSampler(object):
         self.specifics = f"cmp_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
     
     def get_specifics(self):
-        return f"cmp_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
+        return f"cmp_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{self.N_leapfrog}_dt_{self.delta_t}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -138,7 +146,7 @@ class HmcSampler(object):
         self.boson_idx_list_4 = self.i_list_4 * 2 + 1
 
         # Buffer
-        self.M = torch.eye(Vs*self.Ltau, device=device, dtype=torch.complex64)
+        # self.M = torch.eye(Vs*self.Ltau, device=device, dtype=torch.complex64)
 
     def get_dB(self):
         Vs = self.Lx * self.Ly
@@ -164,6 +172,7 @@ class HmcSampler(object):
         # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
 
         self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.5, 1, self.bs, device=device)
+
 
     def initialize_boson_staggered_pi(self):
         """
@@ -200,6 +209,43 @@ class HmcSampler(object):
         """
         return -torch.einsum('ijklmnop,bmnop->bijkl', self.A, x)
 
+
+    def local_u1_proposer(self):
+        """
+        boson: [bs, 2, Lx, Ly, Ltau]
+
+        return boson_new, H_old, H_new
+        """
+        boson_new = self.boson.clone()
+
+        win_size = self.w
+
+        # Select tau index based on the current step
+        idx_x, idx_y, idx_tau = torch.unravel_index(torch.tensor([self.step], device=boson_new.device), (self.Lx, self.Ly, self.Ltau))
+
+        delta = (torch.rand_like(boson_new[..., idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
+        boson_new[..., idx_x, idx_y, idx_tau] += delta
+
+        # return boson_new, (idx_x, idx_y, idx_tau)
+
+        # Compute new energy
+        Sb = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
+        detM = self.get_detM(boson_new)
+        boson_energy_new = Sb + self.Nf * torch.log(torch.abs(detM))
+
+        # Metropolis_update
+        accp = torch.rand(self.bs, device=device) < torch.exp(self.boson_energy - boson_energy_new)
+        print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
+        print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
+
+        print(f'Accp?: {accp.item()}')
+        self.boson[accp] = boson_new[accp]
+        energies_old = self.boson_energy.clone(), 0
+        self.boson_energy[accp] = boson_energy_new[accp]
+        
+        return self.boson, accp, energies_old, (self.boson_energy, 0)
+
+
     def metropolis_update(self):
         """
         Perform one step of metropolis update. Update self.boson.
@@ -209,8 +255,8 @@ class HmcSampler(object):
         :return: None
         """
         boson_new, energies_old, energies_new = self.leapfrog_proposer4_cmptau()
-        Sf_new, Sb_new, H_new = energies_new
-        Sf_old, Sb_old, H_old = energies_old
+        S_new, H_new = energies_new
+        S_old, H_old = energies_old
         print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
         print(f"threshold: {torch.exp(H_old - H_new).item()}")
 
@@ -520,6 +566,60 @@ class HmcSampler(object):
         return xi_t
     
 
+    def get_detM(self, boson):
+        """
+        boson: [bs, 2, Lx, Ly, Ltau]
+        B = e^V4/2 ... e^V1/2 e^V1/2 ... e^V4/2
+        return |I + BLtau B_Ltau-1 ... B1|
+        """
+        assert boson.size(0) == 1
+        boson = boson.squeeze(0)
+
+        Vs = self.Lx * self.Ly
+        dtau = self.dtau
+        t = self.t
+        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+
+        prodB = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
+        for tau in reversed(range(self.Ltau)):
+            dB1 = self.get_dB1()
+            dB1[self.i_list_1, self.j_list_1] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            dB1[self.j_list_1, self.i_list_1] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            B = dB1
+            self.B1 = dB1
+
+            dB = self.get_dB()
+            dB[self.i_list_2, self.j_list_2] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            dB[self.j_list_2, self.i_list_2] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            B = dB @ B @ dB
+            self.B2 = dB
+
+            dB = self.get_dB()
+            dB[self.i_list_3, self.j_list_3] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            dB[self.j_list_3, self.i_list_3] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            B = dB @ B @ dB
+            self.B3 = dB
+
+            dB = self.get_dB()
+            dB[self.i_list_4, self.j_list_4] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            dB[self.j_list_4, self.i_list_4] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            B = dB @ B @ dB
+            self.B4 = dB   
+
+            prodB = prodB @ B
+
+        I = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
+        return torch.det(I + prodB)
+
+
     def get_M(self, boson):
         """
         boson: [bs, 2, Lx, Ly, Ltau]
@@ -532,6 +632,7 @@ class HmcSampler(object):
         t = self.t
         boson = boson.permute([3, 2, 1, 0]).reshape(-1)
 
+        M = torch.eye(Vs*self.Ltau, device=boson.device, dtype=torch.complex64)
         for tau in range(self.Ltau):
             dB1 = self.get_dB1()
             dB1[self.i_list_1, self.j_list_1] = \
@@ -570,11 +671,11 @@ class HmcSampler(object):
                 row_end = Vs * (tau + 2)
                 col_start = Vs * tau
                 col_end = Vs * (tau + 1)
-                self.M[row_start:row_end, col_start:col_end] = -B
+                M[row_start:row_end, col_start:col_end] = -B
             else:
-                self.M[:Vs, Vs*tau:] = B
+                M[:Vs, Vs*tau:] = B
 
-        return self.M
+        return M
 
 
     def leapfrog_proposer3(self):
@@ -812,8 +913,7 @@ class HmcSampler(object):
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
         Sf0_d = torch.real(Sf0_d)
-        # Sf0 = 0
-        
+
         assert x.grad is None
 
         Sb0 = self.action_boson_tau_cmp(x) + self.action_boson_plaq(x)
@@ -874,7 +974,6 @@ class HmcSampler(object):
 
         # Multi-scale Leapfrog
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
-
 
         for leap in range(self.N_leapfrog):
 
@@ -964,14 +1063,13 @@ class HmcSampler(object):
         torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=5e-3, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
         Sf_fin_d = torch.real(Sf_fin_d)
-        # Sf_fin = 0
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
         H_fin = Sf_fin_u + Sf_fin_d + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
 
-        return x, (Sf0_u + Sf0_d, Sb0, H0), (Sf_fin_u + Sf_fin_d, Sb_fin, H_fin)
+        return x, (Sf0_u + Sf0_d + Sb0, H0), (Sf_fin_u + Sf_fin_d + Sb_fin, H_fin)
 
 
     def action_boson(self, boson):
@@ -1016,36 +1114,33 @@ class HmcSampler(object):
 
         :return: G_avg, G_std
         """
+        # Initialization
         self.initialize_boson_staggered_pi()
         # self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
+    
+        # Sb = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
+        # detM = self.get_detM(self.boson)
+        # self.boson_energy = Sb + 2 * torch.log(torch.real(detM))
 
-        # # Thermalize
-        # self.thrm_bool = True
-        # boson = None
-        # for i in range(self.N_therm_step):
-        #     boson, accp, H, S = self.metropolis_update()
-        #     self.H_list[i] = H
-        #     self.S_list[i] = S
-        # self.G_list[-1] = self.curl_greens_function_batch(boson)
-
+        # Measure
         plt.figure()
         # Take sample
         self.thrm_bool = False
         for i in tqdm(range(self.N_step)):
             boson, accp, energies_old, energies_new = self.metropolis_update()
-            Sf0, Sb0, H0 = energies_old
-            Sf_fin, Sb_fin, H_fin = energies_new
+            S0, H0 = energies_old
+            S_fin, H_fin = energies_new
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
             self.G_list[i] = accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-            self.S_list[i] = torch.where(accp, Sb_fin+Sf_fin, Sb0+Sf0)
+            self.S_list[i] = torch.where(accp, S_fin, S0)
 
             self.step += 1
             self.cur_step += 1
             
             # plotting
-            if i % 100 == 0:
+            if i % 50 == 0:
                 self.total_monitoring()
                 plt.show(block=False)
                 plt.pause(0.1)  # Pause for 5 seconds
@@ -1218,12 +1313,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
 
-    # for J in reversed([3, 1, 0.5]):
-    # Nstep = 5e1
-    # Nstep = 1.5e4
-
-    J = float(os.getenv("J"))
-    Nstep = int(os.getenv("Nstep"))
+    J = float(os.getenv("J", '0.5'))
+    Nstep = int(os.getenv("Nstep", '1000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = HmcSampler(J=J, Nstep=Nstep)
