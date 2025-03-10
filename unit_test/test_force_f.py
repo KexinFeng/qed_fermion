@@ -24,8 +24,8 @@ def test_force_f():
     R = hmc.draw_psudo_fermion()
     psi = torch.einsum('rs,bs->br', M.T.conj(), R)
 
-    force_f, _ = hmc.force_f(psi, M, boson)
-    force_f.unsqueeze_(0)
+    force_fs, _ = hmc.force_f([psi], M, boson)
+    force_fs[0].unsqueeze_(0)
 
     with torch.inference_mode(False):
         boson = boson.clone().requires_grad_(True)
@@ -38,10 +38,10 @@ def test_force_f():
         Sf = torch.real(Sf)
         force_f_auto = -torch.autograd.grad(Sf, boson, create_graph=False)[0]
     
-    print(force_f.permute([0, 4, 3, 2, 1]).view(-1))
+    print(force_fs[0].permute([0, 4, 3, 2, 1]).view(-1))
     print(force_f_auto.permute([0, 4, 3, 2, 1]).view(-1))
 
-    torch.testing.assert_close(clear_mat(force_f), clear_mat(force_f_auto))
+    torch.testing.assert_close(clear_mat(force_fs[0]), clear_mat(force_f_auto))
     # (y,0,0,0), (y,1,1,0), (y,0,0,1), (y,1,1,1)
     # (y,0), (y,3), (y,4), (y,7)
 
@@ -53,8 +53,8 @@ def test_force_f():
     R = hmc.draw_psudo_fermion()
     psi = torch.einsum('rs,bs->br', M.T.conj(), R)
 
-    force_f, _ = hmc.force_f(psi, M, boson)
-    force_f.unsqueeze_(0)
+    force_fs, _ = hmc.force_f([psi], M, boson)
+    force_fs[0].unsqueeze_(0)
 
     with torch.inference_mode(False):
         boson = boson.clone().requires_grad_(True)
@@ -67,10 +67,11 @@ def test_force_f():
         Sf = torch.real(Sf)
         force_f_auto = -torch.autograd.grad(Sf, boson, create_graph=False)[0]
     
-    print(force_f.permute([0, 4, 3, 2, 1]).view(-1))
+    print('--')
+    print(force_fs[0].permute([0, 4, 3, 2, 1]).view(-1))
     print(force_f_auto.permute([0, 4, 3, 2, 1]).view(-1))
 
-    torch.testing.assert_close(clear_mat(force_f), clear_mat(force_f_auto))
+    torch.testing.assert_close(clear_mat(force_fs[0]), clear_mat(force_f_auto))
 
             
 

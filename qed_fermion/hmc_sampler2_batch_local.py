@@ -162,7 +162,6 @@ class LocalUpdateSampler(object):
 
         self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.5, 1, self.bs, device=device)
 
-
     def initialize_boson_staggered_pi(self):
         """
         Corresponding to self.i_list_1, i.e. the group_1 sites, the corresponding plaquettes have the right staggered pi pattern. This is directly obtainable from self.curl_mat
@@ -195,6 +194,8 @@ class LocalUpdateSampler(object):
         # Compute new energy
         Sb = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
         detM = self.get_detM(boson_new)
+        detM_np = self.get_detM_np(boson_new)
+
         boson_energy_new = Sb + self.Nf * torch.log(torch.abs(detM))
 
         # Metropolis_update
@@ -288,6 +289,63 @@ class LocalUpdateSampler(object):
         # torch.eye(3) = 1/L * F.conj().T @ F
         return coeff * (xk.abs()**2 * lmd).sum(dim=(1, 2, 3, 4)) / L
 
+    def get_detM_np(self, boson):
+        """
+        boson: [bs, 2, Lx, Ly, Ltau]
+        B = e^V4/2 ... e^V1/2 e^V1/2 ... e^V4/2
+        return |I + BLtau B_Ltau-1 ... B1|
+        """
+        assert boson.size(0) == 1
+        boson = boson.squeeze(0)
+
+        Vs = self.Lx * self.Ly
+        dtau = self.dtau
+        t = self.t
+        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+        
+        prodB = np.eye(Vs, dtype=np.complex64)
+        for tau in reversed(range(self.Ltau)):
+            dB1 = self.get_dB1()
+            dB1[self.i_list_1, self.j_list_1] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            dB1[self.j_list_1, self.i_list_1] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            dB1 = dB1.numpy()
+            B = dB1
+            # self.B1 = dB1
+
+            dB = self.get_dB()
+            dB[self.i_list_2, self.j_list_2] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            dB[self.j_list_2, self.i_list_2] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            dB = dB.numpy()
+            B = dB @ B @ dB
+            # self.B2 = dB
+
+            dB = self.get_dB()
+            dB[self.i_list_3, self.j_list_3] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            dB[self.j_list_3, self.i_list_3] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            dB = dB.numpy()
+            B = dB @ B @ dB
+            # self.B3 = dB
+
+            dB = self.get_dB()
+            dB[self.i_list_4, self.j_list_4] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            dB[self.j_list_4, self.i_list_4] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            dB = dB.numpy()
+            B = dB @ B @ dB
+            # self.B4 = dB   
+
+            prodB = prodB @ B
+
+        I = torch.eye(Vs, device=boson.device, dtype=torch.complex64).numpy()
+        return np.linalg.det(I + prodB)
+
 
     def get_detM(self, boson):
         """
@@ -311,7 +369,7 @@ class LocalUpdateSampler(object):
             dB1[self.j_list_1, self.i_list_1] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
             B = dB1
-            self.B1 = dB1
+            # self.B1 = dB1
 
             dB = self.get_dB()
             dB[self.i_list_2, self.j_list_2] = \
@@ -319,7 +377,7 @@ class LocalUpdateSampler(object):
             dB[self.j_list_2, self.i_list_2] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B2 = dB
+            # self.B2 = dB
 
             dB = self.get_dB()
             dB[self.i_list_3, self.j_list_3] = \
@@ -327,7 +385,7 @@ class LocalUpdateSampler(object):
             dB[self.j_list_3, self.i_list_3] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B3 = dB
+            # self.B3 = dB
 
             dB = self.get_dB()
             dB[self.i_list_4, self.j_list_4] = \
@@ -335,7 +393,7 @@ class LocalUpdateSampler(object):
             dB[self.j_list_4, self.i_list_4] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B4 = dB   
+            # self.B4 = dB   
 
             prodB = prodB @ B
 
@@ -449,6 +507,7 @@ class LocalUpdateSampler(object):
     
         Sb = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
         detM = self.get_detM(self.boson)
+        detM_np = self.get_detM_np(self.boson)
         self.boson_energy = Sb + 2 * torch.log(torch.real(detM))
 
         # Measure
