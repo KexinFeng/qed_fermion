@@ -28,7 +28,7 @@ print(f"device: {device}")
 dtype = torch.float32
 
 class HmcSampler(object):
-    def __init__(self, J=0.5, Nstep=8e3, config=None):
+    def __init__(self, J=0.5, Nstep=3e3, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
@@ -86,8 +86,6 @@ class HmcSampler(object):
         # self.N_leapfrog = 12 if J >0.99 else 6
         self.N_leapfrog = 6
         # self.N_leapfrog = 15 * 40
-        
-        self.w = 0.08 * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -101,6 +99,17 @@ class HmcSampler(object):
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_staggered_pi()
+
+    # def load_checkpoint(self, step):
+    #     res = {'boson': boson,
+    #             'step': self.step,
+    #             'mass': self.m,
+    #             'G_list': self.G_list.cpu()}
+        
+    #     data_folder = script_path + "/check_points/hmc_check_point/"
+    #     self.step = step
+    #     file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
+    #     self.save_to_file(res, data_folder, file_name)        
 
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
@@ -208,42 +217,6 @@ class HmcSampler(object):
         :return: evaluation of the force at given x.
         """
         return -torch.einsum('ijklmnop,bmnop->bijkl', self.A, x)
-
-
-    def local_u1_proposer(self):
-        """
-        boson: [bs, 2, Lx, Ly, Ltau]
-
-        return boson_new, H_old, H_new
-        """
-        boson_new = self.boson.clone()
-
-        win_size = self.w
-
-        # Select tau index based on the current step
-        idx_x, idx_y, idx_tau = torch.unravel_index(torch.tensor([self.step], device=boson_new.device), (self.Lx, self.Ly, self.Ltau))
-
-        delta = (torch.rand_like(boson_new[..., idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
-        boson_new[..., idx_x, idx_y, idx_tau] += delta
-
-        # return boson_new, (idx_x, idx_y, idx_tau)
-
-        # Compute new energy
-        Sb = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
-        detM = self.get_detM(boson_new)
-        boson_energy_new = Sb + self.Nf * torch.log(torch.abs(detM))
-
-        # Metropolis_update
-        accp = torch.rand(self.bs, device=device) < torch.exp(self.boson_energy - boson_energy_new)
-        print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
-        print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
-
-        print(f'Accp?: {accp.item()}')
-        self.boson[accp] = boson_new[accp]
-        energies_old = self.boson_energy.clone(), 0
-        self.boson_energy[accp] = boson_energy_new[accp]
-        
-        return self.boson, accp, energies_old, (self.boson_energy, 0)
 
 
     def metropolis_update(self):
@@ -434,7 +407,7 @@ class HmcSampler(object):
         res += xi_lft[j_list] * xi_rgt[i_list] * v.conj()
         return res
 
-    def force_f(self, psis, Mt, boson, xi_init=None):
+    def force_f(self, psis, Mt, boson, B_list):
         """
         Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
 
@@ -458,6 +431,10 @@ class HmcSampler(object):
         F_ts = []
         xi_ts = []
 
+        B1_list = B_list[0]
+        B2_list = B_list[1]
+        B3_list = B_list[2]
+        B4_list = B_list[3]
         for psi in psis:
             xi_t = Ot_inv @ psi
 
@@ -472,33 +449,34 @@ class HmcSampler(object):
                 xi_c = xi_t[tau].view(-1, 1)  # c: current
                 xi_n = xi_t[(tau + 1) % Ltau].view(-1, 1)  # n: next
                 B_xi = xi_c
-                for mat_B in reversed([self.B4, self.B3, self.B2, self.B1, self.B2, self.B3, self.B4]):
+                mat_Bs = [B4_list[tau], B3_list[tau], B2_list[tau], B1_list[tau], B2_list[tau], B3_list[tau], B4_list[tau]]
+                for mat_B in mat_Bs:
                     B_xi = mat_B @ B_xi
                 B_xi = B_xi.T.conj()
 
                 xi_n_lft_5 = xi_n.T.conj().view(-1)
-                xi_n_lft_4 = (xi_n_lft_5 @ self.B4).view(-1)
-                xi_n_lft_3 = (xi_n_lft_4 @ self.B3).view(-1)
-                xi_n_lft_2 = (xi_n_lft_3 @ self.B2).view(-1)
-                xi_n_lft_1 = (xi_n_lft_2 @ self.B1).view(-1)
-                xi_n_lft_0 = (xi_n_lft_1 @ self.B2).view(-1)
-                xi_n_lft_m1 = (xi_n_lft_0 @ self.B3).view(-1)
+                xi_n_lft_4 = (xi_n_lft_5 @ B4_list[tau]).view(-1)
+                xi_n_lft_3 = (xi_n_lft_4 @ B3_list[tau]).view(-1)
+                xi_n_lft_2 = (xi_n_lft_3 @ B2_list[tau]).view(-1)
+                xi_n_lft_1 = (xi_n_lft_2 @ B1_list[tau]).view(-1)
+                xi_n_lft_0 = (xi_n_lft_1 @ B2_list[tau]).view(-1)
+                xi_n_lft_m1 = (xi_n_lft_0 @ B3_list[tau]).view(-1)
 
                 xi_c_rgt_5 = xi_c.view(-1)
-                xi_c_rgt_4 = (self.B4 @ xi_c_rgt_5).view(-1)
-                xi_c_rgt_3 = (self.B3 @ xi_c_rgt_4).view(-1)
-                xi_c_rgt_2 = (self.B2 @ xi_c_rgt_3).view(-1)
-                xi_c_rgt_1 = (self.B1 @ xi_c_rgt_2).view(-1)
-                xi_c_rgt_0 = (self.B2 @ xi_c_rgt_1).view(-1)
-                xi_c_rgt_m1 = (self.B3 @ xi_c_rgt_0).view(-1)
+                xi_c_rgt_4 = (B4_list[tau] @ xi_c_rgt_5).view(-1)
+                xi_c_rgt_3 = (B3_list[tau] @ xi_c_rgt_4).view(-1)
+                xi_c_rgt_2 = (B2_list[tau] @ xi_c_rgt_3).view(-1)
+                xi_c_rgt_1 = (B1_list[tau] @ xi_c_rgt_2).view(-1)
+                xi_c_rgt_0 = (B2_list[tau] @ xi_c_rgt_1).view(-1)
+                xi_c_rgt_m1 = (B3_list[tau] @ xi_c_rgt_0).view(-1)
 
                 B_xi_5 = B_xi.view(-1)
-                B_xi_4 = (B_xi_5 @ self.B4).view(-1)
-                B_xi_3 = (B_xi_4 @ self.B3).view(-1)
-                B_xi_2 = (B_xi_3 @ self.B2).view(-1)
-                B_xi_1 = (B_xi_2 @ self.B1).view(-1)
-                B_xi_0 = (B_xi_1 @ self.B2).view(-1)
-                B_xi_m1 = (B_xi_0 @ self.B3).view(-1)
+                B_xi_4 = (B_xi_5 @ B4_list[tau]).view(-1)
+                B_xi_3 = (B_xi_4 @ B3_list[tau]).view(-1)
+                B_xi_2 = (B_xi_3 @ B2_list[tau]).view(-1)
+                B_xi_1 = (B_xi_2 @ B1_list[tau]).view(-1)
+                B_xi_0 = (B_xi_1 @ B2_list[tau]).view(-1)
+                B_xi_m1 = (B_xi_0 @ B3_list[tau]).view(-1)
 
                 # Find force
                 # F = real((BXi)' dB Xi') * 2 + real(X'j dB Xi) * 2
@@ -511,7 +489,6 @@ class HmcSampler(object):
                 + self.df_dot(boson_list, B_xi_2, xi_c_rgt_2, self.i_list_1, self.j_list_1, is_group_1=True)
                 )
 
-                # Issue here
                 boson_list = boson[2*Vs*tau + self.boson_idx_list_2]
                 Ft[tau, self.boson_idx_list_2] = 2 * torch.real(\
                 self.df_dot(boson_list, xi_n_lft_3, xi_c_rgt_1, self.i_list_2, self.j_list_2) * sign_B
@@ -633,6 +610,10 @@ class HmcSampler(object):
         boson = boson.permute([3, 2, 1, 0]).reshape(-1)
 
         M = torch.eye(Vs*self.Ltau, device=boson.device, dtype=torch.complex64)
+        B1_list = []
+        B2_list = []
+        B3_list = []
+        B4_list = []
         for tau in range(self.Ltau):
             dB1 = self.get_dB1()
             dB1[self.i_list_1, self.j_list_1] = \
@@ -640,7 +621,7 @@ class HmcSampler(object):
             dB1[self.j_list_1, self.i_list_1] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
             B = dB1
-            self.B1 = dB1
+            B1_list.append(dB1)
 
             dB = self.get_dB()
             dB[self.i_list_2, self.j_list_2] = \
@@ -648,7 +629,7 @@ class HmcSampler(object):
             dB[self.j_list_2, self.i_list_2] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B2 = dB
+            B2_list.append(dB)
 
             dB = self.get_dB()
             dB[self.i_list_3, self.j_list_3] = \
@@ -656,7 +637,7 @@ class HmcSampler(object):
             dB[self.j_list_3, self.i_list_3] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B3 = dB
+            B3_list.append(dB)
 
             dB = self.get_dB()
             dB[self.i_list_4, self.j_list_4] = \
@@ -664,7 +645,7 @@ class HmcSampler(object):
             dB[self.j_list_4, self.i_list_4] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B4 = dB
+            B4_list.append(dB)
 
             if tau < self.Ltau - 1:
                 row_start = Vs * (tau + 1)
@@ -675,7 +656,7 @@ class HmcSampler(object):
             else:
                 M[:Vs, Vs*tau:] = B
 
-        return M
+        return M, [B1_list, B2_list, B3_list, B4_list]
 
 
     def leapfrog_proposer3(self):
@@ -902,11 +883,11 @@ class HmcSampler(object):
 
         R_u = self.draw_psudo_fermion()
         R_d = self.draw_psudo_fermion()
-        M0 = self.get_M(x)
+        M0, B_list = self.get_M(x)
         psi_u = torch.einsum('rs,bs->br', M0.T.conj(), R_u)
         psi_d = torch.einsum('rs,bs->br', M0.T.conj(), R_d)
 
-        (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], M0, x)
+        (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], M0, x, B_list)
         
         Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
         Sf0_d = torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d)
@@ -1000,8 +981,8 @@ class HmcSampler(object):
 
                 p = p + (force_b + force_b_tau) * dt/2/M
 
-
-            (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], self.get_M(x), x)
+            Mt, B_list = self.get_M(x)
+            (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], Mt, x, B_list)
             p = p + dt/2 * (force_f_u + force_f_d)
 
             if self.debug_pde:
@@ -1317,8 +1298,9 @@ if __name__ == '__main__':
     Nstep = int(os.getenv("Nstep", '1000'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = HmcSampler(J=J, Nstep=Nstep)
-    # hmc = HmcSampler()
+    # hmc = HmcSampler(J=J, Nstep=Nstep)
+    hmc = HmcSampler()
+    hmc.step = 3000
 
     # Measure
     G_avg, G_std = hmc.measure()
@@ -1330,14 +1312,3 @@ if __name__ == '__main__':
 
     exit()
 
-    # hmc = HmcSampler()
-    # G_avg, G_std = hmc.measure()
-
-    # Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-    # # Lx, Ly, Ltau = 30, 30, 20
-    # # step = int(1e3) + 100
-    # load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, True)
-
-    # plt.show()
-
-    # dbstop = 1

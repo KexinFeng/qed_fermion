@@ -15,10 +15,10 @@ import sys
 sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.hmc_sampler2_batch_fermion import HmcSampler
+from qed_fermion.hmc_sampler2_batch_local import LocalUpdateSampler
 
 
-
-def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_update_filename='', specifics = '', step=1000001, start=500, sample_step=1):
+def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_update_filename='', specifics = '', starts=[500], ends=[1000001], sample_steps=[1], scale_it=[False]):
     """
     Visualize green functions with error bar
     """
@@ -27,10 +27,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
 
-    # start = 2000
-    end = step
-    # sample_step = 1
-    seq_idx = np.arange(start, end, sample_step)
+
     idx_ref = 5
 
     # Parse specifics
@@ -42,6 +39,11 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
     # ======== Plot ======== #
     plt.figure()
     if len(hmc_filename):
+        start = starts.pop(0)
+        end = ends.pop(0)
+        sample_step = sample_steps.pop(0)
+        seq_idx = np.arange(start, end, sample_step)
+
         res = torch.load(hmc_filename)
         print(f'Loaded: {hmc_filename}')
 
@@ -54,21 +56,22 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
         plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_hmc', color='blue', lw=2)
 
 
-    if len(dqmc_filename):
+    if len(dqmc_filename):   
         # name = f"l4b3js{jtau_value:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         data = np.genfromtxt(dqmc_filename)
         G_dqmc = np.concat([data[:, 0], data[:1, 0]])
         G_dqmc_err = np.concat([data[:, 1], data[:1, 1]])
         
-        # Scale G_mean_anal to match G_mean based on their first elements
-        # scale_factor = G_mean[idx_ref] / G_dqmc[idx_ref]
-        # G_dqmc *= scale_factor
+        if scale_it.pop(0):
+            ## Scale G_mean_anal to match G_mean based on their first elements
+            scale_factor = G_mean[idx_ref] / G_dqmc[idx_ref]
+            G_dqmc *= scale_factor
         
-        x = np.array(list(range(G_dqmc.size)))
-        plt.errorbar(x, G_dqmc, yerr=G_dqmc_err, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+        x_dqmc = np.array(list(range(G_dqmc.size)))
+        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
 
 
-    if len(local_update_filename):
+    if len(local_update_filename): 
         res = torch.load(local_update_filename)
         print(f'Loaded: {local_update_filename}')
 
@@ -76,17 +79,18 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
         step_local = res['step']
         x_local = np.array(list(range(G_list_local[0].size(-1))))
 
-        start_local = 2000
-        end_local = step_local
-        sample_step_local = 1
+        start_local = starts.pop(0)
+        end_local = ends.pop(0)
+        sample_step_local = sample_steps.pop(0)
         seq_idx_local = np.arange(start_local, end_local, sample_step_local)
 
         G_local_mean = G_list_local[seq_idx_local].numpy().mean(axis=(0, 1))
         G_local_std = G_list_local[seq_idx_local].numpy().std(axis=(0, 1))
 
-        scale_factor = G_dqmc[idx_ref] / G_local_mean[idx_ref] if len(dqmc_filename) else 1
-        scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
-        G_local_mean *= scale_factor
+        if scale_it.pop(0):
+            # scale_factor = G_dqmc[idx_ref] / G_local_mean[idx_ref] if len(dqmc_filename) else 1
+            scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
+            G_local_mean *= scale_factor
         
         plt.errorbar(x_local, G_local_mean, yerr=G_local_std/np.sqrt(seq_idx_local.size), linestyle='-', marker='o', label='G_local', color='green', lw=2)
 
@@ -146,29 +150,32 @@ if __name__ == '__main__':
     Js = [0.5, 1, 3]
     Js = [0.5]
     for J in Js:
-        Nstep = 10000
+        Nstep = 3000
         print(f'J={J} \nNstep={Nstep}')
 
         hmc = HmcSampler(J=J, Nstep=Nstep)
         hmc.Lx, hmc.Ly, hmc.Ltau = 6, 6, 10
-        hmc.delta_t = 0.02
-
+        # hmc.delta_t = 0.02
         hmc.reset()
+
+        lmc = LocalUpdateSampler(J=J, Nstep=1e4)
+        lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
+        lmc.reset()
 
         # File names
         step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point_update/ckpt_N_{hmc.specifics}_step_{step}.pt"
+        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
 
         dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
-        step = 10000
-        local_update_filename = script_path + f"/check_points/hmc_check_point_local2/ckpt_N_{hmc.specifics}_step_{step}.pt".replace(f'{Nstep}', '50000').replace('0.02', '0.01')
+        step_lmc = 110001
+        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Measure
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-        load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, '', local_update_filename, specifics=hmc.specifics, step=step, start=2000, sample_step=1)
+        load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, dqmc_filename, local_update_filename, specifics=hmc.specifics, starts=[1000, 10000], ends=[Nstep, step_lmc], sample_steps=[1, 500], scale_it=[False, False])
 
         plt.show(block=True)
 

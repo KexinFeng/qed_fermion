@@ -19,17 +19,17 @@ def test_force_f():
     # staggered boson
     hmc.initialize_boson_staggered_pi()
     boson = hmc.boson
-    M = hmc.get_M(boson)
+    M, B_list = hmc.get_M(boson)
 
     R = hmc.draw_psudo_fermion()
     psi = torch.einsum('rs,bs->br', M.T.conj(), R)
 
-    force_fs, _ = hmc.force_f([psi], M, boson)
+    force_fs, _ = hmc.force_f([psi], M, boson, B_list)
     force_fs[0].unsqueeze_(0)
 
     with torch.inference_mode(False):
         boson = boson.clone().requires_grad_(True)
-        M_auto = hmc.get_M(boson)
+        M_auto, _ = hmc.get_M(boson)
         Ot = M_auto.conj().T @ M_auto
         L = torch.linalg.cholesky(Ot)
         O_inv = torch.cholesky_inverse(L) 
@@ -42,23 +42,21 @@ def test_force_f():
     print(force_f_auto.permute([0, 4, 3, 2, 1]).view(-1))
 
     torch.testing.assert_close(clear_mat(force_fs[0]), clear_mat(force_f_auto))
-    # (y,0,0,0), (y,1,1,0), (y,0,0,1), (y,1,1,1)
-    # (y,0), (y,3), (y,4), (y,7)
 
     # random boson
     hmc.initialize_boson()
     boson = hmc.boson
-    M = hmc.get_M(boson)
+    M, B_list = hmc.get_M(boson)
 
     R = hmc.draw_psudo_fermion()
     psi = torch.einsum('rs,bs->br', M.T.conj(), R)
 
-    force_fs, _ = hmc.force_f([psi], M, boson)
+    force_fs, _ = hmc.force_f([psi], M, boson, B_list)
     force_fs[0].unsqueeze_(0)
 
     with torch.inference_mode(False):
         boson = boson.clone().requires_grad_(True)
-        M_auto = hmc.get_M(boson)
+        M_auto, _ = hmc.get_M(boson)
         Ot = M_auto.conj().T @ M_auto
         L = torch.linalg.cholesky(Ot)
         O_inv = torch.cholesky_inverse(L) 
