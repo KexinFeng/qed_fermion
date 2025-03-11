@@ -44,7 +44,7 @@ class HmcSampler(object):
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf / 4
         self.K = 1 * scale * self.Nf
-        self.t = 1
+        self.t = .01
 
         # t * dtau < const
         # fix t, increase J
@@ -896,7 +896,7 @@ class HmcSampler(object):
         assert x.grad is None
 
         Sb0 = self.action_boson_tau_cmp(x) + self.action_boson_plaq(x)
-        H0 = Sf0_u + Sf0_d + Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H0 = Sf0_u + Sf0_d + Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
         dt = self.delta_t
 
@@ -1310,7 +1310,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '50'))
+    Nstep = int(os.getenv("Nstep", '3000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = HmcSampler(J=J, Nstep=Nstep)

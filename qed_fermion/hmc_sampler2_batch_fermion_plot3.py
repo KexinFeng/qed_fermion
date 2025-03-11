@@ -164,8 +164,8 @@ def load_energy_perJ(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', loca
         res = torch.load(hmc_filename)
         print(f'Loaded: {hmc_filename}')
 
-        Sb_list = res['S_list'][seq_idx]
-        Sf_list = -2 * np.log((-1/2)*res['Sf_list'][seq_idx])
+        Sb_list = res['S_plaq_list'][seq_idx]
+        Sf_list = res['Sf_list'][seq_idx]
         # Sf_list = res['Sf_list'][seq_idx]
 
         Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
@@ -188,7 +188,7 @@ def load_energy_perJ(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', loca
         sample_step_local = sample_steps.pop(0)
         seq_idx_local = np.arange(start_local, end_local, sample_step_local)
 
-        Sb_list = res['S_list'][seq_idx_local]
+        Sb_list = res['S_plaq_list'][seq_idx_local]
         Sf_list = res['Sf_list'][seq_idx_local]
 
         Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
@@ -220,14 +220,14 @@ def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
     
         # File names
         step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
+        hmc_filename = script_path + f"/check_points/hmc_check_point_t0.01/ckpt_N_{hmc.specifics}_step_{step}.pt"
 
         dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
         step_lmc = 36000
-        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
+        local_update_filename = script_path + f"/check_points/local_check_point_t0.01/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Load
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
@@ -297,14 +297,14 @@ def plot_Gtau_J(Js):
 
         # File names
         step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
+        hmc_filename = script_path + f"/check_points/hmc_check_point_t0.01/ckpt_N_{hmc.specifics}_step_{step}.pt"
 
         dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
         step_lmc = 36000
-        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
+        local_update_filename = script_path + f"/check_points/local_check_point_t0.01/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Measure
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau

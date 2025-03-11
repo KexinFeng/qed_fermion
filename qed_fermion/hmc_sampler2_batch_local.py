@@ -45,7 +45,7 @@ class LocalUpdateSampler(object):
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf / 4
         self.K = 1 * scale * self.Nf
-        self.t = 1
+        self.t = .01
 
         self.boson = None
         self.boson_energy = None
@@ -192,7 +192,9 @@ class LocalUpdateSampler(object):
         fermion_energy_new = -self.Nf * torch.log(torch.real(detM)).unsqueeze(0)
 
         # Metropolis_update
-        accp = torch.rand(self.bs, device=device) < torch.exp(self.boson_energy + self.fermion_energy - boson_energy_new - fermion_energy_new)
+        H0 = self.boson_energy + self.fermion_energy
+        H_new = boson_energy_new + fermion_energy_new  
+        accp = torch.rand(self.bs, device=device) < torch.exp(H0 - H_new)
         # print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
         # print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
 
@@ -204,8 +206,8 @@ class LocalUpdateSampler(object):
         self.boson_energy[accp] = boson_energy_new[accp]
         self.fermion_energy[accp] = fermion_energy_new[accp]
         
-        energies_old = (fermion_energy_old, plaq_term_old, 0)
-        energies_new = (fermion_energy_new, self.action_boson_plaq(self.boson), 0)
+        energies_old = (fermion_energy_old, plaq_term_old, H0)
+        energies_new = (fermion_energy_new, self.action_boson_plaq(self.boson), H_new)
         return self.boson, accp, energies_old, energies_new
 
 
