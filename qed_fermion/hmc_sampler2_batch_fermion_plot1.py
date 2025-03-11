@@ -281,36 +281,34 @@ def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
     plt.show(block=False)
 
 
-def plot_Gtau_J(Js):
-    for J in Js:
-        Nstep = 3000
-        print(f'J={J} \nNstep={Nstep}')
+def plot_Gtau_J():
 
-        hmc = HmcSampler(J=J, Nstep=Nstep)
-        hmc.Lx, hmc.Ly, hmc.Ltau = 6, 6, 10
-        # hmc.delta_t = 0.02
-        hmc.reset()
+    Nstep = 3000
+    # print(f'J={J} \nNstep={Nstep}')
+    J = 0.5
 
-        lmc = LocalUpdateSampler(J=J, Nstep=1e2)
-        lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
-        lmc.reset()
+    hmc = HmcSampler(J=J, Nstep=Nstep)
+    hmc.Lx, hmc.Ly, hmc.Ltau = 6, 6, 10
+    # hmc.delta_t = 0.02
+    hmc.reset()
 
-        # File names
-        step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point_t0.01/ckpt_N_{hmc.specifics}_step_{step}.pt"
+    lmc = LocalUpdateSampler(J=J, Nstep=100)
+    lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
+    lmc.reset()
 
-        dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
-        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        dqmc_filename = os.path.join(dqmc_folder, name)
+    # File names
+    step = Nstep
+    hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.get_specifics()}_step_{step}.pt"
 
-        step_lmc = 36000
-        local_update_filename = script_path + f"/check_points/local_check_point_t0.01/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
-        # Measure
-        Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-        load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, dqmc_filename, local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50], scale_it=[False, False])
+    step_lmc = 36000
+    local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.get_specifics()}_step_{step_lmc}.pt"
 
-        plt.show(block=False)
+    # Measure
+    Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, '', local_update_filename, specifics=hmc.get_specifics(), starts=[500, 10000], ends=[Nstep, step_lmc], sample_steps=[1, 50], scale_it=[False, False])
+
+    plt.show(block=False)
 
 
 if __name__ == '__main__':
@@ -319,7 +317,7 @@ if __name__ == '__main__':
 
     Js = [0.5, 1, 3]
 
-    plot_Gtau_J(Js)
+    plot_Gtau_J()
     # plot_energy_J(Js)
 
     dbstop = 1

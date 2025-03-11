@@ -38,14 +38,14 @@ class LocalUpdateSampler(object):
 
         # Couplings
         self.Nf = 2
-        # J = 20  # 0.5, 1, 3
-        # self.dtau = 1/(J*self.Nf)
+        J = 0.5  # 0.5, 1, 3
+        self.dtau = 2/(J*self.Nf)
 
-        self.dtau = 0.1
+        # self.dtau = 0.1
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf / 4
         self.K = 1 * scale * self.Nf
-        self.t = .01
+        self.t = 0.5/40
 
         self.boson = None
         self.boson_energy = None
@@ -57,7 +57,7 @@ class LocalUpdateSampler(object):
 
         # Statistics
         self.N_therm_step = 0
-        self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
+        self.N_step = int(Nstep) * self.Vs
         self.step = 0
         self.cur_step = 0
         self.thrm_bool = False
@@ -92,7 +92,7 @@ class LocalUpdateSampler(object):
         self.specifics = f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{6}_dt_{0.02}"
     
     def get_specifics(self):
-        return f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{6}_dt_{0.02}"
+        return f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{1.0}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}_Nleap_{6}_dt_{0.02}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -648,7 +648,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '10'))
+    Nstep = int(os.getenv("Nstep", '100'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
