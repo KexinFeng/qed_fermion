@@ -86,8 +86,9 @@ class HmcSampler(object):
         print(f"delta_t = {self.delta_t}")
 
         # self.N_leapfrog = 12 if J >0.99 else 6
-        self.N_leapfrog = 6
+        # self.N_leapfrog = 6
         # self.N_leapfrog = 15 * 40
+        self.N_leapfrog = 15
 
         # Debug
         torch.manual_seed(0)
@@ -101,17 +102,6 @@ class HmcSampler(object):
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_staggered_pi()
-
-    # def load_checkpoint(self, step):
-    #     res = {'boson': boson,
-    #             'step': self.step,
-    #             'mass': self.m,
-    #             'G_list': self.G_list.cpu()}
-        
-    #     data_folder = script_path + "/check_points/hmc_check_point/"
-    #     self.step = step
-    #     file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
-    #     self.save_to_file(res, data_folder, file_name)        
 
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
@@ -211,15 +201,6 @@ class HmcSampler(object):
         R = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2) + 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
         return R
     
-    def force(self, x):
-        """
-        F = -dS/dx = -Ax
-
-        :param x: [bs, 2, Lx, Ly, Ltau] tensor
-        :return: evaluation of the force at given x.
-        """
-        return -torch.einsum('ijklmnop,bmnop->bijkl', self.A, x)
-
 
     def metropolis_update(self):
         """
@@ -657,201 +638,6 @@ class HmcSampler(object):
         return M, [B1_list, B2_list, B3_list, B4_list]
 
 
-    def leapfrog_proposer3(self):
-        """          
-        Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
-        Sf(t) = psi' * [M(xt)'M(xt)]^(-1) * psi := R'R at t=0
-        - dS/dx_{r, tau} = F_fermion
-        Sample R ~ N(0, 1/sqrt(2)) + i N(0, 1/sqrt(2)), 
-            -> psi = M(x0)'R 
-            -> Sf(t) = psi' * [M(xt)'M(xt)]^(-1)*psi := psi' * xi(t)
-        [M(xt)'M(xt)] xi(t) = psi
-
-        Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
-            -> ...
-
-        # Primitive leapfrog
-        x_0 = x
-        p_{1/2} = p_0 + dt/2 * F(x_0)
-
-        x_{n+1} = x_{n} + p_{n+1/2}/m dt
-        p_{n+3/2} = p_{n+1/2} + F(x_{n+1}) dt 
-
-        p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
-        """
-
-        p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
-        x = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
-        p = p0
-
-        R_u = self.draw_psudo_fermion()
-        R_d = self.draw_psudo_fermion()
-        M0 = self.get_M(x)
-        psi_u = torch.einsum('rs,bs->br', M0.T.conj(), R_u)
-        psi_d = torch.einsum('rs,bs->br', M0.T.conj(), R_d)
-
-        (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], M0, x)
-        
-        Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
-        Sf0_d = torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d)
-        torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
-        Sf0_u = torch.real(Sf0_u)
-        Sf0_d = torch.real(Sf0_d)
-        # Sf0 = 0
-        
-        assert x.grad is None
-
-        Sb0 = self.action_boson_tau(x) + self.action_boson_plaq(x)
-        H0 = Sf0_u + Sf0_d + Sb0 + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-
-        dt = self.delta_t
-
-        with torch.enable_grad():
-            x = x.clone().requires_grad_(True)
-            Sb_plaq = self.action_boson_plaq(x)
-            force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
-
-        if self.debug_pde:
-            # print(f"Sb_tau={self.action_boson_tau(x)}")
-            # print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
-
-            b_idx = 0
-            
-            # Initialize plot
-            # plt.ion()  # Turn on interactive mode
-            # fig, ax = plt.subplots()
-            fig, axs = plt.subplots(3, 1, figsize=(6, 8))  # Two rows, one column
-
-            Hs = [H0[b_idx].item()]
-            Ss = [(Sf0_u + Sf0_d + Sb0)[b_idx].item()]
-            force_bs = [torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item()]
-            force_fs = [torch.linalg.norm(force_f_u.reshape(self.bs, -1), dim=1)[b_idx].item() + torch.linalg.norm(force_f_d.reshape(self.bs, -1), dim=1)[b_idx].item()]
-            # Ss = [Sb0[b_idx].item()]
-
-            # Setup for 1st subplot (Hs)
-            line_Hs, = axs[0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
-            axs[0].set_ylabel('Hamiltonian (H)')
-            axs[0].set_xticks([])  # Remove x-axis ticks
-            axs[0].legend()
-            axs[0].grid()
-
-            # Setup for 2nd subplot (Ss)
-            # axs[1].set_title('Real-Time Evolution of S_s')
-            line_Ss, = axs[1].plot(Ss, marker='s', linestyle='-', color='r', label='S_s')
-            # axs[1].set_xlabel('Leapfrog Step')
-            axs[1].set_ylabel('S_b')
-            axs[1].set_xticks([])  # Remove x-axis ticks
-            axs[1].legend()
-            axs[1].grid()
-
-            # Setup for 3rd subplot (force)
-            # axs[1].set_title('Real-Time Evolution of S_s')
-            line_force_b, = axs[2].plot(force_bs, marker='s', linestyle='-', color='b', label='force_b')
-            line_force_f, = axs[2].plot(force_fs, marker='s', linestyle='-', color='r', label='force_f')
-            axs[2].set_xlabel('Leapfrog Step')
-            axs[2].set_ylabel('forces_norm')
-            axs[2].legend()
-            axs[2].grid()
-
-        # Multi-scale Leapfrog
-        # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
-
-
-        for leap in range(self.N_leapfrog):
-
-            p = p + dt/2 * (force_f_u + force_f_d)
-
-            # Update (p, x)
-            M = 5
-            for _ in range(M):
-                # p = p + force(x) * dt/2
-                # x = x + velocity(p) * dt
-                # p = p + force(x) * dt/2
-
-                p = p + force_b * dt/2/M
-                x = x
-
-                x, p = self.harmonic_tau(x, p, dt/M)
-                with torch.enable_grad():
-                    x = x.clone().requires_grad_(True)
-                    Sb_plaq = self.action_boson_plaq(x)
-                    force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
-            
-                p = p + force_b * dt/2/M
-                x = x
-
-            (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], self.get_M(x), x)
-            p = p + dt/2 * (force_f_u + force_f_d)
-
-            if self.debug_pde:
-                Sf_u = torch.real(torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u))
-                Sf_d = torch.real(torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d))
-                Sb_t = self.action_boson_plaq(x) + self.action_boson_tau(x)
-                H_t = Sf_u + Sf_d + Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-
-                torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-2)
-
-                # print(leap)
-                # print(f"Sb_tau={self.action_boson_tau(x)}")
-                # print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
-                # print(f'H={H_t}')
-
-                # Hd, Sd = self.action((p + p_last)/2, x)  # Append new H value   
-                Hs.append(H_t[b_idx].item())
-                Ss.append((Sf_u + Sf_d + Sb_t)[b_idx].item())
-                force_bs.append(torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item())
-                force_fs.append(torch.norm(force_f_u.reshape(self.bs, -1), dim=1)[b_idx].item() + torch.norm(force_f_d.reshape(self.bs, -1), dim=1)[b_idx].item())
-
-                # Update data for both subplots
-                line_Hs.set_data(range(len(Hs)), Hs)
-                line_Ss.set_data(range(len(Ss)), Ss)
-                line_force_b.set_data(range(len(force_bs)), force_bs)
-                line_force_f.set_data(range(len(force_fs)), force_fs)
-
-                # Adjust limits dynamically
-                axs[0].relim()
-                axs[0].autoscale_view()
-                amp = max(Hs) - min(Hs)
-                axs[0].set_title(f'dt={self.delta_t:.2f}, m={self.m}, atol={amp:.2g}, rtol={amp/sum(Hs)*len(Hs):.2g}, N={self.N_leapfrog}')
-
-                axs[1].relim()
-                axs[1].autoscale_view()
-                amp = max(Ss) - min(Ss)
-                axs[1].set_title(f'dt={self.delta_t:.3f}, m={self.m}, atol={amp:.2g}, N={self.N_leapfrog}') 
-
-                axs[2].relim()
-                axs[2].autoscale_view()
-                axs[2].set_title(f'mean_force_b={sum(force_bs)/len(force_bs):.2g}, mean_force_f={sum(force_fs)/len(force_fs):.2g}')
-
-                plt.pause(0.1)   # Small delay to update the plot
-                
-                # --------- save_plot ---------
-                if leap == self.N_leapfrog - 1:
-                    class_name = __file__.split('/')[-1].replace('.py', '')
-                    method_name = "fermion_couple"
-                    save_dir = os.path.join(script_path, f"./figures/leapfrog")
-                    os.makedirs(save_dir, exist_ok=True) 
-                    file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
-                    plt.savefig(file_path, format="pdf", bbox_inches="tight")
-                    print(f"Figure saved at: {file_path}")
-
-
-        # Final energies
-        Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
-        Sf_fin_d = torch.einsum('br,br->b', psi_d.conj(), xi_t_d)
-        torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=5e-3, rtol=1e-4)
-        Sf_fin_u = torch.real(Sf_fin_u)
-        Sf_fin_d = torch.real(Sf_fin_d)
-        # Sf_fin = 0
-
-        Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau(x) 
-        H_fin = Sf_fin_u + Sf_fin_d + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
- 
-        # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
-
-        return x, (Sf0_u + Sf0_d, Sb0, H0), (Sf_fin_u + Sf_fin_d, Sb_fin, H_fin)
-
-
     def leapfrog_proposer4_cmptau(self):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
@@ -879,24 +665,8 @@ class HmcSampler(object):
         x = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
 
-        R_u = self.draw_psudo_fermion()
-        R_d = self.draw_psudo_fermion()
-        M0, B_list = self.get_M(x)
-        psi_u = torch.einsum('rs,bs->br', M0.T.conj(), R_u)
-        psi_d = torch.einsum('rs,bs->br', M0.T.conj(), R_d)
-
-        (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], M0, x, B_list)
-        
-        Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
-        Sf0_d = torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d)
-        torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
-        Sf0_u = torch.real(Sf0_u)
-        Sf0_d = torch.real(Sf0_d)
-
-        assert x.grad is None
-
         Sb0 = self.action_boson_tau_cmp(x) + self.action_boson_plaq(x)
-        H0 = Sf0_u + Sf0_d + Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
         dt = self.delta_t
 
@@ -921,9 +691,8 @@ class HmcSampler(object):
             fig, axs = plt.subplots(3, 1, figsize=(6, 8))  # Two rows, one column
 
             Hs = [H0[b_idx].item()]
-            Ss = [(Sf0_u + Sf0_d + Sb0)[b_idx].item()]
+            Ss = [(Sb0)[b_idx].item()]
             force_bs = [torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item()]
-            force_fs = [torch.linalg.norm(force_f_u.reshape(self.bs, -1), dim=1)[b_idx].item() + torch.linalg.norm(force_f_d.reshape(self.bs, -1), dim=1)[b_idx].item()]
             # Ss = [Sb0[b_idx].item()]
 
             # Setup for 1st subplot (Hs)
@@ -945,7 +714,6 @@ class HmcSampler(object):
             # Setup for 3rd subplot (force)
             # axs[1].set_title('Real-Time Evolution of S_s')
             line_force_b, = axs[2].plot(force_bs, marker='s', linestyle='-', color='b', label='force_b')
-            line_force_f, = axs[2].plot(force_fs, marker='s', linestyle='-', color='r', label='force_f')
             axs[2].set_xlabel('Leapfrog Step')
             axs[2].set_ylabel('forces_norm')
             axs[2].legend()
@@ -956,7 +724,7 @@ class HmcSampler(object):
 
         for leap in range(self.N_leapfrog):
 
-            p = p + dt/2 * (force_f_u + force_f_d)
+            # p = p + dt/2 * (force_f_u + force_f_d)
 
             # Update (p, x)
             M = 5
@@ -979,15 +747,13 @@ class HmcSampler(object):
 
                 p = p + (force_b + force_b_tau) * dt/2/M
 
-            Mt, B_list = self.get_M(x)
-            (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], Mt, x, B_list)
-            p = p + dt/2 * (force_f_u + force_f_d)
+            # Mt, B_list = self.get_M(x)
+            # (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f([psi_u, psi_d], Mt, x, B_list)
+            # p = p + dt/2 * (force_f_u + force_f_d)
 
             if self.debug_pde:
-                Sf_u = torch.real(torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u))
-                Sf_d = torch.real(torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d))
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x)
-                H_t = Sf_u + Sf_d + Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+                H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
 
                 torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-2)
 
@@ -998,15 +764,13 @@ class HmcSampler(object):
 
                 # Hd, Sd = self.action((p + p_last)/2, x)  # Append new H value   
                 Hs.append(H_t[b_idx].item())
-                Ss.append((Sf_u + Sf_d + Sb_t)[b_idx].item())
+                Ss.append((Sb_t)[b_idx].item())
                 force_bs.append(torch.linalg.norm(force_b.reshape(self.bs, -1), dim=1)[b_idx].item())
-                force_fs.append(torch.norm(force_f_u.reshape(self.bs, -1), dim=1)[b_idx].item() + torch.norm(force_f_d.reshape(self.bs, -1), dim=1)[b_idx].item())
 
                 # Update data for both subplots
                 line_Hs.set_data(range(len(Hs)), Hs)
                 line_Ss.set_data(range(len(Ss)), Ss)
                 line_force_b.set_data(range(len(force_bs)), force_bs)
-                line_force_f.set_data(range(len(force_fs)), force_fs)
 
                 # Adjust limits dynamically
                 axs[0].relim()
@@ -1021,7 +785,7 @@ class HmcSampler(object):
 
                 axs[2].relim()
                 axs[2].autoscale_view()
-                axs[2].set_title(f'mean_force_b={sum(force_bs)/len(force_bs):.2g}, mean_force_f={sum(force_fs)/len(force_fs):.2g}')
+                axs[2].set_title(f'mean_force_b={sum(force_bs)/len(force_bs):.2g}, mean_force_f={sum(force_bs)/len(force_bs):.2g}')
 
                 plt.pause(0.1)   # Small delay to update the plot
                 
@@ -1037,33 +801,13 @@ class HmcSampler(object):
 
 
         # Final energies
-        Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
-        Sf_fin_d = torch.einsum('br,br->b', psi_d.conj(), xi_t_d)
-        torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.tensor([0], dtype=torch.float32), atol=5e-3, rtol=1e-4)
-        Sf_fin_u = torch.real(Sf_fin_u)
-        Sf_fin_d = torch.real(Sf_fin_d)
-
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
-        H_fin = Sf_fin_u + Sf_fin_d + Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
 
-        Sf0 = -self.Nf * torch.log(self.get_detM(self.boson))
-        Sf_fin = -self.Nf * torch.log(self.get_detM(x))
-        return x, (Sf0, Sb0, H0), (Sf_fin, Sb_fin, H_fin)
+        return x, (0, Sb0, H0), (0, Sb_fin, H_fin)
 
-
-    def action_boson(self, boson):
-        """
-        The E_b = 1/2 * boson.transpose * self.A * boson.
-
-        :param momentum: [bs, 2, Lx, Ly, Ltau] tensor
-        :param boson: [bs, 2, Lx, Ly, Ltau] tensor
-        :return: the action
-        """
-        force = -torch.einsum('ijklmnop,bmnop->bijkl', self.A, boson)
-        potential = 0.5 * torch.einsum('bijkl,bijkl->b', boson, force)
-        return potential   
 
     def action_boson_plaq(self, boson):
         """
@@ -1075,16 +819,7 @@ class HmcSampler(object):
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S   
     
-    # def action_boson_plaq_noncomp(self, boson):
-    #     """
-    #     boson: [bs, 2, Lx, Ly, Ltau]
-    #     S: [bs,]
-    #     """         
-    #     boson = boson.permute([3, 2, 1, 4, 0]).reshape(-1, self.Ltau, self.bs)
-    #     curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
-    #     S = self.K/2 * torch.sum(curl**2, dim=(0, 1))
-    #     return S
-    
+
     # @torch.inference_mode()
     @torch.no_grad()
     def measure(self):
@@ -1125,7 +860,7 @@ class HmcSampler(object):
             self.S_tau_list[i] = \
                 accp.view(-1, 1) * self.action_boson_tau_cmp(boson) \
               + (1 - accp.view(-1, 1).to(torch.float)) * self.S_tau_list[i-1]
-            self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
+            # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
             self.step += 1
             self.cur_step += 1

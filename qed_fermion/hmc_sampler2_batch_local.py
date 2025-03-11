@@ -128,23 +128,6 @@ class LocalUpdateSampler(object):
         self.boson_idx_list_3 = self.i_list_3 * 2
         self.boson_idx_list_4 = self.i_list_4 * 2 + 1
 
-        # Buffer
-        # self.M = torch.eye(Vs*self.Ltau, device=device, dtype=torch.complex64)
-
-    def get_dB(self):
-        Vs = self.Lx * self.Ly
-        dB = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
-        diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
-        dB[diag_idx, diag_idx] = math.cosh(self.dtau/2 * self.t)
-        return dB
-    
-    def get_dB1(self):
-        Vs = self.Lx * self.Ly
-        dB1 = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
-        diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
-        dB1[diag_idx, diag_idx] = math.cosh(self.dtau * self.t)
-        return dB1
-    
     def initialize_boson(self):
         """
         Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
@@ -183,33 +166,21 @@ class LocalUpdateSampler(object):
         delta = (torch.rand_like(boson_new[..., idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
         boson_new[..., idx_x, idx_y, idx_tau] += delta
 
-        # return boson_new, (idx_x, idx_y, idx_tau)
-
         # Compute new energy
-        boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
-        detM = self.get_detM(boson_new)
-        # detM_np = self.get_detM_np(boson_new)
-        fermion_energy_new = -self.Nf * torch.log(torch.real(detM)).unsqueeze(0)
+        action_old = self.action_boson_plaq(self.boson) + self.action_boson_tau_cmp(self.boson)
+        action_new = self.action_boson_plaq(boson_new) + self.action_boson_tau_cmp(boson_new)
+        d_action = action_new - action_old
 
-        # Metropolis_update
-        H0 = self.boson_energy + self.fermion_energy
-        H_new = boson_energy_new + fermion_energy_new  
-        accp = torch.rand(self.bs, device=device) < torch.exp(H0 - H_new)
-        # print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
-        # print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
+        accp = torch.rand(self.bs, device=device) < torch.exp(-d_action)
+        print(f"H_old, H_new, new-old: {action_old}, {action_new}, {d_action}")
+        print(f"threshold: {torch.exp(-d_action).item()}")
+        print(f'Accp?: {accp.item()}')
 
-        # print(f'Accp?: {accp.item()}')
-        fermion_energy_old = self.fermion_energy.clone()
-        plaq_term_old = self.action_boson_plaq(self.boson)
-        
+        energies_old = (0, 0, 0)
+        energies_new = (0, 0, 0)
+
         self.boson[accp] = boson_new[accp]
-        self.boson_energy[accp] = boson_energy_new[accp]
-        self.fermion_energy[accp] = fermion_energy_new[accp]
-        
-        energies_old = (fermion_energy_old, plaq_term_old, H0)
-        energies_new = (fermion_energy_new, self.action_boson_plaq(self.boson), H_new)
         return self.boson, accp, energies_old, energies_new
-
 
     def sin_curl_greens_function_batch(self, boson):
         """
@@ -261,156 +232,6 @@ class LocalUpdateSampler(object):
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action
     
-    # def action_boson_tau(self, x):
-    #     """
-    #     x:  [bs, 2, Lx, Ly, Ltau]
-
-    #     S = 1/2 * x' @ A @ x
-    #         F_{r,k} = e^{irk}
-    #         F'F/L = FF'/L = i.d.
-    #         x_k = fft(x) = F'@x = sum_r e^{-irk} x_r
-    #         x_r = ifft(xk) = 1/L * F @ x_k = 1/L * sum_k e^{ikr} x_k
-
-    #     S = 1/2 * x'@F @ F'@A@F @ F'@x / L**2
-    #       = 1/2 * xk' @ F'F diag(A_k) @ xk / L**2
-    #       = 1/2 * xk' @ diag(A_k) @ xk / L
-
-    #     k = torch.fft.fftfreq(L) = [\kap/L] in the unit of 2*torch.pi
-    #     A_k = 2 * (1 - torch.cos(k * 2*torch.pi))
-
-    #     """
-    #     coeff = 1/2 / self.J / self.dtau**2
-    #     xk = torch.fft.fft(x, dim=-1)
-    #     L = self.Ltau
-    #     k = torch.fft.fftfreq(L).to(device)    
-    #     lmd = 2 * (1 - torch.cos(k * 2*torch.pi))[None, None, None, None]
-
-    #     # F = torch.fft.fft(torch.eye(3), dim=0)
-    #     # torch.eye(3) = 1/L * F.conj().T @ F
-    #     return coeff * (xk.abs()**2 * lmd).sum(dim=(1, 2, 3, 4)) / L
-
-    def get_detM_np(self, boson):
-
-        """
-        boson: [bs, 2, Lx, Ly, Ltau]
-        B = e^V4/2 ... e^V1/2 e^V1/2 ... e^V4/2
-        return |I + BLtau B_Ltau-1 ... B1|
-        """
-        assert boson.size(0) == 1
-        boson = boson.squeeze(0)
-
-        Vs = self.Lx * self.Ly
-        dtau = self.dtau
-        t = self.t
-        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
-        
-        prodB = np.eye(Vs, dtype=np.complex64)
-        for tau in reversed(range(self.Ltau)):
-            dB1 = self.get_dB1()
-            dB1[self.i_list_1, self.j_list_1] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
-            dB1[self.j_list_1, self.i_list_1] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
-            dB1 = dB1.numpy()
-            B = dB1
-            # self.B1 = dB1
-
-            dB = self.get_dB()
-            dB[self.i_list_2, self.j_list_2] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
-            dB[self.j_list_2, self.i_list_2] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
-            dB = dB.numpy()
-            B = dB @ B @ dB
-            # self.B2 = dB
-
-            dB = self.get_dB()
-            dB[self.i_list_3, self.j_list_3] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
-            dB[self.j_list_3, self.i_list_3] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
-            dB = dB.numpy()
-            B = dB @ B @ dB
-            # self.B3 = dB
-
-            dB = self.get_dB()
-            dB[self.i_list_4, self.j_list_4] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
-            dB[self.j_list_4, self.i_list_4] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
-            dB = dB.numpy()
-            B = dB @ B @ dB
-            # self.B4 = dB   
-
-            prodB = prodB @ B
-
-        I = torch.eye(Vs, device=boson.device, dtype=torch.complex64).numpy()
-        return np.linalg.det(I + prodB)
-
-
-    def get_detM(self, boson):
-        """
-        boson: [bs, 2, Lx, Ly, Ltau]
-        B = e^V4/2 ... e^V1/2 e^V1/2 ... e^V4/2
-        return |I + BLtau B_Ltau-1 ... B1|
-        """
-        assert boson.size(0) == 1
-        boson = boson.squeeze(0)
-
-        Vs = self.Lx * self.Ly
-        dtau = self.dtau
-        t = self.t
-        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
-
-        prodB = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
-        for tau in reversed(range(self.Ltau)):
-            dB1 = self.get_dB1()
-            dB1[self.i_list_1, self.j_list_1] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
-            dB1[self.j_list_1, self.i_list_1] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
-            B = dB1
-
-            dB = self.get_dB()
-            dB[self.i_list_2, self.j_list_2] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
-            dB[self.j_list_2, self.i_list_2] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
-            B = dB @ B @ dB
-
-            dB = self.get_dB()
-            dB[self.i_list_3, self.j_list_3] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
-            dB[self.j_list_3, self.i_list_3] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
-            B = dB @ B @ dB
-
-            dB = self.get_dB()
-            dB[self.i_list_4, self.j_list_4] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
-            dB[self.j_list_4, self.i_list_4] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
-            B = dB @ B @ dB
-
-            prodB = prodB @ B
-
-        I = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
-        detM = torch.det(I + prodB)
-        return detM
-
-
-    def action_boson(self, boson):
-        """
-        The E_b = 1/2 * boson.transpose * self.A * boson.
-
-        :param momentum: [bs, 2, Lx, Ly, Ltau] tensor
-        :param boson: [bs, 2, Lx, Ly, Ltau] tensor
-        :return: the action
-        """
-        force = -torch.einsum('ijklmnop,bmnop->bijkl', self.A, boson)
-        potential = 0.5 * torch.einsum('bijkl,bijkl->b', boson, force)
-        return potential   
-
     def action_boson_plaq(self, boson):
         """
         boson: [bs, 2, Lx, Ly, Ltau]
@@ -420,16 +241,6 @@ class LocalUpdateSampler(object):
         curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S   
-    
-    # def action_boson_plaq_noncomp(self, boson):
-    #     """
-    #     boson: [bs, 2, Lx, Ly, Ltau]
-    #     S: [bs,]
-    #     """         
-    #     boson = boson.permute([3, 2, 1, 4, 0]).reshape(-1, self.Ltau, self.bs)
-    #     curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
-    #     S = self.K/2 * torch.sum(curl**2, dim=(0, 1))
-    #     return S
     
     # @torch.inference_mode()
     @torch.no_grad()
@@ -446,11 +257,9 @@ class LocalUpdateSampler(object):
         # self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
+        self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
     
-        self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
-        detM = self.get_detM(self.boson)
-        # detM_np = self.get_detM_np(self.boson)
-        self.fermion_energy = -2 * torch.log(torch.real(detM)).unsqueeze(0)
+        # self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
 
         # Measure
         plt.figure()
@@ -469,8 +278,10 @@ class LocalUpdateSampler(object):
             self.S_tau_list[i] = \
                 accp.view(-1, 1) * self.action_boson_tau_cmp(boson) \
               + (1 - accp.view(-1, 1).to(torch.float)) * self.S_tau_list[i-1]
-            self.S_plaq_list[i] = torch.where(accp, Sb_fin, Sb0)
-            self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
+            self.S_plaq_list[i] = \
+                accp.view(-1, 1) * self.action_boson_plaq(boson) \
+              + (1 - accp.view(-1, 1).to(torch.float)) * self.S_plaq_list[i-1]
+            # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
             self.step += 1
             self.cur_step += 1
@@ -543,7 +354,7 @@ class LocalUpdateSampler(object):
         # axes[2].plot(self.H_list[self.N_therm_step:].cpu().numpy())
         # axes[2].set_ylabel("H")
         axes[0].plot(self.S_plaq_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
-        axes[0].plot(self.Sf_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), '*')
+        axes[0].plot(self.S_tau_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), '*')
         axes[0].set_ylabel("S")
 
 
@@ -648,7 +459,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '10'))
+    Nstep = int(os.getenv("Nstep", '100'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)

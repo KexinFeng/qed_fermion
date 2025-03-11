@@ -220,14 +220,14 @@ def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
     
         # File names
         step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point_t0.01/ckpt_N_{hmc.specifics}_step_{step}.pt"
+        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
 
         dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
         step_lmc = 36000
-        local_update_filename = script_path + f"/check_points/local_check_point_t0.01/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
+        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Load
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
@@ -297,14 +297,14 @@ def plot_Gtau_J(Js):
 
         # File names
         step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point_t0.01/ckpt_N_{hmc.specifics}_step_{step}.pt"
+        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
 
         dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
         step_lmc = 36000
-        local_update_filename = script_path + f"/check_points/local_check_point_t0.01/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
+        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Measure
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
@@ -318,9 +318,10 @@ if __name__ == '__main__':
     # Nstep = int(os.getenv("Nstep"))
 
     Js = [0.5, 1, 3]
+    Js = [0.5]
 
-    # plot_Gtau_J(Js)
-    plot_energy_J(Js)
+    plot_Gtau_J(Js)
+    # plot_energy_J(Js)
 
     dbstop = 1
 
