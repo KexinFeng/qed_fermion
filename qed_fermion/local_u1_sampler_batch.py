@@ -2,6 +2,9 @@ import json
 import os
 import time
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
+rcParams['figure.raise_window'] = False
+
 import torch
 from tqdm import tqdm
 import sys
@@ -19,9 +22,9 @@ print(f"device: {device}")
 
 class LocalU1Sampler(HmcSampler):
     def __init__(self, N_step=int(1000 * 100), config=None):
-        self.Lx = 10
-        self.Ly = 10
-        self.Ltau = 20
+        self.Lx = 6
+        self.Ly = 6
+        self.Ltau = 10
         self.J = 1
         self.K = 1
         self.boson = None
@@ -38,7 +41,7 @@ class LocalU1Sampler(HmcSampler):
 
         # Statistics
         self.N_therm_step = 10
-        swp = int(800)
+        swp = int(200)
         self.N_step = self.num_site * swp
         self.step = 0
         self.cur_step = 0
@@ -568,12 +571,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001):
     num_site = Lx*Ly*Ltau
     # step = 1600000
     swp = math.ceil(step / num_site)
-    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point_local_update/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
+    filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/check_point/ckpt_N_{Ltau}_Nx_{Lx}_Ny_{Ly}_step_{step}.pt"
     res = torch.load(filename)
 
     G_list = res['G_list']
-    G_avg = res['G_avg']
-    x = np.array(list(range(G_avg.size(-1))))
+    dim = len(G_list[0])
+    x = np.array(list(range(dim)))
     start, end = 100, 800
     seq_idx = np.arange(start * num_site, end * num_site, 2*num_site)
     # seq_idx = np.arange(start * num_site, end * num_site, int(num_site//10))
@@ -640,8 +643,8 @@ if __name__ == '__main__':
 
     # Lx, Ly, Ltau = 20, 20, 20
     # step = 5989464
-    Lx, Ly, Ltau = 10, 10, 20
-    step = int(16e5)
+    Lx, Ly, Ltau = 6, 6, 10
+    step = 36001
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), step)
     # load_visualize_final_greens()
 
