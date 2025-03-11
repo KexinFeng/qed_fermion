@@ -28,7 +28,7 @@ print(f"device: {device}")
 dtype = torch.float32
 
 class HmcSampler(object):
-    def __init__(self, J=0.5, Nstep=3e3, config=None):
+    def __init__(self, J=0.5, Nstep=1e2, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
@@ -73,7 +73,8 @@ class HmcSampler(object):
         self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1, device=device)
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
         self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
-        self.S_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
+        self.S_plaq_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
+        self.S_tau_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
         self.Sf_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
         self.H_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
 
@@ -329,33 +330,33 @@ class HmcSampler(object):
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action
     
-    def action_boson_tau(self, x):
-        """
-        x:  [bs, 2, Lx, Ly, Ltau]
+    # def action_boson_tau(self, x):
+    #     """
+    #     x:  [bs, 2, Lx, Ly, Ltau]
 
-        S = 1/2 * x' @ A @ x
-            F_{r,k} = e^{irk}
-            F'F/L = FF'/L = i.d.
-            x_k = fft(x) = F'@x = sum_r e^{-irk} x_r
-            x_r = ifft(xk) = 1/L * F @ x_k = 1/L * sum_k e^{ikr} x_k
+    #     S = 1/2 * x' @ A @ x
+    #         F_{r,k} = e^{irk}
+    #         F'F/L = FF'/L = i.d.
+    #         x_k = fft(x) = F'@x = sum_r e^{-irk} x_r
+    #         x_r = ifft(xk) = 1/L * F @ x_k = 1/L * sum_k e^{ikr} x_k
 
-        S = 1/2 * x'@F @ F'@A@F @ F'@x / L**2
-          = 1/2 * xk' @ F'F diag(A_k) @ xk / L**2
-          = 1/2 * xk' @ diag(A_k) @ xk / L
+    #     S = 1/2 * x'@F @ F'@A@F @ F'@x / L**2
+    #       = 1/2 * xk' @ F'F diag(A_k) @ xk / L**2
+    #       = 1/2 * xk' @ diag(A_k) @ xk / L
 
-        k = torch.fft.fftfreq(L) = [\kap/L] in the unit of 2*torch.pi
-        A_k = 2 * (1 - torch.cos(k * 2*torch.pi))
+    #     k = torch.fft.fftfreq(L) = [\kap/L] in the unit of 2*torch.pi
+    #     A_k = 2 * (1 - torch.cos(k * 2*torch.pi))
 
-        """
-        coeff = 1/2 / self.J / self.dtau**2
-        xk = torch.fft.fft(x, dim=-1)
-        L = self.Ltau
-        k = torch.fft.fftfreq(L).to(device)    
-        lmd = 2 * (1 - torch.cos(k * 2*torch.pi))[None, None, None, None]
+    #     """
+    #     coeff = 1/2 / self.J / self.dtau**2
+    #     xk = torch.fft.fft(x, dim=-1)
+    #     L = self.Ltau
+    #     k = torch.fft.fftfreq(L).to(device)    
+    #     lmd = 2 * (1 - torch.cos(k * 2*torch.pi))[None, None, None, None]
 
-        # F = torch.fft.fft(torch.eye(3), dim=0)
-        # torch.eye(3) = 1/L * F.conj().T @ F
-        return coeff * (xk.abs()**2 * lmd).sum(dim=(1, 2, 3, 4)) / L
+    #     # F = torch.fft.fft(torch.eye(3), dim=0)
+    #     # torch.eye(3) = 1/L * F.conj().T @ F
+    #     return coeff * (xk.abs()**2 * lmd).sum(dim=(1, 2, 3, 4)) / L
 
     
     def harmonic_tau(self, x0, p0, delta_t):
@@ -1047,8 +1048,8 @@ class HmcSampler(object):
  
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
 
-        Sf0 = -self.Nf * self.get_detM(self.boson)
-        Sf_fin = -self.Nf * self.get_detM(x)
+        Sf0 = -self.Nf * torch.log(self.get_detM(self.boson))
+        Sf_fin = -self.Nf * torch.log(self.get_detM(x))
         return x, (Sf0, Sb0, H0), (Sf_fin, Sb_fin, H_fin)
 
 
@@ -1074,15 +1075,15 @@ class HmcSampler(object):
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S   
     
-    def action_boson_plaq_noncomp(self, boson):
-        """
-        boson: [bs, 2, Lx, Ly, Ltau]
-        S: [bs,]
-        """         
-        boson = boson.permute([3, 2, 1, 4, 0]).reshape(-1, self.Ltau, self.bs)
-        curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
-        S = self.K/2 * torch.sum(curl**2, dim=(0, 1))
-        return S
+    # def action_boson_plaq_noncomp(self, boson):
+    #     """
+    #     boson: [bs, 2, Lx, Ly, Ltau]
+    #     S: [bs,]
+    #     """         
+    #     boson = boson.permute([3, 2, 1, 4, 0]).reshape(-1, self.Ltau, self.bs)
+    #     curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
+    #     S = self.K/2 * torch.sum(curl**2, dim=(0, 1))
+    #     return S
     
     # @torch.inference_mode()
     @torch.no_grad()
@@ -1098,7 +1099,9 @@ class HmcSampler(object):
         self.initialize_boson_staggered_pi()
         # self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
-    
+        self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
+        self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
+
         # Sb = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
         # detM = self.get_detM(self.boson)
         # self.boson_energy = Sb + 2 * torch.log(torch.real(detM))
@@ -1113,8 +1116,15 @@ class HmcSampler(object):
             Sf_fin, Sb_fin, H_fin = energies_new
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
-            self.G_list[i] = accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-            self.S_list[i] = torch.where(accp, Sb_fin, Sb0)
+            self.G_list[i] = \
+                accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) \
+              + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
+            self.S_plaq_list[i] = \
+                accp.view(-1, 1) * self.action_boson_plaq(boson) \
+              + (1 - accp.view(-1, 1).to(torch.float)) * self.S_plaq_list[i-1]
+            self.S_tau_list[i] = \
+                accp.view(-1, 1) * self.action_boson_tau_cmp(boson) \
+              + (1 - accp.view(-1, 1).to(torch.float)) * self.S_tau_list[i-1]
             self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
             self.step += 1
@@ -1130,11 +1140,12 @@ class HmcSampler(object):
             # checkpointing
             if i % 200 == 0:
                 res = {'boson': boson,
-                       'step': self.step,
-                       'mass': self.m,
-                       'G_list': self.G_list.cpu(),
-                       'S_list': self.S_list.cpu(),
-                       'Sf_list': self.Sf_list.cpu()}
+                    'step': self.step,
+                    'mass': self.m,
+                    'G_list': self.G_list.cpu(),
+                    'S_plaq_list': self.S_plaq_list.cpu(),
+                    'S_tau_list': self.S_tau_list.cpu(),
+                    'Sf_list': self.Sf_list.cpu()}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
@@ -1144,10 +1155,9 @@ class HmcSampler(object):
         res = {'boson': boson,
                'step': self.step,
                'mass': self.m,
-               'G_avg': G_avg,
-               'G_std': G_std,
                'G_list': self.G_list.cpu(),
-               'S_list': self.S_list.cpu(),
+               'S_plaq_list': self.S_plaq_list.cpu(),
+               'S_tau_list': self.S_tau_list.cpu(),
                'Sf_list': self.Sf_list.cpu()}
 
         # Save to file
@@ -1192,7 +1202,7 @@ class HmcSampler(object):
 
         # axes[2].plot(self.H_list[self.N_therm_step:].cpu().numpy())
         # axes[2].set_ylabel("H")
-        axes[0].plot(self.S_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
+        axes[0].plot(self.S_plaq_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
         axes[0].plot(self.Sf_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), '*')
         axes[0].set_ylabel("S")
 
@@ -1300,7 +1310,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '600'))
+    Nstep = int(os.getenv("Nstep", '50'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = HmcSampler(J=J, Nstep=Nstep)

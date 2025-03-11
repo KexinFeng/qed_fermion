@@ -144,8 +144,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
     print(f"Figure saved at: {file_path}")
 
 
-
-def load_energy(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_update_filename='', specifics = '', starts=[500], ends=[1000001], sample_steps=[1], scale_it=[False]):
+def load_energy_perJ(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_update_filename='', specifics = '', starts=[500], ends=[1000001], sample_steps=[1], scale_it=[False]):
     """
     Visualize green functions with error bar
     """
@@ -166,7 +165,8 @@ def load_energy(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_upd
         print(f'Loaded: {hmc_filename}')
 
         Sb_list = res['S_list'][seq_idx]
-        Sf_list = res['Sf_list'][seq_idx]
+        Sf_list = -2 * np.log((-1/2)*res['Sf_list'][seq_idx])
+        # Sf_list = res['Sf_list'][seq_idx]
 
         Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
         Sfs.append((Sf_list.mean(dim=0), Sf_list.std(dim=0)/math.sqrt(len(Sf_list))))
@@ -174,12 +174,10 @@ def load_energy(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_upd
     if len(dqmc_filename):   
         # name = f"l4b3js{jtau_value:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         data = np.genfromtxt(dqmc_filename)
-        G_dqmc = np.concat([data[:, 0], data[:1, 0]])
-        G_dqmc_err = np.concat([data[:, 1], data[:1, 1]])
+        S_plaq_list = data
 
-        x_dqmc = np.array(list(range(G_dqmc.size)))
-        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
-
+        Sbs.append((S_plaq_list.mean(), S_plaq_list.std()/math.sqrt(len(S_plaq_list))))
+        Sfs.append((torch.tensor([0]), torch.tensor([0])))
 
     if len(local_update_filename): 
         res = torch.load(local_update_filename)
@@ -199,7 +197,7 @@ def load_energy(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_upd
     return Sbs, Sfs
 
 
-def plot_energy_J(Js):
+def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
 
     boson_lines = [list() for _ in range(3)]
     boson_err_lines = [list() for _ in range(3)]
@@ -209,7 +207,6 @@ def plot_energy_J(Js):
     xs = Js
 
     for J in Js:
-        Nstep = 8000
         print(f'J={J} \nNstep={Nstep}')
 
         hmc = HmcSampler(J=J, Nstep=Nstep)
@@ -217,7 +214,7 @@ def plot_energy_J(Js):
         # hmc.delta_t = 0.02
         hmc.reset()
 
-        lmc = LocalUpdateSampler(J=J, Nstep=1e2)
+        lmc = LocalUpdateSampler(J=J, Nstep=Nstep_local)
         lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
         lmc.reset()
     
@@ -225,7 +222,7 @@ def plot_energy_J(Js):
         step = Nstep
         hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
 
-        dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
+        dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
@@ -233,7 +230,8 @@ def plot_energy_J(Js):
         local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Load
-        Sbs, Sfs = load_energy((Lx, Ly, Ltau), hmc_filename, '', local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50])
+        Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+        Sbs, Sfs = load_energy_perJ((Lx, Ly, Ltau), hmc_filename, '', local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50])
 
         # Collect
         for Sb, ys, yerrs in zip(Sbs, boson_lines, boson_err_lines):
@@ -246,11 +244,11 @@ def plot_energy_J(Js):
 
     # Plot Sb
     plt.figure()
-    plt.errorbar(xs, boson_lines[0], yerr=boson_err_lines[0], linestyle='-', marker='o', label=legends[0], color='blue', lw=2)
-    plt.errorbar(xs, boson_lines[1], yerr=boson_err_lines[1], linestyle='-', marker='*', label=legends[1], color='red', lw=2)
+    for idx, label in enumerate(legends):
+        plt.errorbar(xs, boson_lines[idx], yerr=boson_err_lines[idx], linestyle='-', marker='o', label=legends[idx], lw=2)
 
     plt.xlabel(r"$J$")
-    plt.ylabel(r"$Sb$")
+    plt.ylabel(r"$S_{plaq}$")
     # plt.title(f"Boo")
     plt.legend()
 
@@ -264,11 +262,11 @@ def plot_energy_J(Js):
 
     # Plot Sf
     plt.figure()
-    plt.errorbar(xs, fermion_lines[0], yerr=fermion_err_lines[0], linestyle='-', marker='o', label=legends[0], color='blue', lw=2)
-    plt.errorbar(xs, fermion_lines[1], yerr=fermion_err_lines[1], linestyle='-', marker='*', label=legends[1], color='red', lw=2)
+    for idx, label in enumerate(legends):
+        plt.errorbar(xs, fermion_lines[idx], yerr=fermion_err_lines[idx], linestyle='-', marker='o', label=legends[idx], lw=2)
 
     plt.xlabel(r"$J$")
-    plt.ylabel(r"$Sf$")
+    plt.ylabel(r"$-log(detM)$")
     # plt.title(f"Boo")
     plt.legend()
 
@@ -280,17 +278,12 @@ def plot_energy_J(Js):
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
-    plt.show(block=True)
+    plt.show(block=False)
 
 
-if __name__ == '__main__':
-    # J = float(os.getenv("J"))
-    # Nstep = int(os.getenv("Nstep"))
-
-    Js = [0.5, 1, 3]
-    # Js = [0.5]
+def plot_Gtau_J(Js):
     for J in Js:
-        Nstep = 8000
+        Nstep = 3000
         print(f'J={J} \nNstep={Nstep}')
 
         hmc = HmcSampler(J=J, Nstep=Nstep)
@@ -317,8 +310,16 @@ if __name__ == '__main__':
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
         load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, dqmc_filename, local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50], scale_it=[False, False])
 
-        # plt.show(block=True)
+        plt.show(block=False)
 
+
+if __name__ == '__main__':
+    # J = float(os.getenv("J"))
+    # Nstep = int(os.getenv("Nstep"))
+
+    Js = [0.5, 1, 3]
+
+    # plot_Gtau_J(Js)
     plot_energy_J(Js)
 
     dbstop = 1
