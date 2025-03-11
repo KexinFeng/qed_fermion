@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 import matplotlib
-matplotlib.use('MacOSX')
+# matplotlib.use('MacOSX')
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -74,6 +74,7 @@ class HmcSampler(object):
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
         self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
         self.S_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
+        self.Sf_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
         self.H_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
 
         # Leapfrog
@@ -228,8 +229,8 @@ class HmcSampler(object):
         :return: None
         """
         boson_new, energies_old, energies_new = self.leapfrog_proposer4_cmptau()
-        S_new, H_new = energies_new
-        S_old, H_old = energies_old
+        H_new = energies_new[-1]
+        H_old = energies_old[-1]
         print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
         print(f"threshold: {torch.exp(H_old - H_new).item()}")
 
@@ -565,7 +566,6 @@ class HmcSampler(object):
             dB1[self.j_list_1, self.i_list_1] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
             B = dB1
-            self.B1 = dB1
 
             dB = self.get_dB()
             dB[self.i_list_2, self.j_list_2] = \
@@ -573,7 +573,6 @@ class HmcSampler(object):
             dB[self.j_list_2, self.i_list_2] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B2 = dB
 
             dB = self.get_dB()
             dB[self.i_list_3, self.j_list_3] = \
@@ -581,7 +580,6 @@ class HmcSampler(object):
             dB[self.j_list_3, self.i_list_3] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B3 = dB
 
             dB = self.get_dB()
             dB[self.i_list_4, self.j_list_4] = \
@@ -589,13 +587,12 @@ class HmcSampler(object):
             dB[self.j_list_4, self.i_list_4] = \
                 torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
             B = dB @ B @ dB
-            self.B4 = dB   
 
             prodB = prodB @ B
 
         I = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
-        return torch.det(I + prodB)
-
+        detM = torch.det(I + prodB)
+        return detM
 
     def get_M(self, boson):
         """
@@ -1050,7 +1047,9 @@ class HmcSampler(object):
  
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
 
-        return x, (Sf0_u + Sf0_d + Sb0, H0), (Sf_fin_u + Sf_fin_d + Sb_fin, H_fin)
+        Sf0 = -self.Nf * self.get_detM(self.boson)
+        Sf_fin = -self.Nf * self.get_detM(x)
+        return x, (Sf0, Sb0, H0), (Sf_fin, Sb_fin, H_fin)
 
 
     def action_boson(self, boson):
@@ -1110,12 +1109,13 @@ class HmcSampler(object):
         self.thrm_bool = False
         for i in tqdm(range(self.N_step)):
             boson, accp, energies_old, energies_new = self.metropolis_update()
-            S0, H0 = energies_old
-            S_fin, H_fin = energies_new
+            Sf0, Sb0, H0 = energies_old
+            Sf_fin, Sb_fin, H_fin = energies_new
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
             self.G_list[i] = accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-            self.S_list[i] = torch.where(accp, S_fin, S0)
+            self.S_list[i] = torch.where(accp, Sb_fin, Sb0)
+            self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
             self.step += 1
             self.cur_step += 1
@@ -1132,7 +1132,9 @@ class HmcSampler(object):
                 res = {'boson': boson,
                        'step': self.step,
                        'mass': self.m,
-                       'G_list': self.G_list.cpu()}
+                       'G_list': self.G_list.cpu(),
+                       'S_list': self.S_list.cpu(),
+                       'Sf_list': self.Sf_list.cpu()}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
@@ -1144,7 +1146,9 @@ class HmcSampler(object):
                'mass': self.m,
                'G_avg': G_avg,
                'G_std': G_std,
-               'G_list': self.G_list.cpu()}
+               'G_list': self.G_list.cpu(),
+               'S_list': self.S_list.cpu(),
+               'Sf_list': self.Sf_list.cpu()}
 
         # Save to file
         data_folder = script_path + "/check_points/hmc_check_point/"
@@ -1189,6 +1193,7 @@ class HmcSampler(object):
         # axes[2].plot(self.H_list[self.N_therm_step:].cpu().numpy())
         # axes[2].set_ylabel("H")
         axes[0].plot(self.S_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
+        axes[0].plot(self.Sf_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), '*')
         axes[0].set_ylabel("S")
 
 
@@ -1295,12 +1300,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '1000'))
+    Nstep = int(os.getenv("Nstep", '600'))
     print(f'J={J} \nNstep={Nstep}')
 
-    # hmc = HmcSampler(J=J, Nstep=Nstep)
-    hmc = HmcSampler()
-    hmc.step = 3000
+    hmc = HmcSampler(J=J, Nstep=Nstep)
+    # hmc = HmcSampler()
+    # hmc.step = 3000
 
     # Measure
     G_avg, G_std = hmc.measure()

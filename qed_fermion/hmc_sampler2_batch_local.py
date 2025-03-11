@@ -28,12 +28,13 @@ print(f"device: {device}")
 dtype = torch.float32
 
 class LocalUpdateSampler(object):
-    def __init__(self, J=0.5, Nstep=1e4, config=None):
+    def __init__(self, J=0.5, Nstep=2e2, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
         self.bs = 1
+        self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
         self.Nf = 2
@@ -46,9 +47,9 @@ class LocalUpdateSampler(object):
         self.K = 1 * scale * self.Nf
         self.t = 1
 
-
         self.boson = None
         self.boson_energy = None
+        self.fermion_energy = None
 
         # Plot
         self.num_tau = self.Ltau
@@ -64,10 +65,11 @@ class LocalUpdateSampler(object):
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
         self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
         self.S_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
+        self.Sf_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
         self.H_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
 
         # Local window
-        self.w = 0.08 * torch.pi
+        self.w = 0.1 * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -183,23 +185,26 @@ class LocalUpdateSampler(object):
         # return boson_new, (idx_x, idx_y, idx_tau)
 
         # Compute new energy
-        Sb = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
+        boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
         detM = self.get_detM(boson_new)
         # detM_np = self.get_detM_np(boson_new)
-
-        boson_energy_new = Sb + self.Nf * torch.log(torch.abs(detM))
+        fermion_energy_new = -self.Nf * torch.log(torch.real(detM)).unsqueeze(0)
 
         # Metropolis_update
-        accp = torch.rand(self.bs, device=device) < torch.exp(self.boson_energy - boson_energy_new)
-        print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
-        print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
+        accp = torch.rand(self.bs, device=device) < torch.exp(self.boson_energy + self.fermion_energy - boson_energy_new - fermion_energy_new)
+        # print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
+        # print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
 
-        print(f'Accp?: {accp.item()}')
+        # print(f'Accp?: {accp.item()}')
         self.boson[accp] = boson_new[accp]
-        energies_old = self.boson_energy.clone(), 0
+        boson_energy_old = self.boson_energy.clone()
+        fermion_energy_old = self.fermion_energy.clone()
         self.boson_energy[accp] = boson_energy_new[accp]
+        self.fermion_energy[accp] = fermion_energy_new[accp]
         
-        return self.boson, accp, energies_old, (self.boson_energy, 0)
+        energies_old = (fermion_energy_old, boson_energy_old, fermion_energy_old + boson_energy_old)
+        energies_new = (fermion_energy_new, boson_energy_new, fermion_energy_new + boson_energy_new)
+        return self.boson, accp, energies_old, energies_new
 
 
     def sin_curl_greens_function_batch(self, boson):
@@ -386,7 +391,8 @@ class LocalUpdateSampler(object):
             prodB = prodB @ B
 
         I = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
-        return torch.det(I + prodB)
+        detM = torch.det(I + prodB)
+        return detM
 
 
     def action_boson(self, boson):
@@ -436,10 +442,10 @@ class LocalUpdateSampler(object):
         # self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
     
-        Sb = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
+        self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
         detM = self.get_detM(self.boson)
         # detM_np = self.get_detM_np(self.boson)
-        self.boson_energy = Sb + 2 * torch.log(torch.real(detM))
+        self.fermion_energy = -2 * torch.log(torch.real(detM)).unsqueeze(0)
 
         # Measure
         plt.figure()
@@ -448,12 +454,13 @@ class LocalUpdateSampler(object):
         self.thrm_bool = False
         for i in tqdm(range(self.N_step)):
             boson, accp, energies_old, energies_new = self.local_u1_proposer()
-            S0, H0 = energies_old
-            S_fin, H_fin = energies_new
+            Sf0, Sb0, H0 = energies_old
+            Sf_fin, Sb_fin, H_fin = energies_new
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
             self.G_list[i] = accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-            self.S_list[i] = torch.where(accp, S_fin, S0)
+            self.S_list[i] = torch.where(accp, Sb_fin, Sb0)
+            self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
             self.step += 1
             self.cur_step += 1
@@ -466,22 +473,25 @@ class LocalUpdateSampler(object):
                 plt.close()
 
             # checkpointing
-            if i % (self.Lx * self.Ly * self.Ltau * 10) == 0:
+            if i % 200 == 0:
                 res = {'boson': boson,
                        'step': self.step,
-                       'mass': self.m,
-                       'G_list': self.G_list.cpu()}
+                       'G_list': self.G_list.cpu(),
+                       'S_list': self.S_list.cpu(),
+                       'Sf_list': self.Sf_list.cpu()}
                 
+                data_folder = script_path + "/check_points/local_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
                 self.save_to_file(res, data_folder, file_name)           
 
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
-               'mass': self.m,
                'G_avg': G_avg,
                'G_std': G_std,
-               'G_list': self.G_list.cpu()}
+               'G_list': self.G_list.cpu(),
+               'S_list': self.S_list.cpu(),
+               'Sf_list': self.Sf_list.cpu()}        
 
         # Save to file
         file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
@@ -523,6 +533,7 @@ class LocalUpdateSampler(object):
         # axes[2].plot(self.H_list[self.N_therm_step:].cpu().numpy())
         # axes[2].set_ylabel("H")
         axes[0].plot(self.S_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
+        axes[0].plot(self.Sf_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), '*')
         axes[0].set_ylabel("S")
 
 
@@ -627,11 +638,11 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '1000'))
+    Nstep = int(os.getenv("Nstep", '10'))
     print(f'J={J} \nNstep={Nstep}')
 
-    # hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
-    hmc = LocalUpdateSampler()
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
+    # hmc = LocalUpdateSampler()
 
     # Measure
     G_avg, G_std = hmc.measure()

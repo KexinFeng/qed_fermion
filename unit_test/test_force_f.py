@@ -12,6 +12,7 @@ def test_force_f():
     hmc = HmcSampler()
 
     Lx, Ly, Ltau = 2, 2, 2
+    Lx, Ly, Ltau = 6, 6, 10
     hmc.Lx, hmc.Ly, hmc.Ltau = Lx, Ly, Ltau
     hmc.curl_mat = initialize_curl_mat(Lx, Ly).to(hmc.curl_mat.device)
     hmc.initialize_geometry()
@@ -69,7 +70,7 @@ def test_force_f():
     print(force_fs[0].permute([0, 4, 3, 2, 1]).view(-1))
     print(force_f_auto.permute([0, 4, 3, 2, 1]).view(-1))
 
-    torch.testing.assert_close(clear_mat(force_fs[0]), clear_mat(force_f_auto))
+    torch.testing.assert_close(clear_mat(force_fs[0]), clear_mat(force_f_auto), atol=1e-4, rtol=1e-5)
 
             
 

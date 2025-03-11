@@ -1,4 +1,5 @@
 import json
+import math
 import matplotlib.pyplot as plt
 plt.ion()
 
@@ -143,14 +144,72 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
     print(f"Figure saved at: {file_path}")
 
 
-if __name__ == '__main__':
-    # J = float(os.getenv("J"))
-    # Nstep = int(os.getenv("Nstep"))
 
-    Js = [0.5, 1, 3]
-    Js = [0.5]
+def load_energy(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_update_filename='', specifics = '', starts=[500], ends=[1000001], sample_steps=[1], scale_it=[False]):
+    """
+    Visualize green functions with error bar
+    """
+    # Load numerical data
+
+    Sbs = []
+    Sfs = []
+
+    # ======== Plot ======== #
+    plt.figure()
+    if len(hmc_filename):
+        start = starts.pop(0)
+        end = ends.pop(0)
+        sample_step = sample_steps.pop(0)
+        seq_idx = np.arange(start, end, sample_step)
+
+        res = torch.load(hmc_filename)
+        print(f'Loaded: {hmc_filename}')
+
+        Sb_list = res['S_list'][seq_idx]
+        Sf_list = res['Sf_list'][seq_idx]
+
+        Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
+        Sfs.append((Sf_list.mean(dim=0), Sf_list.std(dim=0)/math.sqrt(len(Sf_list))))
+
+    if len(dqmc_filename):   
+        # name = f"l4b3js{jtau_value:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        data = np.genfromtxt(dqmc_filename)
+        G_dqmc = np.concat([data[:, 0], data[:1, 0]])
+        G_dqmc_err = np.concat([data[:, 1], data[:1, 1]])
+
+        x_dqmc = np.array(list(range(G_dqmc.size)))
+        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+
+
+    if len(local_update_filename): 
+        res = torch.load(local_update_filename)
+        print(f'Loaded: {local_update_filename}')
+
+        start_local = starts.pop(0)
+        end_local = ends.pop(0)
+        sample_step_local = sample_steps.pop(0)
+        seq_idx_local = np.arange(start_local, end_local, sample_step_local)
+
+        Sb_list = res['S_list'][seq_idx_local]
+        Sf_list = res['Sf_list'][seq_idx_local]
+
+        Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
+        Sfs.append((Sf_list.mean(dim=0), Sf_list.std(dim=0)/math.sqrt(len(Sf_list))))
+
+    return Sbs, Sfs
+
+
+def plot_energy_J(Js):
+
+    boson_lines = [list() for _ in range(3)]
+    boson_err_lines = [list() for _ in range(3)]
+    fermion_lines = [list() for _ in range(3)]
+    fermion_err_lines = [list() for _ in range(3)]
+    legends = ['hmc', 'local']
+    xs = Js
+
     for J in Js:
-        Nstep = 3000
+        Nstep = 8000
         print(f'J={J} \nNstep={Nstep}')
 
         hmc = HmcSampler(J=J, Nstep=Nstep)
@@ -158,7 +217,88 @@ if __name__ == '__main__':
         # hmc.delta_t = 0.02
         hmc.reset()
 
-        lmc = LocalUpdateSampler(J=J, Nstep=1e4)
+        lmc = LocalUpdateSampler(J=J, Nstep=1e2)
+        lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
+        lmc.reset()
+    
+        # File names
+        step = Nstep
+        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
+
+        dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
+        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename = os.path.join(dqmc_folder, name)
+
+        step_lmc = 36000
+        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
+
+        # Load
+        Sbs, Sfs = load_energy((Lx, Ly, Ltau), hmc_filename, '', local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50])
+
+        # Collect
+        for Sb, ys, yerrs in zip(Sbs, boson_lines, boson_err_lines):
+            ys.append(Sb[0].item())
+            yerrs.append(Sb[1].item())
+
+        for Sf, zs, zerrs in zip(Sfs, fermion_lines, fermion_err_lines):
+            zs.append(Sf[0].item())
+            zerrs.append(Sf[1].item())
+
+    # Plot Sb
+    plt.figure()
+    plt.errorbar(xs, boson_lines[0], yerr=boson_err_lines[0], linestyle='-', marker='o', label=legends[0], color='blue', lw=2)
+    plt.errorbar(xs, boson_lines[1], yerr=boson_err_lines[1], linestyle='-', marker='*', label=legends[1], color='red', lw=2)
+
+    plt.xlabel(r"$J$")
+    plt.ylabel(r"$Sb$")
+    # plt.title(f"Boo")
+    plt.legend()
+
+    # save plot
+    method_name = "boson"
+    save_dir = os.path.join(script_path, f"./figures/energies_boson")
+    os.makedirs(save_dir, exist_ok=True) 
+    file_path = os.path.join(save_dir, f"{method_name}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+    # Plot Sf
+    plt.figure()
+    plt.errorbar(xs, fermion_lines[0], yerr=fermion_err_lines[0], linestyle='-', marker='o', label=legends[0], color='blue', lw=2)
+    plt.errorbar(xs, fermion_lines[1], yerr=fermion_err_lines[1], linestyle='-', marker='*', label=legends[1], color='red', lw=2)
+
+    plt.xlabel(r"$J$")
+    plt.ylabel(r"$Sf$")
+    # plt.title(f"Boo")
+    plt.legend()
+
+    # save plot
+    method_name = "fermion"
+    save_dir = os.path.join(script_path, f"./figures/energies_fermion")
+    os.makedirs(save_dir, exist_ok=True) 
+    file_path = os.path.join(save_dir, f"{method_name}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+    plt.show(block=True)
+
+
+if __name__ == '__main__':
+    # J = float(os.getenv("J"))
+    # Nstep = int(os.getenv("Nstep"))
+
+    Js = [0.5, 1, 3]
+    # Js = [0.5]
+    for J in Js:
+        Nstep = 8000
+        print(f'J={J} \nNstep={Nstep}')
+
+        hmc = HmcSampler(J=J, Nstep=Nstep)
+        hmc.Lx, hmc.Ly, hmc.Ltau = 6, 6, 10
+        # hmc.delta_t = 0.02
+        hmc.reset()
+
+        lmc = LocalUpdateSampler(J=J, Nstep=1e2)
         lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
         lmc.reset()
 
@@ -170,14 +310,16 @@ if __name__ == '__main__':
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
-        step_lmc = 110001
+        step_lmc = 36000
         local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
 
         # Measure
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-        load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, dqmc_filename, local_update_filename, specifics=hmc.specifics, starts=[1000, 10000], ends=[Nstep, step_lmc], sample_steps=[1, 500], scale_it=[False, False])
+        load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc_filename, dqmc_filename, local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50], scale_it=[False, False])
 
-        plt.show(block=True)
+        # plt.show(block=True)
+
+    plot_energy_J(Js)
 
     dbstop = 1
 
