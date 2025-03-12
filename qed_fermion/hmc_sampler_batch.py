@@ -59,6 +59,9 @@ class HmcSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
 
+        self.plt_rate = 500
+        self.ckp_rate = 500
+
         # Statistics
         self.N_step = Nstep
         self.step = 0
@@ -75,9 +78,9 @@ class HmcSampler(object):
         # Leapfrog
         self.debug_pde = False
         self.m = 1/2 * 4 / scale
-        self.m = 1/2
+        # self.m = 1/2
 
-        self.delta_t = 0.02
+        self.delta_t = 0.05
         print(f"delta_t = {self.delta_t}")
 
         self.N_leapfrog = 10
@@ -227,7 +230,6 @@ class HmcSampler(object):
             correlations.append(corr)
 
         return torch.stack(correlations).T  # Shape: [bs, num_dtau]
-
 
     # =========== Turn on fermions =========
     def action_boson_tau_cmp(self, x):
@@ -402,7 +404,8 @@ class HmcSampler(object):
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
         H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
  
-        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
+        # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
+        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-3)
 
         return x, H0, H_fin
 
@@ -429,15 +432,13 @@ class HmcSampler(object):
         :return: G_avg, G_std
         """
         # Initialization
-        self.initialize_boson_staggered_pi()
-        # self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
         self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
 
 
         # Measure
-        plt.figure()
+        # fig = plt.figure()
         for i in tqdm(range(self.N_step)):
             boson, accp = self.metropolis_update()
             self.accp_list[i] = accp
@@ -456,14 +457,15 @@ class HmcSampler(object):
             self.cur_step += 1
             
             # plotting
-            if i % 200 == 0:
+            if i % self.plt_rate == 0:
+                plt.pause(0.1)
+                plt.close()
                 self.total_monitoring()
                 plt.show(block=False)
-                plt.pause(0.1)  # Pause for 5 seconds
-                plt.close()
+                plt.pause(0.1)
 
             # checkpointing
-            if i % 1000 == 0:
+            if i % self.ckp_rate == 0:
                 res = {'boson': boson,
                     'step': self.step,
                     'mass': self.m,
@@ -472,7 +474,7 @@ class HmcSampler(object):
                     'S_tau_list': self.S_tau_list.cpu()}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
-                file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
+                file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)           
 
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
@@ -485,7 +487,7 @@ class HmcSampler(object):
 
         # Save to file
         data_folder = script_path + "/check_points/hmc_check_point/"
-        file_name = f"ckpt_N_{self.specifics}"
+        file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(res, data_folder, file_name)           
 
         return G_avg, G_std
@@ -505,29 +507,30 @@ class HmcSampler(object):
         # plt.figure()
         fig, axes = plt.subplots(2, 2, figsize=(12, 7.5))
         
-        start = 50  # to prevent from being out of scale due to init out-liers
- 
-        axes[1, 0].plot(self.accp_rate[start:self.cur_step].cpu().numpy())
+        start = 200  # to prevent from being out of scale due to init out-liers
+        seq_idx = np.arange(start, self.cur_step, 1)
+
+        axes[1, 0].plot(self.accp_rate[seq_idx].cpu().numpy())
         axes[1, 0].set_xlabel("Steps")
         axes[1, 0].set_ylabel("Acceptance Rate")
 
         idx = [0, self.num_tau // 2, -2]
         # for b in range(self.G_list.size(1)):
-        axes[0, 0].plot(self.G_list[start:self.cur_step, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
-        axes[0, 0].plot(self.G_list[start:self.cur_step, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
-        axes[0, 0].plot(self.G_list[start:self.cur_step, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
+        axes[0, 0].plot(self.G_list[seq_idx, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
+        axes[0, 0].plot(self.G_list[seq_idx, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
+        axes[0, 0].plot(self.G_list[seq_idx, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
         axes[0, 0].set_ylabel("Greens Function")
         axes[0, 0].set_title("Greens Function Over Steps")
         axes[0, 0].legend()
 
-        axes[0, 1].plot(self.S_plaq_list[start: self.cur_step].cpu().numpy(), 'o', label='S_plaq')
-        # axes[0, 1].plot(self.S_tau_list[start: self.cur_step].cpu().numpy(), '*', label='S_tau')
-        axes[0, 1].set_ylabel("Action")
+        axes[0, 1].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
+        # axes[0, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='S_tau')
+        axes[0, 1].set_ylabel("$S_{plaq}$")
         axes[0, 1].legend()
 
-        # axes[2].plot(self.S_plaq_list[start: self.cur_step].cpu().numpy(), 'o', label='S_plaq')
-        axes[1, 1].plot(self.S_tau_list[start: self.cur_step].cpu().numpy(), '*', label='S_tau')
-        axes[1, 1].set_ylabel("Action")
+        # axes[2].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
+        axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau} + S_{plaq}$')
+        axes[1, 1].set_ylabel("$S_{tau} + S_{plaq}$")
         axes[1, 1].set_xlabel("Steps")
         axes[1, 1].legend()
 
@@ -536,11 +539,13 @@ class HmcSampler(object):
 
         class_name = __file__.split('/')[-1].replace('.py', '')
         method_name = "totol_monit"
-        save_dir = os.path.join(script_path, f"./figures/hmc_{class_name}")
+        save_dir = os.path.join(script_path, f"./figures/{class_name}")
         os.makedirs(save_dir, exist_ok=True) 
         file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
+
+        return fig
 
 
 def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifics='', plot_anal=True):
@@ -551,7 +556,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
-    filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{specifics}.pt"
+    filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
 
     res = torch.load(filename)
     print(f'Loaded: {filename}')
@@ -576,7 +581,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     # Save plot
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens"
-    save_dir = os.path.join(script_path, f"./figures/figure_{class_name}")
+    save_dir = os.path.join(script_path, f"./figures/{class_name}")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -621,7 +626,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     # --------- save_plot ---------
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens_loglog"
-    save_dir = os.path.join(script_path, f"./figures/figure_{class_name}")
+    save_dir = os.path.join(script_path, f"./figures/{class_name}")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -631,7 +636,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '3000'))
+    Nstep = int(os.getenv("Nstep", '10000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = HmcSampler(J=J, Nstep=Nstep)
