@@ -33,7 +33,7 @@ class LocalUpdateSampler(object):
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 1
+        self.bs = 5
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -45,7 +45,6 @@ class LocalUpdateSampler(object):
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf / 4
         self.K = 1 * scale * self.Nf
-        self.t = 0.001
 
         self.boson = None
         self.boson_energy = None
@@ -56,21 +55,20 @@ class LocalUpdateSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         # Statistics
-        self.N_therm_step = 0
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
         self.step = 0
         self.cur_step = 0
-        self.thrm_bool = False
+
         self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1, device=device)
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
         self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
-        self.S_plaq_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
-        self.S_tau_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
-        self.Sf_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
-        self.H_list = torch.zeros(self.N_therm_step + self.N_step, self.bs)
+        self.S_plaq_list = torch.zeros(self.N_step, self.bs)
+        self.S_tau_list = torch.zeros(self.N_step, self.bs)
+        self.Sf_list = torch.zeros(self.N_step, self.bs)
+        self.H_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
-        self.w = 0.2 * torch.pi
+        self.w = 0.1 * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -89,10 +87,10 @@ class LocalUpdateSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):
-        self.specifics = f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}"
+        self.specifics = f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
     
     def get_specifics(self):
-        return f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_dtau_{self.dtau}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_t_{self.t}"
+        return f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -137,7 +135,7 @@ class LocalUpdateSampler(object):
         # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau, device=device)
         # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
 
-        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.5, 1, self.bs, device=device)
+        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 1, self.bs, device=device).view(-1, 1, 1, 1, 1)
 
     def initialize_boson_staggered_pi(self):
         """
@@ -176,11 +174,8 @@ class LocalUpdateSampler(object):
         # print(f"threshold: {torch.exp(-d_action).item()}")
         # print(f'Accp?: {accp.item()}')
 
-        energies_old = (0, 0, 0)
-        energies_new = (0, 0, 0)
-
         self.boson[accp] = boson_new[accp]
-        return self.boson, accp, energies_old, energies_new
+        return self.boson, accp
 
     def sin_curl_greens_function_batch(self, boson):
         """
@@ -253,35 +248,30 @@ class LocalUpdateSampler(object):
         :return: G_avg, G_std
         """
         # Initialization
-        self.initialize_boson_staggered_pi()
-        # self.initialize_boson()
+        # self.initialize_boson_staggered_pi()
+        self.initialize_boson()
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
         self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
     
-        # self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
 
         # Measure
         plt.figure()
         # Take sample
         data_folder = script_path + "/check_points/local_check_point/"
-        self.thrm_bool = False
         for i in tqdm(range(self.N_step)):
-            boson, accp, energies_old, energies_new = self.local_u1_proposer()
-            Sf0, Sb0, H0 = energies_old
-            Sf_fin, Sb_fin, H_fin = energies_new
+            boson, accp = self.local_u1_proposer()
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
             self.G_list[i] = \
                 accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) \
               + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
             self.S_tau_list[i] = \
-                accp.view(-1, 1) * self.action_boson_tau_cmp(boson) \
-              + (1 - accp.view(-1, 1).to(torch.float)) * self.S_tau_list[i-1]
+                accp.view(-1) * self.action_boson_tau_cmp(boson) \
+              + (1 - accp.view(-1).to(torch.float)) * self.S_tau_list[i-1]
             self.S_plaq_list[i] = \
-                accp.view(-1, 1) * self.action_boson_plaq(boson) \
-              + (1 - accp.view(-1, 1).to(torch.float)) * self.S_plaq_list[i-1]
-            # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
+                accp.view(-1) * self.action_boson_plaq(boson) \
+              + (1 - accp.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
 
             self.step += 1
             self.cur_step += 1
@@ -290,35 +280,30 @@ class LocalUpdateSampler(object):
             if i % (self.Vs * 10) == 0:
                 self.total_monitoring()
                 plt.show(block=False)
-                plt.pause(0.1)  # Pause for 5 seconds
+                plt.pause(0.2)  # Pause for 5 seconds
                 plt.close()
 
             # checkpointing
-            if i % (self.Vs * 10) == 0:
+            if i % (self.Vs * 100) == 0:
                 res = {'boson': boson,
                     'step': self.step,
                     'G_list': self.G_list.cpu(),
                     'S_plaq_list': self.S_plaq_list.cpu(),
-                    'S_tau_list': self.S_tau_list.cpu(),
-                    'Sf_list': self.Sf_list.cpu()}     
+                    'S_tau_list': self.S_tau_list.cpu()}     
                 
-                data_folder = script_path + "/check_points/local_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
                 self.save_to_file(res, data_folder, file_name)           
 
-        G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
                'G_list': self.G_list.cpu(),
                'S_plaq_list': self.S_plaq_list.cpu(),
-               'S_tau_list': self.S_tau_list.cpu(),
-               'Sf_list': self.Sf_list.cpu()}        
+               'S_tau_list': self.S_tau_list.cpu()}        
 
         # Save to file
-        file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
+        file_name = f"ckpt_N_{self.specifics}"
         self.save_to_file(res, data_folder, file_name)           
-
-        return G_avg, G_std
+        return
 
     # ------- Save to file -------
     def save_to_file(self, res, data_folder, filename):
@@ -333,30 +318,33 @@ class LocalUpdateSampler(object):
         Visualize obsrv and accp in subplots.
         """
         # plt.figure()
-        fig, axes = plt.subplots(3, 1, figsize=(10, 8))
+        fig, axes = plt.subplots(2, 2, figsize=(12, 7.5))
         
         start = 50  # to prevent from being out of scale due to init out-liers
  
-        axes[2].plot(self.accp_rate[start:self.cur_step].cpu().numpy())
-        axes[2].set_xlabel("Steps")
-        axes[2].set_ylabel("Acceptance Rate")
+        axes[1, 0].plot(self.accp_rate[start:self.cur_step].cpu().numpy())
+        axes[1, 0].set_xlabel("Steps")
+        axes[1, 0].set_ylabel("Acceptance Rate")
 
         idx = [0, self.num_tau // 2, -2]
         # for b in range(self.G_list.size(1)):
-        axes[1].plot(self.G_list[start:self.cur_step, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
-        axes[1].plot(self.G_list[start:self.cur_step, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
-        axes[1].plot(self.G_list[start:self.cur_step, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
-        axes[1].set_xlabel("Steps")
-        axes[1].set_ylabel("Greens Function")
-        axes[1].set_title("Greens Function Over Steps")
-        axes[1].legend()
+        axes[0, 0].plot(self.G_list[start:self.cur_step, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
+        axes[0, 0].plot(self.G_list[start:self.cur_step, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
+        axes[0, 0].plot(self.G_list[start:self.cur_step, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
+        axes[0, 0].set_ylabel("Greens Function")
+        axes[0, 0].set_title("Greens Function Over Steps")
+        axes[0, 0].legend()
 
-        # axes[2].plot(self.H_list[self.N_therm_step:].cpu().numpy())
-        # axes[2].set_ylabel("H")
-        axes[0].plot(self.S_plaq_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), 'o')
-        axes[0].plot(self.S_tau_list[self.N_therm_step + start: self.N_therm_step + self.cur_step].cpu().numpy(), '*')
-        axes[0].set_ylabel("S")
+        axes[0, 1].plot(self.S_plaq_list[start: self.cur_step].cpu().numpy(), 'o', label='S_plaq')
+        # axes[0, 1].plot(self.S_tau_list[start: self.cur_step].cpu().numpy(), '*', label='S_tau')
+        axes[0, 1].set_ylabel("Action")
+        axes[0, 1].legend()
 
+        # axes[2].plot(self.S_plaq_list[start: self.cur_step].cpu().numpy(), 'o', label='S_plaq')
+        axes[1, 1].plot(self.S_tau_list[start: self.cur_step].cpu().numpy(), '*', label='S_tau')
+        axes[1, 1].set_ylabel("Action")
+        axes[1, 1].set_xlabel("Steps")
+        axes[1, 1].legend()
 
         plt.tight_layout()
         # plt.show(block=False)
@@ -379,8 +367,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
 
-
-    filename = script_path + f"/check_points/local_check_point/ckpt_N_{specifics}_step_{step}.pt"
+    filename = script_path + f"/check_points/local_check_point/ckpt_N_{specifics}.pt"
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
@@ -388,7 +375,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 500
+    start = 2000
     end = step
     sample_step = 1
     seq_idx = np.arange(start, end, sample_step)
@@ -445,7 +432,6 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     plt.xscale('log')
     plt.yscale('log')
 
-
     # --------- save_plot ---------
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens_loglog"
@@ -458,15 +444,14 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
 
-    J = float(os.getenv("J", '3'))
-    Nstep = int(os.getenv("Nstep", '100'))
+    J = float(os.getenv("J", '0.5'))
+    Nstep = int(os.getenv("Nstep", '50'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
-    # hmc = LocalUpdateSampler()
 
     # Measure
-    G_avg, G_std = hmc.measure()
+    hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
