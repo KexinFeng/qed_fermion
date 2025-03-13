@@ -153,7 +153,7 @@ class LocalUpdateSampler(object):
         :return: None
         """
         # Generate random values for each time slice
-        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.1, 1, self.bs-1, device=device).view(-1, 1, 1, 1)
+        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1)
 
         # Repeat the random values across the time slices
         self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
@@ -535,7 +535,7 @@ if __name__ == '__main__':
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
 
     # Measure
-    hmc.measure()
+    # hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)

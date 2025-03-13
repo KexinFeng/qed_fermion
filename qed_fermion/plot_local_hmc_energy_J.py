@@ -1,9 +1,12 @@
 import json
 import math
+import re
 import matplotlib.pyplot as plt
 plt.ion()
 
 import numpy as np
+from scipy import stats
+
 # matplotlib.use('MacOSX')
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
@@ -15,116 +18,113 @@ import torch
 import sys
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.hmc_sampler2_batch_fermion import HmcSampler
-from qed_fermion.hmc_sampler2_batch_local import LocalUpdateSampler
+from qed_fermion.hmc_sampler_batch import HmcSampler
+from qed_fermion.local_sampler_batch import LocalUpdateSampler
+
+def std_root_n(tensor, dim=None, unbiased=True):
+    std = torch.std(tensor, dim=dim, unbiased=unbiased)
+    n = tensor.size(dim) if dim is not None else tensor.numel()
+    return std / torch.sqrt(torch.tensor(n, dtype=torch.float32))
 
 
-def load_energy_perJ(Lsize=(20, 20, 20), hmc_filename='', dqmc_filename='', local_update_filename='', specifics = '', starts=[500], ends=[1000001], sample_steps=[1], scale_it=[False]):
+def t_based_error(data, confidence=0.95):
     """
-    Visualize green functions with error bar
+    Calculate confidence interval using Student's t-distribution
+    Returns: (mean, margin_of_error)
     """
-    # Load numerical data
+    n = len(data)
+    if n < 2:
+        raise ValueError("Sample size must be at least 2")
+        
+    mean = np.mean(data)
+    std = np.std(data, ddof=1)  # Sample standard deviation
+    sem = std / np.sqrt(n)      # Standard error of the mean
+    
+    # Get t-critical value for (1 - α/2) confidence level
+    alpha = 1 - confidence
+    df = n - 1                  # Degrees of freedom
+    t_crit = stats.t.ppf(1 - alpha/2, df)
+    error = t_crit * sem
 
-    Sbs = []
-    Sfs = []
+    # # Check
+    # ci_low, ci_high = stats.t.interval(
+    #     confidence=0.95,
+    #     df=len(data)-1,
+    #     loc=np.mean(data),
+    #     scale=stats.sem(data)
+    # )
+    # assert abs(ci_high - ci_low - 2 * error) < 1e-3
+    
+    return error
 
-    # ======== Plot ======== #
-    plt.figure()
-    if len(hmc_filename):
-        start = starts.pop(0)
-        end = ends.pop(0)
-        sample_step = sample_steps.pop(0)
-        seq_idx = np.arange(start, end, sample_step)
+
+def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
+    Js = [0.5]
+    xs = Js
+
+    Sb_plaq_list_hmc = []
+    Sb_plaq_list_local = []
+    Sf_list_hmc = []
+    Sf_list_local = []
+
+    for J in Js:
+
+        hmc_filename = script_path + "/check_points/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
+        local_update_filename = script_path + "/check_points/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000_Jtau_0.5_K_1_dtau_0.1_step_3600000.pt"
 
         res = torch.load(hmc_filename)
         print(f'Loaded: {hmc_filename}')
+        Sb_plaq_list_hmc.append(res['S_plaq_list'])
+        Sf_list_hmc.append(res['S_tau_list'])
 
-        Sb_list = res['S_plaq_list'][seq_idx]
-        Sf_list = res['Sf_list'][seq_idx]
-        # Sf_list = res['Sf_list'][seq_idx]
-
-        Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
-        Sfs.append((Sf_list.mean(dim=0), Sf_list.std(dim=0)/math.sqrt(len(Sf_list))))
-
-    if len(dqmc_filename):   
-        # name = f"l4b3js{jtau_value:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        data = np.genfromtxt(dqmc_filename)
-        S_plaq_list = data
-
-        Sbs.append((S_plaq_list.mean(), S_plaq_list.std()/math.sqrt(len(S_plaq_list))))
-        Sfs.append((torch.tensor([0]), torch.tensor([0])))
-
-    if len(local_update_filename): 
         res = torch.load(local_update_filename)
         print(f'Loaded: {local_update_filename}')
+        Sb_plaq_list_local.append(res['S_plaq_list'])
+        Sf_list_local.append(res['S_tau_list'])
 
-        start_local = starts.pop(0)
-        end_local = ends.pop(0)
-        sample_step_local = sample_steps.pop(0)
-        seq_idx_local = np.arange(start_local, end_local, sample_step_local)
+    # ====== Index ====== #
+    hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+    end = int(hmc_match.group(1))
+    start = starts.pop(0)
+    sample_step = sample_steps.pop(0)
+    seq_idx = np.arange(start, end, sample_step)
 
-        Sb_list = res['S_plaq_list'][seq_idx_local]
-        Sf_list = res['Sf_list'][seq_idx_local]
+    local_match = re.search(r'Nstp_(\d+)', local_update_filename)
+    end_local = int(local_match.group(1))
+    start_local = starts.pop(0)
+    sample_step_local = sample_steps.pop(0)
+    seq_idx_local = np.arange(start_local, end_local, sample_step_local)
+  
 
-        Sbs.append((Sb_list.mean(dim=0), Sb_list.std(dim=0)/math.sqrt(len(Sb_list))))
-        Sfs.append((Sf_list.mean(dim=0), Sf_list.std(dim=0)/math.sqrt(len(Sf_list))))
-
-    return Sbs, Sfs
-
-
-def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
-
-    boson_lines = [list() for _ in range(3)]
-    boson_err_lines = [list() for _ in range(3)]
-    fermion_lines = [list() for _ in range(3)]
-    fermion_err_lines = [list() for _ in range(3)]
-    legends = ['hmc', 'local']
-    xs = Js
-
-    for J in Js:
-        print(f'J={J} \nNstep={Nstep}')
-
-        hmc = HmcSampler(J=J, Nstep=Nstep)
-        hmc.Lx, hmc.Ly, hmc.Ltau = 6, 6, 10
-        # hmc.delta_t = 0.02
-        hmc.reset()
-
-        lmc = LocalUpdateSampler(J=J, Nstep=Nstep_local)
-        lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
-        lmc.reset()
-    
-        # File names
-        step = Nstep
-        hmc_filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{hmc.specifics}_step_{step}.pt"
-
-        dqmc_folder = script_path + "/../../benchmark_dqmc/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
-        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        dqmc_filename = os.path.join(dqmc_folder, name)
-
-        step_lmc = 36000
-        local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.specifics}_step_{step_lmc}.pt"
-
-        # Load
-        Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-        Sbs, Sfs = load_energy_perJ((Lx, Ly, Ltau), hmc_filename, '', local_update_filename, specifics=hmc.specifics, starts=[1000, 20000], ends=[Nstep, step_lmc], sample_steps=[1, 50])
-
-        # Collect
-        for Sb, ys, yerrs in zip(Sbs, boson_lines, boson_err_lines):
-            ys.append(Sb[0].item())
-            yerrs.append(Sb[1].item())
-
-        for Sf, zs, zerrs in zip(Sfs, fermion_lines, fermion_err_lines):
-            zs.append(Sf[0].item())
-            zerrs.append(Sf[1].item())
-
-    # Plot Sb
+    # ======= Plot Sb ======= #
     plt.figure()
-    for idx, label in enumerate(legends):
-        plt.errorbar(xs, boson_lines[idx], yerr=boson_err_lines[idx], linestyle='-', marker='o', label=legends[idx], lw=2)
+
+    # HMC
+    ys = [Sb_plaq[seq_idx].mean().item() for Sb_plaq in Sb_plaq_list_hmc]  # [seq, bs]
+    # yerr_s = [std_root_n(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
+    yerr_s = [t_based_error(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
+    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='o', lw=2, color='blue', label='hmc')
+    for bi in range(Sb_plaq_list_hmc[0].size(1)):
+        ys = [Sb_plaq[seq_idx, bi].mean().item() for Sb_plaq in Sb_plaq_list_hmc] 
+        plt.errorbar(
+            xs, 
+            ys, 
+            alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2)
+           
+    # Local
+    ys = [Sb_plaq[seq_idx_local].mean().item() for Sb_plaq in Sb_plaq_list_local]  # [seq, bs]
+    # yerr_s = [std_root_n(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local]
+    yerr_s = [t_based_error(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local]
+    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='*', ms=8, lw=2, color='green', label='local')
+    for bi in range(Sb_plaq_list_local[0].size(1)):
+        ys = [Sb_plaq[seq_idx_local, bi].mean().item() for Sb_plaq in Sb_plaq_list_local] 
+        plt.errorbar(
+            xs, 
+            ys, 
+            alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', ms=8, lw=2)
 
     plt.xlabel(r"$J$")
     plt.ylabel(r"$S_{plaq}$")
-    # plt.title(f"Boo")
     plt.legend()
 
     # save plot
@@ -135,14 +135,38 @@ def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
-    # Plot Sf
+    # ====== Plot Sf ======= #
     plt.figure()
-    for idx, label in enumerate(legends):
-        plt.errorbar(xs, fermion_lines[idx], yerr=fermion_err_lines[idx], linestyle='-', marker='o', label=legends[idx], lw=2)
+    # HMC
+    ys = [Sf[seq_idx].mean().item() for Sf in Sf_list_hmc]  # [seq, bs]
+    # yerr_s = [std_root_n(Sf[seq_idx].mean(axis=0).numpy()) for Sf in Sf_list_hmc]
+    yerr_s = [t_based_error(Sf[seq_idx].mean(axis=0).numpy()) for Sf in Sf_list_hmc]
+    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='o', lw=2, color='blue', label='hmc')
+    for bi in range(Sf_list_hmc[0].size(1)):
+        ys = [Sf[seq_idx, bi].mean().item() for Sf in Sf_list_hmc] 
+        plt.errorbar(
+            xs, 
+            ys, 
+            alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2)
+
+    # Local
+    ys = [Sf[seq_idx_local].mean().item() for Sf in Sf_list_local]  # [seq, bs]
+    # yerr_s = [std_root_n(Sf[seq_idx_local].mean(axis=0).numpy()) for Sf in Sf_list_local]
+    yerr_s = [t_based_error(Sf[seq_idx_local].mean(axis=0).numpy()) for Sf in Sf_list_local]
+    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='*', ms=8, lw=2, color='green', label='local')
+    for bi in range(Sf_list_local[0].size(1)):
+        ys = [Sf[seq_idx_local, bi].mean().item() for Sf in Sf_list_local] 
+        plt.errorbar(
+            xs, 
+            ys, 
+            alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', ms=8, lw=2)
+
+    plt.xlabel(r"$J$")
+    plt.ylabel(r"$S_{plaq}$")
+    plt.legend()
 
     plt.xlabel(r"$J$")
     plt.ylabel(r"$-log(detM)$")
-    # plt.title(f"Boo")
     plt.legend()
 
     # save plot
@@ -153,19 +177,14 @@ def plot_energy_J(Js, Nstep=3000, Nstep_local=100):
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
-    plt.show(block=False)
+    plt.show(block=True)
 
 
 if __name__ == '__main__':
-    # J = float(os.getenv("J"))
-    # Nstep = int(os.getenv("Nstep"))
+    Lx, Ly, Ltau = 6, 6, 10
+    Vs = Lx * Ly * Ltau
 
-    Js = [0.5, 1, 3]
-
-    # for J in Js:
-    #     plot_Gtau_J(J)
-
-    # plot_energy_J(Js)
+    plot_energy_J(starts=[3000, 2000*Vs], sample_steps=[1, Vs])
 
     dbstop = 1
 

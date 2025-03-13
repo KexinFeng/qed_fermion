@@ -167,7 +167,7 @@ class HmcSampler(object):
         :return: None
         """
         # Generate random values for each time slice
-        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.1, 1, self.bs-1, device=device).view(-1, 1, 1, 1)
+        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1)
 
         # Repeat the random values across the time slices
         self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
@@ -470,7 +470,6 @@ class HmcSampler(object):
         self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
 
-
         # Measure
         # fig = plt.figure()
         for i in tqdm(range(self.N_step)):
@@ -587,6 +586,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     Lx, Ly, Ltau = Lsize
     filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
 
+    filename = "/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check/stat_check2/hmc_sampler_batch_rndm_real_space/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
+
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
@@ -594,7 +595,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 6000
+    start = 3000
     end = step
     sample_step = 1
     seq_idx = torch.arange(start, end, sample_step)
@@ -726,7 +727,7 @@ if __name__ == '__main__':
     hmc = HmcSampler(J=J, Nstep=Nstep)
 
     # Measure
-    G_avg, G_std = hmc.measure()
+    # G_avg, G_std = hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
