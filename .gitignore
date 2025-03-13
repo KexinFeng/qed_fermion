@@ -7,6 +7,14 @@
 /dataSources/
 /dataSources.local.xml
 
+check_points*/
+figures*/
+figure*/
+deprecated*/
+data*/
+cache*/
+.vscode/
+
 *.xml
 
 *.mat
@@ -24,3 +32,5 @@
 *.pdf
 *.png
 *.pt
+*.jpg
+*.pkl
