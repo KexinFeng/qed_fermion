@@ -54,8 +54,8 @@ class LocalUpdateSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
 
-        self.plt_rate = (self.Vs * 1000) 
-        self.ckp_rate = (self.Vs * 5000)
+        self.plt_rate = (self.Vs * 500) 
+        self.ckp_rate = (self.Vs * 1000)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
@@ -84,7 +84,7 @@ class LocalUpdateSampler(object):
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson()
+        self.initialize_boson_time_slice_random()
 
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
@@ -144,6 +144,24 @@ class LocalUpdateSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         boson = boson.repeat(1 * self.Ltau, 1)
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])  
+        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+
+    def initialize_boson_time_slice_random(self):
+        """
+        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+
+        :return: None
+        """
+        # Generate random values for each time slice
+        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.1, 1, self.bs-1, device=device).view(-1, 1, 1, 1)
+
+        # Repeat the random values across the time slices
+        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
     def initialize_boson_staggered_pi(self):
@@ -384,7 +402,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 100 * Vs
+    start = 2000 * Vs
     end = step
     sample_step = Vs
     seq_idx = torch.arange(start, end, sample_step)
@@ -461,9 +479,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     x = np.arange(len(seq_idx))
 
     plt.figure()
-    plt.errorbar(x, S_tau_list[seq_idx][:, batch_idx].numpy().mean(axis=(1)), linestyle='', marker='.', label='S_tau_avg', color='green', alpha=0.3, lw=2)
+    plt.errorbar(x, S_tau_list[seq_idx][:, batch_idx].numpy().mean(axis=(1)), linestyle='', marker='.', label='S_tau_avg', color=f'C{9}', alpha=0.8, lw=2)
     avg_value = S_tau_list[seq_idx].numpy().mean(axis=(0, 1))
-    plt.axhline(y=avg_value, color='green', linestyle='-')   
+    plt.axhline(y=avg_value, color=f'C{9}', linestyle='-')   
 
     for bi in range(S_tau_list.size(1)):
         plt.errorbar(x, S_tau_list[seq_idx, bi].numpy(), label=f'S_tau_bs_{bi}', linestyle='', marker='.', lw=2, alpha=0.3, color=f'C{bi}')
@@ -481,6 +499,31 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
+
+    # -------- Plot S_plaq_list -------- #
+    S_plaq_list = res['S_plaq_list']  # [seq, bs]
+    x = np.arange(len(seq_idx))
+
+    plt.figure()
+    plt.errorbar(x, S_plaq_list[seq_idx][:, batch_idx].numpy().mean(axis=(1)), linestyle='', marker='.', label='S_plaq_avg', color=f'C{9}', alpha=0.8, lw=2)
+    avg_value = S_plaq_list[seq_idx].numpy().mean(axis=(0, 1))
+    plt.axhline(y=avg_value, color=f'C{9}', linestyle='-')   
+
+    for bi in range(S_plaq_list.size(1)):
+        plt.errorbar(x, S_plaq_list[seq_idx, bi].numpy(), label=f'S_plaq_bs_{bi}', linestyle='', marker='.', lw=2, alpha=0.3, color=f'C{bi}')
+        avg_value = S_plaq_list[seq_idx, bi].numpy().mean()
+        plt.axhline(y=avg_value, color=f'C{bi}', linestyle='-')
+
+    plt.xlabel(r"$\tau$")
+    plt.ylabel(r"$S_{plaq}(\tau)$")
+    plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
+    plt.legend()
+
+    # Save plot
+    method_name = "S_plaq"
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
     
 
 if __name__ == '__main__':
@@ -492,7 +535,7 @@ if __name__ == '__main__':
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
 
     # Measure
-    # hmc.measure()
+    hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)

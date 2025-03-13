@@ -7,6 +7,10 @@
 /dataSources/
 /dataSources.local.xml
 
+/check_points*/
+/figures*/
+/deprecated*/
+
 *.xml
 
 *.mat
