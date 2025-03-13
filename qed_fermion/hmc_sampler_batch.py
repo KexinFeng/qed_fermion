@@ -33,7 +33,7 @@ class HmcSampler(object):
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 1
+        self.bs = 5
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -95,7 +95,7 @@ class HmcSampler(object):
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson_staggered_pi()
+        self.initialize_boson_time_slice_random()
 
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
@@ -152,7 +152,31 @@ class HmcSampler(object):
         # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau, device=device)
         # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
 
-        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 1, self.bs, device=device).view(-1, 1, 1, 1, 1)
+        self.boson = torch.randn(self.bs-1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
+
+        curl_mat = self.curl_mat * torch.pi/4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])  
+        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+
+    def initialize_boson_time_slice_random(self):
+        """
+        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+
+        :return: None
+        """
+        # Generate random values for each time slice
+        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.1, 1, self.bs-1, device=device).view(-1, 1, 1, 1)
+
+        # Repeat the random values across the time slices
+        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+        self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
     def initialize_boson_staggered_pi(self):
         """
@@ -278,11 +302,19 @@ class HmcSampler(object):
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
             Sb_plaq = self.action_boson_plaq(x)
-            force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
+            force_b = -torch.autograd.grad(
+                Sb_plaq, 
+                x, 
+                grad_outputs=torch.ones_like(Sb_plaq),
+                create_graph=False)[0]
 
             assert x.grad is None
             Sb_tau = self.action_boson_tau_cmp(x)
-            force_b_tau = -torch.autograd.grad(Sb_tau, x, create_graph=False)[0]
+            force_b_tau = -torch.autograd.grad(
+                Sb_tau, 
+                x, 
+                grad_outputs=torch.ones_like(Sb_tau),
+                create_graph=False)[0]
 
         if self.debug_pde:
             # print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -342,11 +374,13 @@ class HmcSampler(object):
                 with torch.enable_grad():
                     x = x.clone().requires_grad_(True)
                     Sb_plaq = self.action_boson_plaq(x)
-                    force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
+                    force_b = -torch.autograd.grad(Sb_plaq, x,                 grad_outputs=torch.ones_like(Sb_plaq),
+                    create_graph=False)[0]
                     
                     assert x.grad is None
                     Sb_tau = self.action_boson_tau_cmp(x)
-                    force_b_tau = -torch.autograd.grad(Sb_tau, x, create_graph=False)[0]
+                    force_b_tau = -torch.autograd.grad(Sb_tau, x,                 grad_outputs=torch.ones_like(Sb_tau),
+                    create_graph=False)[0]
 
                 p = p + (force_b + force_b_tau) * dt/2/M
 
@@ -457,7 +491,7 @@ class HmcSampler(object):
             self.cur_step += 1
             
             # plotting
-            if i % self.plt_rate == 0:
+            if i % self.plt_rate == 0 and i > 0:
                 plt.pause(0.1)
                 plt.close()
                 self.total_monitoring()
@@ -465,10 +499,9 @@ class HmcSampler(object):
                 plt.pause(0.1)
 
             # checkpointing
-            if i % self.ckp_rate == 0:
+            if i % self.ckp_rate == 0 and i > 0:
                 res = {'boson': boson,
                     'step': self.step,
-                    'mass': self.m,
                     'G_list': self.G_list.cpu(),
                     'S_plaq_list': self.S_plaq_list.cpu(),
                     'S_tau_list': self.S_tau_list.cpu()}
@@ -480,7 +513,6 @@ class HmcSampler(object):
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
-               'mass': self.m,
                'G_list': self.G_list.cpu(),
                'S_plaq_list': self.S_plaq_list.cpu(),
                'S_tau_list': self.S_tau_list.cpu()}
@@ -545,9 +577,6 @@ class HmcSampler(object):
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
-        return fig
-
-
 def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifics='', plot_anal=True):
     """
     Visualize green functions with error bar
@@ -561,22 +590,27 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
-    G_list = res['G_list']
+    G_list = res['G_list']  # [seq, bs, num_tau+1]
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 500
+    start = 6000
     end = step
     sample_step = 1
-    seq_idx = np.arange(start, end, sample_step)
+    seq_idx = torch.arange(start, end, sample_step)
+    batch_idx = torch.tensor([0, 1, 2, 3, 4])
 
-    ## Plot
+    # -------- Plot -------- #
     plt.figure()
-    plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x, G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.numpy().size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
+
+    for bi in range(G_list.size(1)):
+        plt.errorbar(x, G_list[seq_idx, bi].numpy().mean(axis=(0)), yerr=G_list[seq_idx, bi].numpy().std(axis=(0))/np.sqrt(seq_idx.numpy().size), label=f'bs_{bi}', linestyle='--', marker='.', lw=2)
 
     plt.xlabel(r"$\tau$")
     plt.ylabel(r"$G(\tau)$")
     plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
+    plt.legend()
 
     # Save plot
     class_name = __file__.split('/')[-1].replace('.py', '')
@@ -590,9 +624,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     # -------- Log plot -------- #
     plt.figure()
-    plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x+1, G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.numpy().size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
 
-    G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
+    G_mean = G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1))
 
     if plot_anal:
         # Analytical data
@@ -622,12 +656,62 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     plt.xscale('log')
     plt.yscale('log')
 
-
-    # --------- save_plot ---------
+    # Save_plot 
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens_loglog"
     save_dir = os.path.join(script_path, f"./figures/{class_name}")
     os.makedirs(save_dir, exist_ok=True) 
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+    # -------- Plot S_tau_list -------- #
+    S_tau_list = res['S_tau_list']  # [seq, bs]
+    x = np.arange(len(seq_idx))
+
+    plt.figure()
+    plt.errorbar(x, S_tau_list[seq_idx][:, batch_idx].numpy().mean(axis=(1)), linestyle='', marker='.', label='S_tau_avg', color=f'C{9}', alpha=0.8, lw=2)
+    avg_value = S_tau_list[seq_idx].numpy().mean(axis=(0, 1))
+    plt.axhline(y=avg_value, color=f'C{9}', linestyle='-')   
+
+    for bi in range(S_tau_list.size(1)):
+        plt.errorbar(x, S_tau_list[seq_idx, bi].numpy(), label=f'S_tau_bs_{bi}', linestyle='', marker='.', lw=2, alpha=0.3, color=f'C{bi}')
+        avg_value = S_tau_list[seq_idx, bi].numpy().mean()
+        plt.axhline(y=avg_value, color=f'C{bi}', linestyle='-')
+
+    plt.xlabel(r"$\tau$")
+    plt.ylabel(r"$S_{\tau}(\tau)$")
+    plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
+    plt.legend()
+
+    # Save plot
+    method_name = "S_tau"
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+
+    # -------- Plot S_plaq_list -------- #
+    S_plaq_list = res['S_plaq_list']  # [seq, bs]
+    x = np.arange(len(seq_idx))
+
+    plt.figure()
+    plt.errorbar(x, S_plaq_list[seq_idx][:, batch_idx].numpy().mean(axis=(1)), linestyle='', marker='.', label='S_plaq_avg', color=f'C{9}', alpha=0.8, lw=2)
+    avg_value = S_plaq_list[seq_idx].numpy().mean(axis=(0, 1))
+    plt.axhline(y=avg_value, color=f'C{9}', linestyle='-')   
+
+    for bi in range(S_plaq_list.size(1)):
+        plt.errorbar(x, S_plaq_list[seq_idx, bi].numpy(), label=f'S_plaq_bs_{bi}', linestyle='', marker='.', lw=2, alpha=0.3, color=f'C{bi}')
+        avg_value = S_plaq_list[seq_idx, bi].numpy().mean()
+        plt.axhline(y=avg_value, color=f'C{bi}', linestyle='-')
+
+    plt.xlabel(r"$\tau$")
+    plt.ylabel(r"$S_{plaq}(\tau)$")
+    plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
+    plt.legend()
+
+    # Save plot
+    method_name = "S_plaq"
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
@@ -642,7 +726,7 @@ if __name__ == '__main__':
     hmc = HmcSampler(J=J, Nstep=Nstep)
 
     # Measure
-    # G_avg, G_std = hmc.measure()
+    G_avg, G_std = hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)

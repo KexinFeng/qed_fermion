@@ -12,6 +12,8 @@ figures*/
 figure*/
 deprecated*/
 data*/
+cache*/
+.vscode/
 
 *.xml
 

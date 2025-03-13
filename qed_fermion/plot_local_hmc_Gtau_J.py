@@ -74,6 +74,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         x_local = np.array(list(range(G_list_local[0].size(-1))))
 
         batch_idx = torch.tensor([0, 1, 4])
+        batch_size = G_list_local.size(1)
+        batch_idx = torch.arange(batch_size)
+        
         G_local_mean = G_list_local[seq_idx_local][:, batch_idx].numpy().mean(axis=(0, 1))
         G_local_std = G_list_local[seq_idx_local][:, batch_idx].numpy().std(axis=(0, 1))
 
@@ -82,6 +85,14 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             G_local_mean *= scale_factor
         
         plt.errorbar(x_local, G_local_mean, yerr=G_local_std/np.sqrt(seq_idx_local.size), linestyle='-', marker='o', label=f'G_local_{batch_idx.tolist()}', color='green', lw=2)
+
+        for bi in range(G_list.size(1)):
+            plt.errorbar(
+                x_local, 
+                G_list_local[seq_idx_local, bi].numpy().mean(axis=(0)), 
+                yerr=G_list_local[seq_idx_local, bi].numpy().std(axis=(0))/np.sqrt(seq_idx_local.size),
+                alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='.', lw=2)
+
 
     # Add labels and title
     plt.xlabel(r"$\tau$")
@@ -148,7 +159,7 @@ if __name__ == '__main__':
         # step_lmc = lmc.N_step
         # local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.get_specifics()}_step_{step_lmc}.pt"
 
-        hmc_filename = script_path + "/check_points/hmc_check_point_m*0.05/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
+        hmc_filename = script_path + "/check_points/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
         local_update_filename = script_path + "/check_points/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000_Jtau_0.5_K_1_dtau_0.1_step_3600000.pt"
 
         # Measure

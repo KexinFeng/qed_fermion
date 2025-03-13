@@ -55,7 +55,7 @@ class LocalUpdateSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         self.plt_rate = (self.Vs * 500) 
-        self.ckp_rate = (self.Vs * 1000)
+        self.ckp_rate = (self.Vs * 10000)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
@@ -138,7 +138,7 @@ class LocalUpdateSampler(object):
         # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau, device=device)
         # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
 
-        self.boson = torch.randn(self.bs-1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 1, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
+        self.boson = torch.randn(self.bs-1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
 
         curl_mat = self.curl_mat * torch.pi/4  # [Ly*Lx, Ly*Lx*2]
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
@@ -299,7 +299,7 @@ class LocalUpdateSampler(object):
             self.cur_step += 1
             
             # plotting
-            if i % self.plt_rate == 0:
+            if i % self.plt_rate == 0 and i > 0:
                 plt.pause(0.1)
                 plt.close()
                 self.total_monitoring()
@@ -307,7 +307,7 @@ class LocalUpdateSampler(object):
                 plt.pause(0.1)
 
             # checkpointing
-            if i % self.ckp_rate == 0:
+            if i % self.ckp_rate == 0 and i > 0:
                 res = {'boson': boson,
                     'step': self.step,
                     'G_list': self.G_list.cpu(),
