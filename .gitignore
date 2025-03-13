@@ -7,9 +7,10 @@
 /dataSources/
 /dataSources.local.xml
 
-/check_points*/
-/figures*/
-/deprecated*/
+check_points*/
+figures*/
+deprecated*/
+data*/
 
 *.xml
 
@@ -29,3 +30,4 @@
 *.png
 *.pt
 *.jpg
+*.pkl
