@@ -54,8 +54,8 @@ class LocalUpdateSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
 
-        self.plt_rate = (self.Vs * 100) 
-        self.ckp_rate = (self.Vs * 500)
+        self.plt_rate = (self.Vs * 1000) 
+        self.ckp_rate = (self.Vs * 5000)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
@@ -71,7 +71,7 @@ class LocalUpdateSampler(object):
         self.H_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
-        self.w = 0.15 * torch.pi
+        self.w = 0.1 * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -380,22 +380,27 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     res = torch.load(filename)
     print(f'Loaded: {filename}')
 
-    G_list = res['G_list']
+    G_list = res['G_list']  # [seq, bs, num_tau+1]
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
     start = 100 * Vs
     end = step
     sample_step = Vs
-    seq_idx = np.arange(start, end, sample_step)
+    seq_idx = torch.arange(start, end, sample_step)
+    batch_idx = torch.tensor([0, 1, 2, 3, 4])
 
-    ## Plot
+    # -------- Plot -------- #
     plt.figure()
-    plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x, G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.numpy().size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
+
+    for bi in range(G_list.size(1)):
+        plt.errorbar(x, G_list[seq_idx, bi].numpy().mean(axis=(0)), yerr=G_list[seq_idx, bi].numpy().std(axis=(0))/np.sqrt(seq_idx.numpy().size), label=f'bs_{bi}', linestyle='--', marker='.', lw=2)
 
     plt.xlabel(r"$\tau$")
     plt.ylabel(r"$G(\tau)$")
     plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
+    plt.legend()
 
     # Save plot
     class_name = __file__.split('/')[-1].replace('.py', '')
@@ -409,9 +414,9 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
     # -------- Log plot -------- #
     plt.figure()
-    plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
+    plt.errorbar(x+1, G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.numpy().size), linestyle='', marker='o', label='G_avg', color='blue', lw=2)
 
-    G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
+    G_mean = G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1))
 
     if plot_anal:
         # Analytical data
@@ -441,7 +446,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     plt.xscale('log')
     plt.yscale('log')
 
-    # --------- save_plot ---------
+    # Save_plot 
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens_loglog"
     save_dir = os.path.join(script_path, f"./figures/{class_name}")
@@ -451,21 +456,48 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     print(f"Figure saved at: {file_path}")
 
 
+    # -------- Plot S_tau_list -------- #
+    S_tau_list = res['S_tau_list']  # [seq, bs]
+    x = np.arange(len(seq_idx))
+
+    plt.figure()
+    plt.errorbar(x, S_tau_list[seq_idx][:, batch_idx].numpy().mean(axis=(1)), linestyle='', marker='.', label='S_tau_avg', color='green', alpha=0.3, lw=2)
+    avg_value = S_tau_list[seq_idx].numpy().mean(axis=(0, 1))
+    plt.axhline(y=avg_value, color='green', linestyle='-')   
+
+    for bi in range(S_tau_list.size(1)):
+        plt.errorbar(x, S_tau_list[seq_idx, bi].numpy(), label=f'S_tau_bs_{bi}', linestyle='', marker='.', lw=2, alpha=0.3, color=f'C{bi}')
+        avg_value = S_tau_list[seq_idx, bi].numpy().mean()
+        plt.axhline(y=avg_value, color=f'C{bi}', linestyle='-')
+
+    plt.xlabel(r"$\tau$")
+    plt.ylabel(r"$S_{\tau}(\tau)$")
+    plt.title(f"Ntau={Ltau} Nx={Lx} Ny={Ly} Nswp={end - start}")
+    plt.legend()
+
+    # Save plot
+    method_name = "S_tau"
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+    
+
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '1000'))
+    Nstep = int(os.getenv("Nstep", '10000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
 
     # Measure
-    hmc.measure()
+    # hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
 
-    plt.show()
+    plt.show(block=True)
 
     exit()
 

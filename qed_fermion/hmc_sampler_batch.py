@@ -60,7 +60,7 @@ class HmcSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         self.plt_rate = 500
-        self.ckp_rate = 500
+        self.ckp_rate = 10000
 
         # Statistics
         self.N_step = Nstep
@@ -77,7 +77,7 @@ class HmcSampler(object):
 
         # Leapfrog
         self.debug_pde = False
-        self.m = 1/2 * 4 / scale
+        self.m = 1/2 * 4 / scale * 0.05
         # self.m = 1/2
 
         self.delta_t = 0.05
@@ -642,7 +642,7 @@ if __name__ == '__main__':
     hmc = HmcSampler(J=J, Nstep=Nstep)
 
     # Measure
-    G_avg, G_std = hmc.measure()
+    # G_avg, G_std = hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
