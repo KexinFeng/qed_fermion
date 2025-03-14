@@ -10,4 +10,4 @@
 
 cd ${SLURM_SUBMIT_DIR}
 module load python/3.9.7
-python3 ../pbs_files/s.cmd
+python3 ../hmc_sampler_batch.py

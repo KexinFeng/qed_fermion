@@ -34,3 +34,7 @@ cache*/
 *.pt
 *.jpg
 *.pkl
+
+report/
+*.err
+*.out
