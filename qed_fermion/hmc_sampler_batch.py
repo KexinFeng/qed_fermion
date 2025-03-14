@@ -98,10 +98,10 @@ class HmcSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -576,11 +576,9 @@ class HmcSampler(object):
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1)
         # psis = [psi.T for psi in psis]
 
-        Ot_inv = torch.zeros_like(Mt)
-        for bi in range(self.bs):
-            Ot = Mt[bi].T.conj() @ Mt[bi]
-            L = torch.linalg.cholesky(Ot)
-            Ot_inv[bi] = torch.cholesky_inverse(L)
+        Ot = torch.einsum('bij,bjk->bik', Mt.permute(0, 2, 1).conj(), Mt)
+        L = torch.linalg.cholesky(Ot)
+        Ot_inv = torch.cholesky_inverse(L)
 
         F_ts = []
         xi_ts = []

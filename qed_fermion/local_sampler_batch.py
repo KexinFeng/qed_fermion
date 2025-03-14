@@ -3,7 +3,6 @@ import math
 import numpy as np
 
 import matplotlib
-# matplotlib.use('MacOSX')
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -25,7 +24,10 @@ from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 device = 'cpu'
 print(f"device: {device}")
-dtype = torch.float32
+dtype = torch.float64
+cdtype = torch.complex128
+
+torch.set_default_dtype(dtype)
 
 class LocalUpdateSampler(object):
     def __init__(self, J=0.5, Nstep=2e2, config=None):
@@ -33,7 +35,7 @@ class LocalUpdateSampler(object):
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 1
+        self.bs = 5
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -72,7 +74,7 @@ class LocalUpdateSampler(object):
         self.H_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
-        self.w = 0.1 * torch.pi
+        self.w = 0.15 * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -91,10 +93,10 @@ class LocalUpdateSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
     def initialize_specifics(self):
-        self.specifics = f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
+        self.specifics = f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}bs_{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
     
     def get_specifics(self):
-        return f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
+        return f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}bs_{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -240,17 +242,17 @@ class LocalUpdateSampler(object):
 
     def get_dB(self):
         Vs = self.Lx * self.Ly
-        dB = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        dB = torch.zeros(Vs, Vs, device=device, dtype=cdtype)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB[diag_idx, diag_idx] = math.cosh(self.dtau/2 * self.t)
-        return dB
+        return dB.repeat(self.bs, 1, 1)
 
     def get_dB1(self):
         Vs = self.Lx * self.Ly
-        dB1 = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        dB1 = torch.zeros(Vs, Vs, device=device, dtype=cdtype)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB1[diag_idx, diag_idx] = math.cosh(self.dtau * self.t)
-        return dB1
+        return dB1.repeat(self.bs, 1, 1)
  
     def get_detM(self, boson):
         """
@@ -258,47 +260,45 @@ class LocalUpdateSampler(object):
         B = e^V4/2 ... e^V1/2 e^V1/2 ... e^V4/2
         return |I + BLtau B_Ltau-1 ... B1|
         """
-        assert boson.size(0) == 1
-        boson = boson.squeeze(0)
-
         Vs = self.Lx * self.Ly
         dtau = self.dtau
         t = self.t
-        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+        bs = self.bs
+        boson = boson.permute([0, 3, 2, 1, 4]).reshape(bs, -1)
 
-        prodB = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
+        prodB = torch.eye(Vs, device=boson.device, dtype=cdtype).repeat(bs, 1, 1)
         for tau in reversed(range(self.Ltau)):
             dB1 = self.get_dB1()
-            dB1[self.i_list_1, self.j_list_1] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
-            dB1[self.j_list_1, self.i_list_1] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            dB1[:, self.i_list_1, self.j_list_1] = \
+            torch.exp(1j * boson[:, 2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            dB1[:, self.j_list_1, self.i_list_1] = \
+            torch.exp(-1j * boson[:, 2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
             B = dB1
 
             dB = self.get_dB()
-            dB[self.i_list_2, self.j_list_2] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
-            dB[self.j_list_2, self.i_list_2] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
-            B = dB @ B @ dB
+            dB[:, self.i_list_2, self.j_list_2] = \
+            torch.exp(1j * boson[:, 2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            dB[:, self.j_list_2, self.i_list_2] = \
+            torch.exp(-1j * boson[:, 2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            B = torch.einsum('bij,bjk,bkl->bil', dB, B, dB)
 
             dB = self.get_dB()
-            dB[self.i_list_3, self.j_list_3] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
-            dB[self.j_list_3, self.i_list_3] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
-            B = dB @ B @ dB
+            dB[:, self.i_list_3, self.j_list_3] = \
+            torch.exp(1j * boson[:, 2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            dB[:, self.j_list_3, self.i_list_3] = \
+            torch.exp(-1j * boson[:, 2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            B = torch.einsum('bij,bjk,bkl->bil', dB, B, dB)
 
             dB = self.get_dB()
-            dB[self.i_list_4, self.j_list_4] = \
-                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
-            dB[self.j_list_4, self.i_list_4] = \
-                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
-            B = dB @ B @ dB
+            dB[:, self.i_list_4, self.j_list_4] = \
+            torch.exp(1j * boson[:, 2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            dB[:, self.j_list_4, self.i_list_4] = \
+            torch.exp(-1j * boson[:, 2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            B = torch.einsum('bij,bjk,bkl->bil', dB, B, dB)
 
-            prodB = prodB @ B
+            prodB = torch.einsum('bij,bjk->bik', prodB, B)
 
-        I = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
+        I = torch.eye(Vs, device=boson.device, dtype=cdtype).repeat(bs, 1, 1)
         detM = torch.det(I + prodB)
         return detM
 
@@ -321,7 +321,7 @@ class LocalUpdateSampler(object):
         # Compute new energy
         boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
         detM = self.get_detM(boson_new)
-        fermion_energy_new = -self.Nf * torch.log(torch.real(detM)).unsqueeze(0)
+        fermion_energy_new = -self.Nf * torch.log(torch.real(detM))
 
         # Metropolis_update
         H0 = self.boson_energy + self.fermion_energy
@@ -352,7 +352,7 @@ class LocalUpdateSampler(object):
         self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
         self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
         detM = self.get_detM(self.boson)
-        self.fermion_energy = -2 * torch.log(torch.real(detM)).unsqueeze(0)
+        self.fermion_energy = -2 * torch.log(torch.real(detM))
 
         # Measure
         data_folder = script_path + "/check_points/local_check_point/"
@@ -607,13 +607,13 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '1000'))
+    Nstep = int(os.getenv("Nstep", '10000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
 
     # Measure
-    # hmc.measure()
+    hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
