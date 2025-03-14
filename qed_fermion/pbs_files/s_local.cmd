@@ -10,4 +10,4 @@
 
 cd ${SLURM_SUBMIT_DIR}
 module load python/3.9.7
-python3 ../hmc_sampler2_batch_local.py
+python3 ../local_sampler_batch.py

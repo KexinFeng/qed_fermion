@@ -1,0 +1,26 @@
+#!/bin/sh
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=2
+#SBATCH --mem-per-cpu=2gb
+#SBATCH -t 1:00:00
+#SBATCH -p interactive-gpu
+#SBATCH --gres=gpu:1
+# --pty bash
+
+# srun --nodes=1 \
+#      --ntasks-per-node=2 \
+#      --mem-per-cpu=2gb \
+#      --time=18:00:00 \
+#      --partition=interactive-gpu \
+#      --gres=gpu:1 \
+#      --pty bash
+
+
+srun --nodes=1 \
+     --ntasks-per-node=1 \
+     --mem-per-cpu=4gb \
+     --time=30:00 \
+     --qos=debug \
+     --partition=intel \
+     --pty bash
+
