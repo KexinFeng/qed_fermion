@@ -2,8 +2,8 @@ import torch
 import sys
 
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
-from qed_fermion.coupling_mat3 import initialize_curl_mat
-from qed_fermion.hmc_sampler2_batch_fermion import HmcSampler
+from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
+from qed_fermion.hmc_sampler_batch import HmcSampler
 from unit_test.utils import clear_mat
 
 
