@@ -33,7 +33,7 @@ class LocalUpdateSampler(object):
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 5
+        self.bs = 1
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -45,6 +45,7 @@ class LocalUpdateSampler(object):
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf / 4
         self.K = 1 * scale * self.Nf
+        self.t = 1
 
         self.boson = None
         self.boson_energy = None
@@ -55,7 +56,7 @@ class LocalUpdateSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         self.plt_rate = (self.Vs * 500) 
-        self.ckp_rate = (self.Vs * 10000)
+        self.ckp_rate = (self.Vs * 1000)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
@@ -129,6 +130,7 @@ class LocalUpdateSampler(object):
         self.boson_idx_list_3 = self.i_list_3 * 2
         self.boson_idx_list_4 = self.i_list_4 * 2 + 1
 
+
     def initialize_boson(self):
         """
         Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
@@ -175,34 +177,6 @@ class LocalUpdateSampler(object):
         self.boson = boson.repeat(self.bs*self.Ltau, 1)
         self.boson = self.boson.reshape(self.bs, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
 
-    def local_u1_proposer(self):
-        """
-        boson: [bs, 2, Lx, Ly, Ltau]
-
-        return boson_new, H_old, H_new
-        """
-        boson_new = self.boson.clone()
-
-        win_size = self.w
-
-        # Select tau index based on the current step
-        idx_x, idx_y, idx_tau = torch.unravel_index(torch.tensor([self.step], device=boson_new.device), (self.Lx, self.Ly, self.Ltau))
-
-        delta = (torch.rand_like(boson_new[..., idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
-        boson_new[..., idx_x, idx_y, idx_tau] += delta
-
-        # Compute new energy
-        action_old = self.action_boson_plaq(self.boson) + self.action_boson_tau_cmp(self.boson)
-        action_new = self.action_boson_plaq(boson_new) + self.action_boson_tau_cmp(boson_new)
-        d_action = action_new - action_old
-
-        accp = torch.rand(self.bs, device=device) < torch.exp(-d_action)
-        # print(f"H_old, H_new, new-old: {action_old}, {action_new}, {d_action}")
-        # print(f"threshold: {torch.exp(-d_action).item()}")
-        # print(f'Accp?: {accp.item()}')
-
-        self.boson[accp] = boson_new[accp]
-        return self.boson, accp
 
     def sin_curl_greens_function_batch(self, boson):
         """
@@ -263,7 +237,105 @@ class LocalUpdateSampler(object):
         curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S   
-    
+
+    def get_dB(self):
+        Vs = self.Lx * self.Ly
+        dB = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
+        dB[diag_idx, diag_idx] = math.cosh(self.dtau/2 * self.t)
+        return dB
+
+    def get_dB1(self):
+        Vs = self.Lx * self.Ly
+        dB1 = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
+        dB1[diag_idx, diag_idx] = math.cosh(self.dtau * self.t)
+        return dB1
+ 
+    def get_detM(self, boson):
+        """
+        boson: [bs, 2, Lx, Ly, Ltau]
+        B = e^V4/2 ... e^V1/2 e^V1/2 ... e^V4/2
+        return |I + BLtau B_Ltau-1 ... B1|
+        """
+        assert boson.size(0) == 1
+        boson = boson.squeeze(0)
+
+        Vs = self.Lx * self.Ly
+        dtau = self.dtau
+        t = self.t
+        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+
+        prodB = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
+        for tau in reversed(range(self.Ltau)):
+            dB1 = self.get_dB1()
+            dB1[self.i_list_1, self.j_list_1] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            dB1[self.j_list_1, self.i_list_1] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            B = dB1
+
+            dB = self.get_dB()
+            dB[self.i_list_2, self.j_list_2] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            dB[self.j_list_2, self.i_list_2] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_2]) * math.sinh(t * dtau/2)
+            B = dB @ B @ dB
+
+            dB = self.get_dB()
+            dB[self.i_list_3, self.j_list_3] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            dB[self.j_list_3, self.i_list_3] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_3]) * math.sinh(t * dtau/2)
+            B = dB @ B @ dB
+
+            dB = self.get_dB()
+            dB[self.i_list_4, self.j_list_4] = \
+                torch.exp(1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            dB[self.j_list_4, self.i_list_4] = \
+                torch.exp(-1j * boson[2*Vs*tau + self.boson_idx_list_4]) * math.sinh(t * dtau/2)
+            B = dB @ B @ dB
+
+            prodB = prodB @ B
+
+        I = torch.eye(Vs, device=boson.device, dtype=torch.complex64)
+        detM = torch.det(I + prodB)
+        return detM
+
+    def local_u1_proposer(self):
+        """
+        boson: [bs, 2, Lx, Ly, Ltau]
+
+        return boson_new, H_old, H_new
+        """
+        boson_new = self.boson.clone()
+
+        win_size = self.w
+
+        # Select tau index based on the current step
+        idx_x, idx_y, idx_tau = torch.unravel_index(torch.tensor([self.step], device=boson_new.device), (self.Lx, self.Ly, self.Ltau))
+
+        delta = (torch.rand_like(boson_new[..., idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
+        boson_new[..., idx_x, idx_y, idx_tau] += delta
+
+        # Compute new energy
+        boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
+        detM = self.get_detM(boson_new)
+        fermion_energy_new = -self.Nf * torch.log(torch.real(detM)).unsqueeze(0)
+
+        # Metropolis_update
+        H0 = self.boson_energy + self.fermion_energy
+        H_new = boson_energy_new + fermion_energy_new
+        accp = torch.rand(self.bs, device=device) < torch.exp(-(H_new - H0))
+        # print(f"H_old, H_new, new-old: {self.boson_energy}, {boson_energy_new}, {boson_energy_new - self.boson_energy}")
+        # print(f"threshold: {torch.exp(self.boson_energy - boson_energy_new).item()}")
+
+        # print(f'Accp?: {accp.item()}')
+        self.boson[accp] = boson_new[accp]
+        self.boson_energy[accp] = boson_energy_new[accp]
+        self.fermion_energy[accp] = fermion_energy_new[accp]
+        return self.boson, accp
+  
     # @torch.inference_mode()
     @torch.no_grad()
     def measure(self):
@@ -278,11 +350,15 @@ class LocalUpdateSampler(object):
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
         self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
-    
+        self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
+        detM = self.get_detM(self.boson)
+        self.fermion_energy = -2 * torch.log(torch.real(detM)).unsqueeze(0)
+
         # Measure
         data_folder = script_path + "/check_points/local_check_point/"
         for i in tqdm(range(self.N_step)):
             boson, accp = self.local_u1_proposer()
+
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
             self.G_list[i] = \
@@ -402,12 +478,14 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 2000 * Vs
+    start = 20
     end = step
     sample_step = Vs
-    seq_idx = torch.arange(start, end, sample_step)
-    batch_idx = torch.tensor([0, 1, 2, 3, 4])
-
+    seq_idx = torch.arange(start * Vs, end, sample_step)
+    # batch_idx = torch.tensor([0, 1, 2, 3, 4])
+    batch_size = G_list.size(1)
+    batch_idx = torch.arange(batch_size)
+    
     # -------- Plot -------- #
     plt.figure()
     plt.errorbar(x, G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.numpy().size), linestyle='-', marker='o', label='G_avg', color='blue', lw=2)
@@ -529,7 +607,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '10000'))
+    Nstep = int(os.getenv("Nstep", '1000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
