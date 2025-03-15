@@ -29,12 +29,12 @@ cdtype = torch.complex64
 # torch.set_default_dtype(dtype)
 
 class LocalUpdateSampler(object):
-    def __init__(self, J=0.5, Nstep=2e2, config=None):
+    def __init__(self, J=0.5, Nstep=2e2, bs=5, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 5
+        self.bs = bs
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -57,12 +57,13 @@ class LocalUpdateSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         self.plt_rate = (self.Vs * 500) 
-        self.ckp_rate = (self.Vs * 1000)
+        self.ckp_rate = (self.Vs * 2000)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
         self.step = 0
         self.cur_step = 0
+        self.start = 0
 
         self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1)
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool)
@@ -357,9 +358,7 @@ class LocalUpdateSampler(object):
         # Measure
         data_folder = script_path + "/check_points/local_check_point/"
         start = self.step
-        for i in tqdm(range(self.N_step)):
-            if i < start:
-                continue
+        for i in tqdm(range(start, start + self.N_step)):
             boson, accp = self.local_u1_proposer()
 
             accp_cpu = accp.cpu()
@@ -374,9 +373,6 @@ class LocalUpdateSampler(object):
             self.S_plaq_list[i] = \
                 accp_cpu.view(-1) * self.action_boson_plaq(boson).cpu() \
                 + (1 - accp_cpu.view(-1).float()) * self.S_plaq_list[i-1]
-
-            self.step += 1
-            self.cur_step += 1
             
             # plotting
             if i % self.plt_rate == 0 and i > 0:
@@ -398,8 +394,10 @@ class LocalUpdateSampler(object):
                        'accp_rate': self.accp_rate,
                        'accp_list': self.accp_list}
                 
-                file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
-                self.save_to_file(res, data_folder, file_name)           
+                file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
+                self.save_to_file(res, data_folder, file_name) 
+
+            self.step += 1
 
         res = {'boson': self.boson.cpu(),
                'boson_energy': self.boson_energy.cpu(),
@@ -412,7 +410,7 @@ class LocalUpdateSampler(object):
                'accp_list': self.accp_list}
 
         # Save to file
-        file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
+        file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
         self.save_to_file(res, data_folder, file_name)           
         return
     
@@ -422,6 +420,7 @@ class LocalUpdateSampler(object):
         self.boson_energy = checkpoint['boson_energy'].to(device=device, dtype=dtype)
         self.fermion_energy = checkpoint['fermion_energy'].to(device=device, dtype=dtype)
         self.step = checkpoint['step']
+        self.start = self.step
         self.G_list = checkpoint['G_list']
         self.S_plaq_list = checkpoint['S_plaq_list']
         self.S_tau_list = checkpoint['S_tau_list']
@@ -633,9 +632,10 @@ if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
     Nstep = int(os.getenv("Nstep", '10000'))
+    bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = LocalUpdateSampler(J=J, Nstep=Nstep)
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs)
 
     # Measure
     hmc.measure()

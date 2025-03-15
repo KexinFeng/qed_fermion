@@ -19,7 +19,8 @@ J_array=$(echo '3 1 0.5')
 #         s.cmd
 # done
 
-Nstep=10000
+Nstep=5000
+bs=4
 for J in $J_array; do
         #
         config=$(echo local_J_${J}_Nstep_${Nstep})
