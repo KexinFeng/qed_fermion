@@ -24,8 +24,8 @@ from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 device = 'cpu'
 print(f"device: {device}")
-dtype = torch.float64
-cdtype = torch.complex128
+dtype = torch.float32
+cdtype = torch.complex64
 
 torch.set_default_dtype(dtype)
 
