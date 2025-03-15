@@ -1,18 +1,18 @@
 mkdir -p report
 
-
 J_array=$(echo '0.5')
 
-Nstep=20
-
+Nstep=10000
 for J in $J_array; do
         #
-        echo "Nstep_${Nstep}_J_${J}"
+        config=$(echo local_J_${J}_Nstep_${Nstep})
+        echo $config
         export J Nstep
         #
-        sbatch --job-name=hmc_sampler_Nstep_${Nstep}_J_${J} \
-        --time=0-00:30:00 \
+        sbatch --job-name=${config}_hmc \
+        --time=0-0:30:00 \
         --qos=debug \
         --mem-per-cpu=6G \
-        s.cmd
+        install_torch.cmd
+        # s_local.cmd
 done

@@ -2,7 +2,7 @@ mkdir -p report
 
 
 J_array=$(echo '3 1 0.5')
-J_array=$(echo '0.5')
+# J_array=$(echo '0.5')
 
 # Nstep=10000
 
@@ -27,8 +27,8 @@ for J in $J_array; do
         export J Nstep
         #
         sbatch --job-name=${config}_hmc \
-        --time=0-10:00:00 \
-        --qos=normal \
+        --time=0-8:00:00 \
+        --qos=gpu \
         --mem-per-cpu=6G \
         s_local.cmd
 done
