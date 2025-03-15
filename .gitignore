@@ -6,6 +6,8 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+__pycache__/
+*.pyc
 
 check_points*/
 figures*/
@@ -36,5 +38,5 @@ cache*/
 *.pkl
 
 report/
-*.err
-*.out
+# *.err
+# *.out
