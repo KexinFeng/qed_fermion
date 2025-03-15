@@ -12,7 +12,6 @@ for J in $J_array; do
         sbatch --job-name=${config}_hmc \
         --time=0-0:30:00 \
         --qos=debug \
-        --mem-per-cpu=6G \
-        install_torch.cmd
-        # s_local.cmd
+        --mem-per-cpu=2G \
+        s_local.cmd
 done
