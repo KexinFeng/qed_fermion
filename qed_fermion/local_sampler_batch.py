@@ -21,8 +21,7 @@ sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize_curl_mat
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-device = 'cpu'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"device: {device}")
 dtype = torch.float32
 cdtype = torch.complex64
@@ -65,13 +64,12 @@ class LocalUpdateSampler(object):
         self.step = 0
         self.cur_step = 0
 
-        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1, device=device)
-        self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
-        self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
+        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1)
+        self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool)
+        self.accp_rate = torch.zeros(self.N_step, self.bs)
         self.S_plaq_list = torch.zeros(self.N_step, self.bs)
         self.S_tau_list = torch.zeros(self.N_step, self.bs)
         self.Sf_list = torch.zeros(self.N_step, self.bs)
-        self.H_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
         self.w = 0.1 * torch.pi
@@ -88,7 +86,8 @@ class LocalUpdateSampler(object):
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_time_slice_random()
-
+        self.boson = self.boson.to(device=device, dtype=dtype)
+        
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
 
@@ -347,29 +346,33 @@ class LocalUpdateSampler(object):
         :return: G_avg, G_std
         """
         # Initialization
-        self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
-        self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
-        self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
-        self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
-        detM = self.get_detM(self.boson)
-        self.fermion_energy = -2 * torch.log(torch.real(detM))
+        if self.step == 0:
+            self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson).cpu()
+            self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson).cpu()
+            self.S_plaq_list[-1] = self.action_boson_plaq(self.boson).cpu()
+            self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
+            detM = self.get_detM(self.boson)
+            self.fermion_energy = -2 * torch.log(torch.real(detM))
 
         # Measure
         data_folder = script_path + "/check_points/local_check_point/"
+        start = self.step
         for i in tqdm(range(self.N_step)):
+            if i < start:
+                continue
             boson, accp = self.local_u1_proposer()
 
-            self.accp_list[i] = accp
-            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
+            self.accp_list[i] = accp.cpu()
+            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].float(), axis=0)
             self.G_list[i] = \
-                accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) \
-              + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
+                accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson).cpu() \
+                + (1 - accp.view(-1, 1).float()) * self.G_list[i-1]
             self.S_tau_list[i] = \
-                accp.view(-1) * self.action_boson_tau_cmp(boson) \
-              + (1 - accp.view(-1).to(torch.float)) * self.S_tau_list[i-1]
+                accp.view(-1) * self.action_boson_tau_cmp(boson).cpu() \
+                + (1 - accp.view(-1).float()) * self.S_tau_list[i-1]
             self.S_plaq_list[i] = \
-                accp.view(-1) * self.action_boson_plaq(boson) \
-              + (1 - accp.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
+                accp.view(-1) * self.action_boson_plaq(boson).cpu() \
+                + (1 - accp.view(-1).float()) * self.S_plaq_list[i-1]
 
             self.step += 1
             self.cur_step += 1
@@ -384,25 +387,46 @@ class LocalUpdateSampler(object):
 
             # checkpointing
             if i % self.ckp_rate == 0 and i > 0:
-                res = {'boson': boson,
-                    'step': self.step,
-                    'G_list': self.G_list.cpu(),
-                    'S_plaq_list': self.S_plaq_list.cpu(),
-                    'S_tau_list': self.S_tau_list.cpu()}     
+                res = {'boson': self.boson.cpu(),
+                       'boson_energy': self.boson_energy.cpu(),
+                       'fermion_energy': self.fermion_energy.cpu(),
+                       'step': self.step,
+                       'G_list': self.G_list,
+                       'S_plaq_list': self.S_plaq_list,
+                       'S_tau_list': self.S_tau_list,
+                       'accp_rate': self.accp_rate,
+                       'accp_list': self.accp_list}
                 
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)           
 
-        res = {'boson': boson,
+        res = {'boson': self.boson.cpu(),
+               'boson_energy': self.boson_energy.cpu(),
+               'fermion_energy': self.fermion_energy.cpu(),
                'step': self.step,
-               'G_list': self.G_list.cpu(),
-               'S_plaq_list': self.S_plaq_list.cpu(),
-               'S_tau_list': self.S_tau_list.cpu()}        
+               'G_list': self.G_list,
+               'S_plaq_list': self.S_plaq_list,
+               'S_tau_list': self.S_tau_list,
+               'accp_rate': self.accp_rate,
+               'accp_list': self.accp_list}
 
         # Save to file
         file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(res, data_folder, file_name)           
         return
+    
+    def load_checkpoint(self, checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        self.boson = checkpoint['boson'].to(device=device, dtype=dtype)
+        self.boson_energy = checkpoint['boson_energy'].to(device=device, dtype=dtype)
+        self.fermion_energy = checkpoint['fermion_energy'].to(device=device, dtype=dtype)
+        self.step = checkpoint['step']
+        self.G_list = checkpoint['G_list']
+        self.S_plaq_list = checkpoint['S_plaq_list']
+        self.S_tau_list = checkpoint['S_tau_list']
+        self.accp_list = checkpoint['accp_list']
+        self.accp_rate = checkpoint['accp_rate']
+        print(f"Checkpoint loaded from {checkpoint_path}")
 
     # ------- Save to file -------
     def save_to_file(self, res, data_folder, filename):
@@ -421,7 +445,7 @@ class LocalUpdateSampler(object):
         
         start = 50  # to prevent from being out of scale due to init out-liers
         Vs = self.Vs
-        seq_idx = np.arange(start * Vs, self.cur_step, Vs)
+        seq_idx = np.arange(start * Vs, self.step, Vs)
  
         axes[1, 0].plot(self.accp_rate[seq_idx].cpu().numpy())
         axes[1, 0].set_xlabel("Steps")
