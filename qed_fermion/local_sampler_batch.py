@@ -26,7 +26,7 @@ print(f"device: {device}")
 dtype = torch.float32
 cdtype = torch.complex64
 
-torch.set_default_dtype(dtype)
+# torch.set_default_dtype(dtype)
 
 class LocalUpdateSampler(object):
     def __init__(self, J=0.5, Nstep=2e2, config=None):
