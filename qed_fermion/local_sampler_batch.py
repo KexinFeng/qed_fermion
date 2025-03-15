@@ -362,17 +362,18 @@ class LocalUpdateSampler(object):
                 continue
             boson, accp = self.local_u1_proposer()
 
-            self.accp_list[i] = accp.cpu()
-            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].float(), axis=0)
+            accp_cpu = accp.cpu()
+            self.accp_list[i] = accp_cpu
+            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].float(), axis=0).cpu()
             self.G_list[i] = \
-                accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson).cpu() \
-                + (1 - accp.view(-1, 1).float()) * self.G_list[i-1]
+                accp_cpu.view(-1, 1) * self.sin_curl_greens_function_batch(boson).cpu() \
+                + (1 - accp_cpu.view(-1, 1).float()) * self.G_list[i-1]
             self.S_tau_list[i] = \
-                accp.view(-1) * self.action_boson_tau_cmp(boson).cpu() \
-                + (1 - accp.view(-1).float()) * self.S_tau_list[i-1]
+                accp_cpu.view(-1) * self.action_boson_tau_cmp(boson).cpu() \
+                + (1 - accp_cpu.view(-1).float()) * self.S_tau_list[i-1]
             self.S_plaq_list[i] = \
-                accp.view(-1) * self.action_boson_plaq(boson).cpu() \
-                + (1 - accp.view(-1).float()) * self.S_plaq_list[i-1]
+                accp_cpu.view(-1) * self.action_boson_plaq(boson).cpu() \
+                + (1 - accp_cpu.view(-1).float()) * self.S_plaq_list[i-1]
 
             self.step += 1
             self.cur_step += 1
