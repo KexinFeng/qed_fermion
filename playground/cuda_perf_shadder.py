@@ -6,12 +6,15 @@ def perform_operation(device, size):
     a = torch.randn(size, size, device=device)
     b = torch.randn(size, size, device=device)
     
-    start_time = time.time()
+    start_time = time.perf_counter()
     
     # Perform matrix multiplication
     result = torch.matmul(a, b)
     
-    end_time = time.time()
+    if device.type == 'cuda':
+        torch.cuda.synchronize(device)
+    
+    end_time = time.perf_counter()
     return end_time - start_time
 
 # Check if MPS (Metal Performance Shaders) is available
@@ -26,6 +29,11 @@ print(f"CUDA device: {mps_device}")
 
 # Test with different matrix sizes
 sizes = [1000, 2000, 3000, 5000]
+
+# Lx, Ly, Ltau = 6, 6, 10
+# size = Lx * Ly * Ltau
+# sizes = [int(size * 0.1), int(size * 0.5), size, size * 5, size * 10, size*20]
+
 
 for size in sizes:
     print(f"\nTesting with matrix size: {size}x{size}")
