@@ -16,7 +16,7 @@ sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler
-from qed_fermion.utils.stat import t_based_error
+from qed_fermion.utils.stat import t_based_error, std_root_n
 
 
 def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', local_update_filename='', specifics = '', starts=[500], sample_steps=[1], scale_it=[False]):
@@ -63,8 +63,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
     
 
-        G_std = G_list[seq_idx].numpy().std(axis=(0, 1))
-        err1 = G_std/np.sqrt(seq_idx.size / 100)
+        G_std = G_list[seq_idx].numpy().std(axis=(0))
+        # err1 = G_std/np.sqrt(seq_idx.size / 100)
+        # err1 = std_root_n(G_list[seq_idx].mean(axis=1).numpy(), axis=0, lag_sum=100)
+        err1 = (G_std/np.sqrt(seq_idx.size / 100)).mean(axis=0)
         err2 = t_based_error(G_list[seq_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err = np.sqrt(err1**2 + err2**2)
@@ -98,13 +100,16 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         batch_idx = torch.arange(batch_size)
 
         G_local_mean = G_list_local[seq_idx_local][:, batch_idx].numpy().mean(axis=(0, 1))
-        G_local_std = G_list_local[seq_idx_local][:, batch_idx].numpy().std(axis=(0, 1))
 
         if scale_it.pop(0):
             scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
             G_local_mean *= scale_factor
         
-        err1 = G_local_std/np.sqrt(seq_idx_local.size / 800)
+        G_local_std = G_list_local[seq_idx_local][:, batch_idx].numpy().std(axis=(0))
+        err1_0 = (G_local_std/np.sqrt(seq_idx_local.size / 800)).mean(axis=0)
+        err1 = (((G_local_std/np.sqrt(seq_idx_local.size / 800))**2).mean(axis=0))**(1/2)
+        # err1_2 = std_root_n(G_list_local[seq_idx_local].mean(axis=1).numpy(), axis=0, lag_sum=800)
+        err1_2 = std_root_n(G_list_local[seq_idx_local][:, 0].numpy(), axis=0, lag_sum=800)
         err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err = np.sqrt(err1**2 + err2**2)

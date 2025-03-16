@@ -61,7 +61,8 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # HMC
     ys = [Sb_plaq[seq_idx].mean().item() for Sb_plaq in Sb_plaq_list_hmc]  # [seq, bs]
-    yerr1 = [std_root_n(Sb_plaq[seq_idx].mean(axis=0).numpy(), lag_sum=100) for Sb_plaq in Sb_plaq_list_hmc] 
+    # yerr1_0 = [std_root_n(Sb_plaq[seq_idx].mean(axis=1).numpy(), lag_sum=100) for Sb_plaq in Sb_plaq_list_hmc] 
+    yerr1 = [std_root_n(Sb_plaq[seq_idx].numpy(), axis=0, lag_sum=100).mean() for Sb_plaq in Sb_plaq_list_hmc]
     yerr2 = [t_based_error(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
     print(yerr1, '\n', yerr2)
     yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
@@ -75,7 +76,8 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         
     # Local
     ys = [Sb_plaq[seq_idx_local].mean().item() for Sb_plaq in Sb_plaq_list_local]  # [seq, bs]
-    yerr1 = [std_root_n(Sb_plaq[seq_idx_local].mean(axis=0).numpy(), lag_sum=800) for Sb_plaq in Sb_plaq_list_local] 
+    # yerr1_0 = [std_root_n(Sb_plaq[seq_idx_local].mean(axis=1).numpy(), lag_sum=800) for Sb_plaq in Sb_plaq_list_local] 
+    yerr1 = [std_root_n(Sb_plaq[seq_idx_local].numpy(), axis=0, lag_sum=800).mean() for Sb_plaq in Sb_plaq_list_local]
     yerr2 = [t_based_error(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local] 
     print(yerr1, '\n', yerr2)
     yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
@@ -103,7 +105,8 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     plt.figure()
     # HMC
     ys = [Stau[seq_idx].mean().item() for Stau in Stau_list_hmc]  # [seq, bs]
-    yerr1 = [std_root_n(Stau[seq_idx].mean(axis=0).numpy(), lag_sum=100) for Stau in Stau_list_hmc] 
+    # yerr1_0 = [std_root_n(Stau[seq_idx].mean(axis=1).numpy(), lag_sum=100) for Stau in Stau_list_hmc] 
+    yerr1 = [std_root_n(Stau[seq_idx].numpy(), axis=0, lag_sum=100).mean() for Stau in Stau_list_hmc]
     yerr2 = [t_based_error(Stau[seq_idx].mean(axis=0).numpy()) for Stau in Stau_list_hmc] 
     print(yerr1, '\n', yerr2)
     yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
@@ -117,9 +120,10 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # Local
     ys = [Stau[seq_idx_local].mean().item() for Stau in Stau_list_local]  # [seq, bs]
-    yerr1 = [std_root_n(Stau[seq_idx_local].mean(axis=0).numpy(), lag_sum=800) for Stau in Stau_list_local] 
+    yerr1_0 = [std_root_n(Stau[seq_idx_local].mean(axis=1).numpy(), lag_sum=800) for Stau in Stau_list_local] 
+    yerr1 = [std_root_n(Stau[seq_idx_local].numpy(), axis=0, lag_sum=800).mean() for Stau in Stau_list_local]
     yerr2 = [t_based_error(Stau[seq_idx_local].mean(axis=0).numpy()) for Stau in Stau_list_local] 
-    print(yerr1, '\n', yerr2)
+    print(yerr1, '\n', yerr1_0, '\n', yerr2)
     yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
     plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
     for idx, bi in enumerate(range(Stau_list_local[0].size(1))):

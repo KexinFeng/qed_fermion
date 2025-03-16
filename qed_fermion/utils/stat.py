@@ -3,6 +3,7 @@ from scipy import stats
 import torch
 
 
+
 def std_root_n(array, axis=None, unbiased=True, lag_sum=1):
     std = np.std(array, axis=axis, ddof=1 if unbiased else 0)
     n = array.shape[axis] if axis is not None else array.size
