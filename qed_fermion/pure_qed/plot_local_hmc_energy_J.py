@@ -15,7 +15,7 @@ import torch
 import sys
 sys.path.insert(0, script_path + '/../../')
 
-from qed_fermion.utils.stat import t_based_error
+from qed_fermion.utils.stat import t_based_error, std_root_n
 
 
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
@@ -61,9 +61,11 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # HMC
     ys = [Sb_plaq[seq_idx].mean().item() for Sb_plaq in Sb_plaq_list_hmc]  # [seq, bs]
-    # yerr_s = [std_root_n(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
-    yerr_s = [t_based_error(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
-    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='o', lw=2, color='blue', label='hmc')
+    yerr1 = [std_root_n(Sb_plaq[seq_idx].mean(axis=0).numpy(), lag_sum=100) for Sb_plaq in Sb_plaq_list_hmc] 
+    yerr2 = [t_based_error(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
+    print(yerr1, '\n', yerr2)
+    yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
+    plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='o', lw=2, color='blue', label='hmc')
     for idx, bi in enumerate(range(Sb_plaq_list_hmc[0].size(1))):
         ys = [Sb_plaq[seq_idx, bi].mean().item() for Sb_plaq in Sb_plaq_list_hmc] 
         plt.errorbar(
@@ -73,9 +75,11 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         
     # Local
     ys = [Sb_plaq[seq_idx_local].mean().item() for Sb_plaq in Sb_plaq_list_local]  # [seq, bs]
-    # yerr_s = [std_root_n(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local]
-    yerr_s = [t_based_error(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local]
-    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
+    yerr1 = [std_root_n(Sb_plaq[seq_idx_local].mean(axis=0).numpy(), lag_sum=800) for Sb_plaq in Sb_plaq_list_local] 
+    yerr2 = [t_based_error(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local] 
+    print(yerr1, '\n', yerr2)
+    yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
+    plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
     for idx, bi in enumerate(range(Sb_plaq_list_local[0].size(1))):
         ys = [Sb_plaq[seq_idx_local, bi].mean().item() for Sb_plaq in Sb_plaq_list_local] 
         plt.errorbar(
@@ -99,9 +103,11 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     plt.figure()
     # HMC
     ys = [Stau[seq_idx].mean().item() for Stau in Stau_list_hmc]  # [seq, bs]
-    # yerr_s = [std_root_n(Stau[seq_idx].mean(axis=0).numpy()) for Stau in Stau_list_hmc]
-    yerr_s = [t_based_error(Stau[seq_idx].mean(axis=0).numpy()) for Stau in Stau_list_hmc]
-    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='o', lw=2, color='blue', label='hmc')
+    yerr1 = [std_root_n(Stau[seq_idx].mean(axis=0).numpy(), lag_sum=100) for Stau in Stau_list_hmc] 
+    yerr2 = [t_based_error(Stau[seq_idx].mean(axis=0).numpy()) for Stau in Stau_list_hmc] 
+    print(yerr1, '\n', yerr2)
+    yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
+    plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='o', lw=2, color='blue', label='hmc')
     for idx, bi in enumerate(range(Stau_list_hmc[0].size(1))):
         ys = [Stau[seq_idx, bi].mean().item() for Stau in Stau_list_hmc] 
         plt.errorbar(
@@ -111,9 +117,11 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # Local
     ys = [Stau[seq_idx_local].mean().item() for Stau in Stau_list_local]  # [seq, bs]
-    # yerr_s = [std_root_n(Stau[seq_idx_local].mean(axis=0).numpy()) for Stau in Stau_list_local]
-    yerr_s = [t_based_error(Stau[seq_idx_local].mean(axis=0).numpy()) for Stau in Stau_list_local]
-    plt.errorbar(xs, ys, yerr=yerr_s, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
+    yerr1 = [std_root_n(Stau[seq_idx_local].mean(axis=0).numpy(), lag_sum=800) for Stau in Stau_list_local] 
+    yerr2 = [t_based_error(Stau[seq_idx_local].mean(axis=0).numpy()) for Stau in Stau_list_local] 
+    print(yerr1, '\n', yerr2)
+    yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
+    plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
     for idx, bi in enumerate(range(Stau_list_local[0].size(1))):
         ys = [Stau[seq_idx_local, bi].mean().item() for Stau in Stau_list_local] 
         plt.errorbar(

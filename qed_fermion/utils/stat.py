@@ -3,23 +3,23 @@ from scipy import stats
 import torch
 
 
-def std_root_n(tensor, dim=None, unbiased=True):
-    std = torch.std(tensor, dim=dim, unbiased=unbiased)
-    n = tensor.size(dim) if dim is not None else tensor.numel()
-    return std / torch.sqrt(torch.tensor(n, dtype=torch.float32))
+def std_root_n(array, axis=None, unbiased=True, lag_sum=1):
+    std = np.std(array, axis=axis, ddof=1 if unbiased else 0)
+    n = array.shape[axis] if axis is not None else array.size
+    return std / np.sqrt(n / lag_sum)
 
 
-def t_based_error(data, confidence=0.95):
+def t_based_error(data, confidence=0.95, axis=0):
     """
-    Calculate confidence interval using Student's t-distribution
-    Returns: (mean, margin_of_error)
+    Calculate confidence interval using Student's t-distribution along a specified axis
+    Returns: margin_of_error along the specified axis
     """
-    n = len(data)
+    n = data.shape[axis]
     if n < 2:
         raise ValueError("Sample size must be at least 2")
 
-    mean = np.mean(data)
-    std = np.std(data, ddof=1)  # Sample standard deviation
+    mean = np.mean(data, axis=axis)
+    std = np.std(data, axis=axis, ddof=1)  # Sample standard deviation
     sem = std / np.sqrt(n)  # Standard error of the mean
 
     # Get t-critical value for (1 - α/2) confidence level

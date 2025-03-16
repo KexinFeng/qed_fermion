@@ -3,12 +3,10 @@ import math
 import re
 import matplotlib.pyplot as plt
 plt.ion()
-
 import numpy as np
 # matplotlib.use('MacOSX')
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
-
 import os
 script_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,6 +16,7 @@ sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler
+from qed_fermion.utils.stat import t_based_error
 
 
 def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', local_update_filename='', specifics = '', starts=[500], sample_steps=[1], scale_it=[False]):
@@ -42,7 +41,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
     parts = hmc_filename.split('_')
     jtau_index = parts.index('Jtau')  # Find position of 'Jtau'
     jtau_value = float(parts[jtau_index + 1])   # Get the next element
-
+    
     # ======== Plot ======== #
     plt.figure()
     if len(hmc_filename):
@@ -63,13 +62,20 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
 
         G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
     
-        plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='-', marker='o', label='G_hmc', color='blue', lw=2)
+
+        G_std = G_list[seq_idx].numpy().std(axis=(0, 1))
+        err1 = G_std/np.sqrt(seq_idx.size / 100)
+        err2 = t_based_error(G_list[seq_idx].mean(axis=0).numpy())
+        print(err1, '\n', err2)
+        err = np.sqrt(err1**2 + err2**2)
+
+        plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=err, linestyle='-', marker='o', label='G_hmc', color='blue', lw=2)
 
         for idx, bi in enumerate(range(G_list.size(1))):
             plt.errorbar(
                 x, 
                 G_list[seq_idx, bi].numpy().mean(axis=(0)), 
-                yerr=G_list[seq_idx, bi].numpy().std(axis=(0))/np.sqrt(seq_idx.size),
+                # yerr=G_list[seq_idx, bi].numpy().std(axis=(0))/np.sqrt(seq_idx.size / 100),
                 alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2, color=f"C{idx}")
 
 
@@ -87,10 +93,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         G_list_local = res['G_list']
         x_local = np.array(list(range(G_list_local[0].size(-1))))
 
-        batch_idx = torch.tensor([0, 1, 4])
+        # batch_idx = torch.tensor([0, 1, 4])
         batch_size = G_list_local.size(1)
         batch_idx = torch.arange(batch_size)
-        
+
         G_local_mean = G_list_local[seq_idx_local][:, batch_idx].numpy().mean(axis=(0, 1))
         G_local_std = G_list_local[seq_idx_local][:, batch_idx].numpy().std(axis=(0, 1))
 
@@ -98,13 +104,17 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
             G_local_mean *= scale_factor
         
-        plt.errorbar(x_local, G_local_mean, yerr=G_local_std/np.sqrt(seq_idx_local.size), linestyle='-', marker='*', markersize=10, label=f'G_local_{batch_idx.tolist()}', color='green', lw=2)
+        err1 = G_local_std/np.sqrt(seq_idx_local.size / 800)
+        err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
+        print(err1, '\n', err2)
+        err = np.sqrt(err1**2 + err2**2)
+        plt.errorbar(x_local, G_local_mean, yerr=err, linestyle='-', marker='*', markersize=10, label=f'G_local_{batch_idx.tolist()}', color='green', lw=2)
 
         for idx, bi in enumerate(range(G_list.size(1))):
             plt.errorbar(
             x_local, 
             G_list_local[seq_idx_local, bi].numpy().mean(axis=(0)), 
-            yerr=G_list_local[seq_idx_local, bi].numpy().std(axis=(0))/np.sqrt(seq_idx_local.size),
+            # yerr=G_list_local[seq_idx_local, bi].numpy().std(axis=(0))/np.sqrt(seq_idx_local.size / 800),
             alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
 
 
@@ -123,31 +133,31 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
-    # ======== Log plot ======== #
-    plt.figure()
-    if len(hmc_filename):
-        plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_hmc', color='blue', lw=2)
+    # # ======== Log plot ======== #
+    # plt.figure()
+    # if len(hmc_filename):
+    #     plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=G_list[seq_idx].numpy().std(axis=(0, 1))/np.sqrt(seq_idx.size), linestyle='', marker='o', label='G_hmc', color='blue', lw=2)
 
-    if len(local_update_filename):
-        plt.errorbar(x_local+1, G_local_mean, yerr=G_local_std/np.sqrt(seq_idx_local.size), linestyle='', marker='*', markersize=10, label='G_local', color='green', lw=2)
+    # if len(local_update_filename):
+    #     plt.errorbar(x_local+1, G_local_mean, yerr=G_local_std/np.sqrt(seq_idx_local.size), linestyle='', marker='*', markersize=10, label='G_local', color='green', lw=2)
 
-    # Add labels and title
-    plt.xlabel('X-axis label')
-    plt.ylabel('log10(G) values')
-    plt.title(f"Ntau={Ltau} Nx=Ny={Lx} J={jtau_value} Nswp={end - start}")
-    plt.legend(ncol=2)
+    # # Add labels and title
+    # plt.xlabel('X-axis label')
+    # plt.ylabel('log10(G) values')
+    # plt.title(f"Ntau={Ltau} Nx=Ny={Lx} J={jtau_value} Nswp={end - start}")
+    # plt.legend(ncol=2)
   
-    plt.xscale('log')
-    plt.yscale('log')
+    # plt.xscale('log')
+    # plt.yscale('log')
 
-    # --------- save_plot ---------
-    class_name = __file__.split('/')[-1].replace('.py', '')
-    method_name = "greens_log"
-    save_dir = os.path.join(script_path, f"./figures/{class_name}")
-    os.makedirs(save_dir, exist_ok=True) 
-    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
-    plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    print(f"Figure saved at: {file_path}")
+    # # --------- save_plot ---------
+    # class_name = __file__.split('/')[-1].replace('.py', '')
+    # method_name = "greens_log"
+    # save_dir = os.path.join(script_path, f"./figures/{class_name}")
+    # os.makedirs(save_dir, exist_ok=True) 
+    # file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    # print(f"Figure saved at: {file_path}")
 
 if __name__ == '__main__':
     Js = [0.5, 1, 3]
