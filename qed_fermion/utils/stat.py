@@ -2,6 +2,27 @@ import numpy as np
 from scipy import stats
 import torch
 
+import matlab.engine
+
+def init_convex_seq_estimator(array):
+    """
+    This function takes a numpy array as input, flattens all axes except the first,
+    passes it to a MATLAB function to process the data, and then fetches the result
+    from MATLAB and reshapes it back to the original shape.
+
+    Estimator is applied on the first axis of the input array.
+    """
+    matlab_function_path = '/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/utils/init_seq_matlab'
+    eng = matlab.engine.start_matlab()
+    eng.addpath(matlab_function_path)
+    original_shape = array.shape
+    flattened_array = array.reshape(original_shape[0], -1)
+    matlab_array = matlab.double(flattened_array.tolist())
+    result = eng.initseq_matlab_vec(matlab_array)
+    eng.quit()
+    result_array = np.array(result)
+    result_array = result_array.reshape(original_shape)
+    return result_array
 
 
 def std_root_n(array, axis=None, unbiased=True, lag_sum=1):
