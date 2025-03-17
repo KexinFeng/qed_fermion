@@ -1,4 +1,5 @@
 import re
+import time
 import matplotlib.pyplot as plt
 
 plt.ion()
@@ -13,24 +14,41 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../')
+sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
+def time_execution(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds")
+        return result
+    return wrapper
 
+@time_execution
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     Js = [0.5, 1, 3]
     xs = Js
 
     Sb_plaq_list_hmc = []
     Sb_plaq_list_local = []
+    Sb_plaq_list_dqmc = []
     Stau_list_hmc = []
     Stau_list_local = []
+    Stau_list_tau = []
 
     for J in Js:
 
         hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_bs5_Jtau_{J:.1g}_K_1_dtau_0.1_step_10000.pt"
         local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000bs_5_Jtau_{J:.1g}_K_1_dtau_0.1_step_3600000.pt"
+        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
+        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename = os.path.join(dqmc_folder, name)
+        dqmc_folder_tau = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejs/"
+        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename_tau = os.path.join(dqmc_folder_tau, name)
 
         res = torch.load(hmc_filename)
         print(f'Loaded: {hmc_filename}')
@@ -41,6 +59,13 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         print(f'Loaded: {local_update_filename}')
         Sb_plaq_list_local.append(res['S_plaq_list'])
         Stau_list_local.append(res['S_tau_list'])
+
+        # dqmc
+        data = np.genfromtxt(dqmc_filename)
+        Sb_plaq_list_dqmc.append(data.reshape(-1, 1))
+        data = np.genfromtxt(dqmc_filename_tau)
+        Stau_list_tau.append(data.reshape(-1, 1))
+
 
     # ====== Index ====== #
     hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
@@ -91,7 +116,16 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
             xs, 
             ys, 
             alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
+        
+    # DQMC
+    ys = [Sb_plaq.mean() * 36 for Sb_plaq in Sb_plaq_list_dqmc]  # [seq, bs]
+    yerr1 = [error_mean(init_convex_seq_estimator(Sb_plaq) / np.sqrt(Sb_plaq.size)) * 1.96 * 36 for Sb_plaq in Sb_plaq_list_dqmc]
+    # yerr2 = [t_based_error(Sb_plaq.mean(axis=0)) for Sb_plaq in Sb_plaq_list_dqmc]
+    # print(yerr1, '\n', yerr2)
+    # yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
+    plt.errorbar(xs, ys, yerr=yerr1, linestyle='-', marker='s', lw=2, color='red', label='dqmc')
 
+    # Plot setting
     plt.xlabel(r"$J$")
     plt.ylabel(r"$S_{plaq}$")
     plt.legend(ncol=2)
@@ -137,7 +171,15 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
             xs, 
             ys, 
             alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
+        
+    # DQMC
+    ys = [Stau.mean() * 36 for Stau in Stau_list_tau]  # [seq, bs]
+    yerr1 = [error_mean(init_convex_seq_estimator(Stau) / np.sqrt(Stau.size)) * 1.96 * 36 for Stau in Stau_list_tau]
+    # yerr2 = [t_based_error(Stau.mean(axis=0)) for Stau in Stau_list_tau]
+    # yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
+    plt.errorbar(xs, ys, yerr=yerr1, linestyle='-', marker='s', lw=2, color='red', label='dqmc')
 
+    # Plot settings
     plt.xlabel(r"$J$")
     # plt.ylabel(r"$-log(detM)$")
     plt.ylabel(r"$S_{tau}$")

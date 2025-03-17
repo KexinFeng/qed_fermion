@@ -12,7 +12,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../')
+sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler
@@ -29,7 +29,7 @@ def time_execution(func):
     return wrapper
 
 @time_execution
-def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', local_update_filename='', specifics = '', starts=[500], sample_steps=[1], scale_it=[False]):
+def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', local_update_filename='', dqmc_filename='', specifics = '', starts=[500], sample_steps=[1], scale_it=[False]):
     """
     Visualize green functions with error bar
     """
@@ -130,6 +130,15 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
 
 
+    if len(dqmc_filename):
+        data = np.genfromtxt(dqmc_filename)
+        G_dqmc = np.concat([data[:, 0], data[:1, 0]])
+        G_dqmc_err = np.concat([data[:, 1], data[:1, 1]])
+        
+        x_dqmc = np.array(list(range(G_dqmc.size)))
+        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err * 1.96, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+        
+
     # Add labels and title
     plt.xlabel(r"$\tau$")
     plt.ylabel(r"$G(\tau)$")
@@ -198,11 +207,15 @@ if __name__ == '__main__':
         hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_bs5_Jtau_{J:.1g}_K_1_dtau_0.1_step_10000.pt"
         local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000bs_5_Jtau_{J:.1g}_K_1_dtau_0.1_step_3600000.pt"
 
+        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
+        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename = os.path.join(dqmc_folder, name)
+
         # Measure
         Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
         load_visualize_final_greens_loglog(
             (Lx, Ly, Ltau), 
-            hmc_filename, local_update_filename, 
+            hmc_filename, local_update_filename, dqmc_filename,
             specifics=hmc.get_specifics(), 
             starts=[3000, 3000*lmc.Vs], 
             sample_steps=[1, lmc.Vs], 
