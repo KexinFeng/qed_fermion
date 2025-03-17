@@ -4,6 +4,16 @@ import torch
 
 import matlab.engine
 
+def error_mean(array, axis=0):
+    """
+    Calculate the error mean along a specified axis.
+    The operation is: square -> mean -> root
+    """
+    squared = np.square(array)
+    mean_squared = np.mean(squared, axis=axis)
+    root_mean_squared = np.sqrt(mean_squared)
+    return root_mean_squared
+
 def init_convex_seq_estimator(array):
     """
     This function takes a numpy array as input, flattens all axes except the first,
@@ -21,8 +31,8 @@ def init_convex_seq_estimator(array):
     result = eng.initseq_matlab_vec(matlab_array)
     eng.quit()
     result_array = np.array(result)
-    result_array = result_array.reshape(original_shape)
-    return result_array
+    result_array = result_array.reshape(*original_shape[1:])
+    return result_array**(1/2)
 
 
 def std_root_n(array, axis=None, unbiased=True, lag_sum=1):

@@ -5,7 +5,7 @@ function [var_con,var_dec,var_pos,  G_con,G_dec,G_pos,  G_0] = initseq_matlab(x)
 % Finds the Geyer statstics of the input vector.
 %
 % Input: vector x
-% Output: [gamma_0,  gamma_pos,gamma_dec,gamma_con,  var_pos,var_dec,var_con]
+% Output: [var_con,var_dec,var_pos,  gamma_con,gamma_dec,gamma_pos,gamma_0]
 % var_* are estimates of the variance for a Markov chain 
 % gamma_* are intermediary variables in the calculation.
 %
@@ -69,7 +69,7 @@ end
 % %         clear temp
 %         G_con = G_dec(1) + G_con;
     var_con = 2*sum(G_con) - G_0;
-% ´Õ»îÀ´°É
+% ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½
     var_con = abs(var_con);
 end
 

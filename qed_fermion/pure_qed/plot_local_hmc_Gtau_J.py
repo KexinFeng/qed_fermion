@@ -16,9 +16,19 @@ sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler
-from qed_fermion.utils.stat import t_based_error, std_root_n
+from qed_fermion.utils.stat import t_based_error, std_root_n, init_convex_seq_estimator, error_mean
+import time
 
+def time_execution(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds")
+        return result
+    return wrapper
 
+@time_execution
 def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', local_update_filename='', specifics = '', starts=[500], sample_steps=[1], scale_it=[False]):
     """
     Visualize green functions with error bar
@@ -55,6 +65,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         start = starts.pop(0)
         sample_step = sample_steps.pop(0)
         seq_idx = np.arange(start, end, sample_step)
+        seq_idx_init = np.arange(0, end, sample_step)
 
 
         G_list = res['G_list']
@@ -62,11 +73,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
 
         G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
     
-
-        G_std = G_list[seq_idx].numpy().std(axis=(0))
-        # err1 = G_std/np.sqrt(seq_idx.size / 100)
+        err1 = error_mean(init_convex_seq_estimator(G_list[seq_idx_init].numpy())/ np.sqrt(seq_idx_init.size), axis=0)
+        # G_std = G_list[seq_idx].numpy().std(axis=(0))
+        # err1 = (G_std/np.sqrt(seq_idx.size / 100)).mean(axis=0)
         # err1 = std_root_n(G_list[seq_idx].mean(axis=1).numpy(), axis=0, lag_sum=100)
-        err1 = (G_std/np.sqrt(seq_idx.size / 100)).mean(axis=0)
         err2 = t_based_error(G_list[seq_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err = np.sqrt(err1**2 + err2**2)
@@ -91,6 +101,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         start_local = starts.pop(0)
         sample_step_local = sample_steps.pop(0)
         seq_idx_local = np.arange(start_local, end_local, sample_step_local)
+        seq_idx_local_init = np.arange(0, end_local, sample_step_local)
 
         G_list_local = res['G_list']
         x_local = np.array(list(range(G_list_local[0].size(-1))))
@@ -105,11 +116,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
             G_local_mean *= scale_factor
         
-        G_local_std = G_list_local[seq_idx_local][:, batch_idx].numpy().std(axis=(0))
-        err1_0 = (G_local_std/np.sqrt(seq_idx_local.size / 800)).mean(axis=0)
-        err1 = (((G_local_std/np.sqrt(seq_idx_local.size / 800))**2).mean(axis=0))**(1/2)
-        # err1_2 = std_root_n(G_list_local[seq_idx_local].mean(axis=1).numpy(), axis=0, lag_sum=800)
-        err1_2 = std_root_n(G_list_local[seq_idx_local][:, 0].numpy(), axis=0, lag_sum=800)
+        err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0)
+        # err1_est = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=400), axis=0)
         err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err = np.sqrt(err1**2 + err2**2)
@@ -187,9 +195,6 @@ if __name__ == '__main__':
         # # local
         # step_lmc = lmc.N_step
         # local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.get_specifics()}_step_{step_lmc}.pt"
-
-        # hmc_filename = script_path + "/check_points/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
-        # local_update_filename = script_path + "/check_points/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000_Jtau_0.5_K_1_dtau_0.1_step_3600000.pt"
 
         hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_bs5_Jtau_{J:.1g}_K_1_dtau_0.1_step_10000.pt"
         local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000bs_5_Jtau_{J:.1g}_K_1_dtau_0.1_step_3600000.pt"

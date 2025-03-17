@@ -1,6 +1,5 @@
 import torch
 import sys
-
 sys.path.insert(0, '/Users/kx/Desktop/hmc/qed_fermion')
 from qed_fermion.coupling_mat2 import initialize_coupling_mat
 
