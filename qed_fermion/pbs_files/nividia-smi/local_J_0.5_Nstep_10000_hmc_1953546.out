@@ -1,0 +1,30 @@
+==========================================
+SLURM_JOB_ID        = 1953546
+SLURM_NODELIST      = SPG-2-3
+SLURM_NTASKS        = 1
+SLURM_CPUS_PER_TASK = 1
+This SLURM script is running on host SPG-2-3
+Working directory is /home/fengx463/hmc/qed_fermion/qed_fermion/pbs_files
+==========================================
+Sat Mar 15 12:02:53 2025       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 525.147.05   Driver Version: 525.147.05   CUDA Version: 12.0     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  Tesla V100-SXM2...  On   | 00000000:8A:00.0 Off |                    0 |
+| N/A   43C    P0    44W / 300W |      0MiB / 32768MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+12.0
+Defaulting to user installation because normal site-packages is not writeable

@@ -37,6 +37,6 @@ cache*/
 *.jpg
 *.pkl
 
-report/
+report*/
 # *.err
 # *.out

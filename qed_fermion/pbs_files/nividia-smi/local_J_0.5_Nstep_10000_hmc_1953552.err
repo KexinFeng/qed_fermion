@@ -1,0 +1,5 @@
+  File "<string>", line 1
+    import
+          ^
+SyntaxError: invalid syntax
+/share1/lmod/lmod/init/bash: line 82: print(torch.cuda.is_available()): command not found

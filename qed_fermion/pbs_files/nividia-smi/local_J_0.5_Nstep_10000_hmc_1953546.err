@@ -1,0 +1,12 @@
+WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x147ba1677a00>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/torch/
+WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x147ba1607410>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/torch/
+WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x147ba1607cd0>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/torch/
+WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x147ba160f460>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/torch/
+WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x147ba160f410>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/torch/
+ERROR: Could not find a version that satisfies the requirement torch (from versions: none)
+ERROR: No matching distribution found for torch
+  File "<string>", line 1
+    import
+          ^
+SyntaxError: invalid syntax
+/share1/lmod/lmod/init/bash: line 82: print(torch.cuda.is_available()): command not found
