@@ -326,6 +326,8 @@ class LocalUpdateSampler(object):
 
         return boson_new, H_old, H_new
         """
+        # ======= update x ======== #
+
         boson_new = self.boson.clone()
 
         win_size = self.w
@@ -333,8 +335,8 @@ class LocalUpdateSampler(object):
         # Select tau index based on the current step
         idx_x, idx_y, idx_tau = torch.unravel_index(torch.tensor([self.step], device=boson_new.device), (self.Lx, self.Ly, self.Ltau))
 
-        delta = (torch.rand_like(boson_new[..., idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
-        boson_new[..., idx_x, idx_y, idx_tau] += delta
+        delta = (torch.rand_like(boson_new[..., 0, idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size # Uniform in [-w/2, w/2]
+        boson_new[..., 0, idx_x, idx_y, idx_tau] += delta
 
         # Compute new energy
         boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
@@ -352,6 +354,32 @@ class LocalUpdateSampler(object):
         self.boson[accp] = boson_new[accp]
         self.boson_energy[accp] = boson_energy_new[accp]
         self.fermion_energy[accp] = fermion_energy_new[accp]
+
+        # ======= update y ======== #
+        boson_new = self.boson.clone()
+
+        win_size = self.w
+
+        # Select tau index based on the current step
+        idx_x, idx_y, idx_tau = torch.unravel_index(torch.tensor([self.step], device=boson_new.device), (self.Lx, self.Ly, self.Ltau))
+
+        delta = (torch.rand_like(boson_new[..., 1, idx_x, idx_y, idx_tau]) - 0.5) * 2 * win_size  # Uniform in [-w/2, w/2]
+        boson_new[..., 1, idx_x, idx_y, idx_tau] += delta
+
+        # Compute new energy
+        boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
+        detM = self.get_detM(boson_new)
+        fermion_energy_new = -self.Nf * torch.log(torch.real(detM))
+
+        # Metropolis_update
+        H0 = self.boson_energy + self.fermion_energy
+        H_new = boson_energy_new + fermion_energy_new
+        accp = torch.rand(self.bs, device=device) < torch.exp(-(H_new - H0))
+
+        self.boson[accp] = boson_new[accp]
+        self.boson_energy[accp] = boson_energy_new[accp]
+        self.fermion_energy[accp] = fermion_energy_new[accp]
+
         return self.boson, accp
   
     # @torch.inference_mode()
