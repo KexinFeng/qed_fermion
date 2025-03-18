@@ -77,33 +77,33 @@ print(f"CUDA device: {cuda_device}")
 
 Lx, Ly, Ltau = 6, 6, 10
 size = Lx * Ly * Ltau
-sizes = [int(size * 0.1), int(size * 0.5), size, size * 5, size * 10, size*20]
+sizes = [size, size * 5, size * 10, size*15, size*20, size*25]
 
 for size in sizes:
     print(f"\nTesting with matrix size: {size}x{size}")
     
-    cpu_einsum_time, _ = perform_einsum(cpu_device, size)
+    _, cpu_einsum_time = perform_einsum(cpu_device, size)
     cuda_einsum_time, total_einsum_time = perform_einsum(cuda_device, size)
     print(f"CPU einsum time: {cpu_einsum_time:.6f} seconds")
     print(f"CUDA einsum time: {cuda_einsum_time:.6f} ms")
     print(f"Total einsum time: {total_einsum_time:.6f} seconds")
-    einsum_speedup = cpu_einsum_time / (cuda_einsum_time / 1000)
+    einsum_speedup = cpu_einsum_time / total_einsum_time
     print(f"Einsum speedup: {einsum_speedup:.2f}x\n")
     
-    cpu_det_time, _ = perform_det(cpu_device, size)
+    _, cpu_det_time = perform_det(cpu_device, size)
     cuda_det_time, total_det_time = perform_det(cuda_device, size)
     print(f"CPU determinant time: {cpu_det_time:.6f} seconds")
     print(f"CUDA determinant time: {cuda_det_time:.6f} ms")
     print(f"Total determinant time: {total_det_time:.6f} seconds")
-    det_speedup = cpu_det_time / (cuda_det_time / 1000)
+    det_speedup = cpu_det_time / total_det_time
     print(f"Determinant speedup: {det_speedup:.2f}x\n")
     
-    cpu_time, _ = perform_operation(cpu_device, size)
+    _, cpu_time = perform_operation(cpu_device, size)
     cuda_time, total_time = perform_operation(cuda_device, size)
     print(f"CPU matmul time: {cpu_time:.6f} seconds")
     print(f"CUDA matmul time: {cuda_time:.6f} ms")
     print(f"Total matmul time: {total_time:.6f} seconds")
-    speedup = cpu_time / (cuda_time / 1000)
+    speedup = cpu_time / total_time
     print(f"Matmul speedup: {speedup:.2f}x")
     
     print('-----------------------------------')

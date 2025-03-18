@@ -1,0 +1,129 @@
+==========================================
+SLURM_JOB_ID        = 1962355
+SLURM_NODELIST      = SPG-5-15
+SLURM_NTASKS        = 1
+SLURM_CPUS_PER_TASK = 1
+This SLURM script is running on host SPG-5-15
+Working directory is /home/fengx463/hmc/qed_fermion/qed_fermion/pbs_files
+==========================================
+=========================================================================================
+   WARNING batched routines are designed for small sizes. It might be better to use the
+   Native/Hybrid classical routines if you want good performance.
+=========================================================================================
+=========================================================================================
+   WARNING batched routines are designed for small sizes. It might be better to use the
+   Native/Hybrid classical routines if you want good performance.
+=========================================================================================
+=========================================================================================
+   WARNING batched routines are designed for small sizes. It might be better to use the
+   Native/Hybrid classical routines if you want good performance.
+=========================================================================================
+=========================================================================================
+   WARNING batched routines are designed for small sizes. It might be better to use the
+   Native/Hybrid classical routines if you want good performance.
+=========================================================================================
+Is CUDA available? True
+CPU device: cpu
+CUDA device: cuda
+
+Testing with matrix size: 360x360
+CPU einsum time: 0.981967 seconds
+CUDA einsum time: 1019.766785 ms
+Total einsum time: 1.019864 seconds
+Einsum speedup: 0.96x
+
+CPU determinant time: 0.005031 seconds
+CUDA determinant time: 395.876343 ms
+Total determinant time: 0.395953 seconds
+Determinant speedup: 0.01x
+
+CPU matmul time: 0.000987 seconds
+CUDA matmul time: 0.109568 ms
+Total matmul time: 0.000165 seconds
+Matmul speedup: 5.97x
+-----------------------------------
+
+Testing with matrix size: 1800x1800
+CPU einsum time: 0.311108 seconds
+CUDA einsum time: 1.932288 ms
+Total einsum time: 0.002040 seconds
+Einsum speedup: 152.52x
+
+CPU determinant time: 0.163133 seconds
+CUDA determinant time: 30.114817 ms
+Total determinant time: 0.030193 seconds
+Determinant speedup: 5.40x
+
+CPU matmul time: 0.062247 seconds
+CUDA matmul time: 0.471040 ms
+Total matmul time: 0.000525 seconds
+Matmul speedup: 118.58x
+-----------------------------------
+
+Testing with matrix size: 3600x3600
+CPU einsum time: 2.392750 seconds
+CUDA einsum time: 11.955200 ms
+Total einsum time: 0.012466 seconds
+Einsum speedup: 191.95x
+
+CPU determinant time: 1.002393 seconds
+CUDA determinant time: 87.608322 ms
+Total determinant time: 0.088025 seconds
+Determinant speedup: 11.39x
+
+CPU matmul time: 0.477246 seconds
+CUDA matmul time: 2.457600 ms
+Total matmul time: 0.002615 seconds
+Matmul speedup: 182.48x
+-----------------------------------
+
+Testing with matrix size: 5400x5400
+CPU einsum time: 8.255567 seconds
+CUDA einsum time: 42.170368 ms
+Total einsum time: 0.043729 seconds
+Einsum speedup: 188.79x
+
+CPU determinant time: 3.239382 seconds
+CUDA determinant time: 175.624191 ms
+Total determinant time: 0.176676 seconds
+Determinant speedup: 18.34x
+
+CPU matmul time: 1.652163 seconds
+CUDA matmul time: 8.120320 ms
+Total matmul time: 0.008573 seconds
+Matmul speedup: 192.71x
+-----------------------------------
+
+Testing with matrix size: 7200x7200
+CPU einsum time: 19.450255 seconds
+CUDA einsum time: 115.624962 ms
+Total einsum time: 0.118487 seconds
+Einsum speedup: 164.16x
+
+CPU determinant time: 7.285907 seconds
+CUDA determinant time: 298.812408 ms
+Total determinant time: 0.300717 seconds
+Determinant speedup: 24.23x
+
+CPU matmul time: 3.890077 seconds
+CUDA matmul time: 16.108543 ms
+Total matmul time: 0.016867 seconds
+Matmul speedup: 230.64x
+-----------------------------------
+
+Testing with matrix size: 9000x9000
+CPU einsum time: 37.855500 seconds
+CUDA einsum time: 234.565628 ms
+Total einsum time: 0.239332 seconds
+Einsum speedup: 158.17x
+
+CPU determinant time: 14.202899 seconds
+CUDA determinant time: 474.711029 ms
+Total determinant time: 0.477715 seconds
+Determinant speedup: 29.73x
+
+CPU matmul time: 7.569157 seconds
+CUDA matmul time: 30.462976 ms
+Total matmul time: 0.031671 seconds
+Matmul speedup: 238.99x
+-----------------------------------

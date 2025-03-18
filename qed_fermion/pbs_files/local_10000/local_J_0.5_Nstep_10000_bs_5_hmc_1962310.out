@@ -1,0 +1,12 @@
+==========================================
+SLURM_JOB_ID        = 1962310
+SLURM_NODELIST      = SPG-5-15
+SLURM_NTASKS        = 1
+SLURM_CPUS_PER_TASK = 1
+This SLURM script is running on host SPG-5-15
+Working directory is /home/fengx463/hmc/qed_fermion/qed_fermion/pbs_files
+==========================================
+device: cpu
+J=0.5 
+Nstep=10000
+dtype=torch.float64

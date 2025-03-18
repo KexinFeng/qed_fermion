@@ -95,7 +95,7 @@ class HmcSampler(object):
         self.initialize_boson_time_slice_random_uniform()
 
     def initialize_curl_mat(self):
-        self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
+        self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device=device, dtype=dtype)
 
     def initialize_specifics(self):      
         self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"

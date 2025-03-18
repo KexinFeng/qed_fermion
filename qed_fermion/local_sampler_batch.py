@@ -22,10 +22,10 @@ sys.path.insert(0, script_path + '/../')
 from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize_curl_mat
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = torch.device('cpu')
+device = torch.device('cpu')
 print(f"device: {device}")
-dtype = torch.float32
-cdtype = torch.complex64
+dtype = torch.float64
+cdtype = torch.complex128
 
 # torch.set_default_dtype(dtype)
 
@@ -91,7 +91,8 @@ class LocalUpdateSampler(object):
         self.boson = self.boson.to(device=device, dtype=dtype)
         
     def initialize_curl_mat(self):
-        self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
+        self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device=device, dtype=dtype)
+        print(f'dtype={dtype}')
 
     def initialize_specifics(self):
         self.specifics = f"local_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}bs_{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
