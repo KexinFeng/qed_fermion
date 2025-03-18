@@ -92,7 +92,7 @@ class HmcSampler(object):
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson_time_slice_random()
+        self.initialize_boson_time_slice_random_uniform()
 
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device)
@@ -172,6 +172,25 @@ class HmcSampler(object):
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
+    def initialize_boson_time_slice_random_uniform(self):
+        """
+        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+
+        :return: None
+        """
+        # Generate random values for each time slice using a uniform distribution in the range [-0.1, 0.1]
+        random_values = (torch.rand(self.bs-1, 2, self.Lx, self.Ly, device=device) - 0.5) * 0.2
+
+        # Repeat the random values across the time slices
+        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+
+
     def initialize_boson_staggered_pi(self):
         """
         Corresponding to self.i_list_1, i.e. the group_1 sites, the corresponding plaquettes have the right staggered pi pattern. This is directly obtainable from self.curl_mat
@@ -245,7 +264,8 @@ class HmcSampler(object):
         S = \sum (1 - cos(phi_tau+1 - phi))
         force_b_tau = -sin(phi_{tau+1} - phi_{tau}) + sin(phi_{tau} - phi_{tau-1})
         """    
-        coeff = 1 / self.J / self.dtau**2
+        # coeff = 1 / self.J / self.dtau**2
+        coeff = 1 / self.J
         diff_phi_tau_1 = torch.roll(boson, shifts=-1, dims=-1) - boson  # tau-component at (..., tau+1)
         diff_phi_tau_2 = boson - torch.roll(boson, shifts=1, dims=-1)  # tau-component at (..., tau-1)
         force_b_tau = -torch.sin(diff_phi_tau_1) + torch.sin(diff_phi_tau_2)
@@ -1214,7 +1234,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
 
-    J = float(os.getenv("J", '0.5'))
+    J = float(os.getenv("J", '3'))
     Nstep = int(os.getenv("Nstep", '10000'))
     print(f'J={J} \nNstep={Nstep}')
 
