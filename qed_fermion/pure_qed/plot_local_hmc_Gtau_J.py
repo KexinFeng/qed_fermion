@@ -115,9 +115,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             G_local_mean *= scale_factor
         
         err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0) * 1.96
-        # err1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=400), axis=0)
+        err1_con1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=400), axis=0)
+        err1_con2 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=1), axis=0)
         err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
-        print(err1, '\n', err2)
+        print(f"err1: {err1}\nerr1_con1: {err1_con1}\nerr1_con2: {err1_con2}\nerr2: {err2}")
         err_local = np.sqrt(err1**2)
 
         plt.errorbar(x_local, G_local_mean, yerr=err_local, linestyle='-', marker='*', markersize=10, label=f'G_local_{batch_idx.tolist()}', color='green', lw=2)

@@ -40,7 +40,7 @@ class HmcSampler(object):
         self.dtau = 0.1
         scale = self.dtau  # used to apply dtau
         self.J = J / scale * self.Nf / 4
-        self.K = 1 * scale * self.Nf
+        self.K = 1 * scale * self.Nf * 1/2
         self.t = 1
 
         # t * dtau < const
@@ -257,7 +257,8 @@ class HmcSampler(object):
         x:  [bs, 2, Lx, Ly, Ltau]
         S = \sum (1 - cos(phi_tau+1 - phi))
         """       
-        coeff = 1 / self.J / self.dtau**2
+        # coeff = 1 / self.J / self.dtau**2
+        coeff = 1 / self.J
         diff_phi_tau = - x + torch.roll(x, shifts=-1, dims=-1)  # tau-component at (..., tau+1)
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action

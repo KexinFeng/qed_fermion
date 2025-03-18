@@ -44,9 +44,9 @@ class LocalUpdateSampler(object):
         # self.dtau = 2/(J*self.Nf)
 
         self.dtau = 0.1
-        scale = self.dtau  # used to apply dtau
-        self.J = J / scale * self.Nf / 4
-        self.K = 1 * scale * self.Nf
+        # scale = self.dtau  # used to apply dtau
+        self.J = J / self.dtau * self.Nf / 4
+        self.K = 1 * self.dtau * self.Nf * 1/2
         self.t = 1
 
         self.boson = None
@@ -87,7 +87,7 @@ class LocalUpdateSampler(object):
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson_time_slice_random()
+        self.initialize_boson_time_slice_random_uniform()
         self.boson = self.boson.to(device=device, dtype=dtype)
         
     def initialize_curl_mat(self):
@@ -133,7 +133,6 @@ class LocalUpdateSampler(object):
         self.boson_idx_list_3 = self.i_list_3 * 2
         self.boson_idx_list_4 = self.i_list_4 * 2 + 1
 
-
     def initialize_boson(self):
         """
         Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
@@ -169,6 +168,24 @@ class LocalUpdateSampler(object):
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
+    def initialize_boson_time_slice_random_uniform(self):
+        """
+        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+
+        :return: None
+        """
+        # Generate random values for each time slice using a uniform distribution in the range [-0.1, 0.1]
+        random_values = (torch.rand(self.bs-1, 2, self.Lx, self.Ly, device=device) - 0.5) * 0.2
+
+        # Repeat the random values across the time slices
+        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+
     def initialize_boson_staggered_pi(self):
         """
         Corresponding to self.i_list_1, i.e. the group_1 sites, the corresponding plaquettes have the right staggered pi pattern. This is directly obtainable from self.curl_mat
@@ -179,7 +196,6 @@ class LocalUpdateSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         self.boson = boson.repeat(self.bs*self.Ltau, 1)
         self.boson = self.boson.reshape(self.bs, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-
 
     def sin_curl_greens_function_batch(self, boson):
         """
@@ -226,7 +242,8 @@ class LocalUpdateSampler(object):
         x:  [bs, 2, Lx, Ly, Ltau]
         S = \sum (1 - cos(phi_tau+1 - phi))
         """       
-        coeff = 1 / self.J / self.dtau**2
+        # coeff = 1 / self.J / self.dtau**2
+        coeff = 1 / self.J
         diff_phi_tau = - x + torch.roll(x, shifts=-1, dims=-1)  # tau-component at (..., tau+1)
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action
