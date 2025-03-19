@@ -38,7 +38,8 @@ class HmcSampler(object):
         # self.dtau = 2/(J*self.Nf)
 
         self.dtau = 0.1
-        scale = self.dtau  # used to apply dtau
+        scale = self.dtau  
+        # Lagrangian * dtau
         self.J = J / scale * self.Nf / 4
         self.K = 1 * scale * self.Nf * 1/2
         self.t = 1
@@ -264,8 +265,7 @@ class HmcSampler(object):
         S = \sum (1 - cos(phi_tau+1 - phi))
         force_b_tau = -sin(phi_{tau+1} - phi_{tau}) + sin(phi_{tau} - phi_{tau-1})
         """    
-        # coeff = 1 / self.J / self.dtau**2
-        coeff = 1 / self.J
+        coeff = 1 / self.J / self.dtau**2
         diff_phi_tau_1 = torch.roll(boson, shifts=-1, dims=-1) - boson  # tau-component at (..., tau+1)
         diff_phi_tau_2 = boson - torch.roll(boson, shifts=1, dims=-1)  # tau-component at (..., tau-1)
         force_b_tau = -torch.sin(diff_phi_tau_1) + torch.sin(diff_phi_tau_2)
@@ -277,8 +277,7 @@ class HmcSampler(object):
         x:  [bs, 2, Lx, Ly, Ltau]
         S = \sum (1 - cos(phi_tau+1 - phi))
         """       
-        # coeff = 1 / self.J / self.dtau**2
-        coeff = 1 / self.J
+        coeff = 1 / self.J / self.dtau**2
         diff_phi_tau = - x + torch.roll(x, shifts=-1, dims=-1)  # tau-component at (..., tau+1)
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action
@@ -1071,9 +1070,9 @@ class HmcSampler(object):
         axes[0, 1].set_ylabel("$S_{plaq}$")
         axes[0, 1].legend()
 
-        # axes[2].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
-        axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau} + S_{plaq}$')
-        axes[1, 1].set_ylabel("$S_{tau} + S_{plaq}$")
+        # axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
+        axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
+        axes[1, 1].set_ylabel("$S_{tau}$")
         axes[1, 1].set_xlabel("Steps")
         axes[1, 1].legend()
 

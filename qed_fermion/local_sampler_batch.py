@@ -44,7 +44,7 @@ class LocalUpdateSampler(object):
         # self.dtau = 2/(J*self.Nf)
 
         self.dtau = 0.1
-        # scale = self.dtau  # used to apply dtau
+        # Lagrangian * dtau
         self.J = J / self.dtau * self.Nf / 4
         self.K = 1 * self.dtau * self.Nf * 1/2
         self.t = 1
@@ -74,7 +74,8 @@ class LocalUpdateSampler(object):
         self.Sf_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
-        self.w = 0.1 * torch.pi
+        ws_table = {0.5: 0.15, 1:0.2, 3: 0.25}
+        self.w = ws_table[J] * torch.pi
 
         # Debug
         torch.manual_seed(0)
@@ -243,8 +244,7 @@ class LocalUpdateSampler(object):
         x:  [bs, 2, Lx, Ly, Ltau]
         S = \sum (1 - cos(phi_tau+1 - phi))
         """       
-        # coeff = 1 / self.J / self.dtau**2
-        coeff = 1 / self.J
+        coeff = 1 / self.J / self.dtau**2
         diff_phi_tau = - x + torch.roll(x, shifts=-1, dims=-1)  # tau-component at (..., tau+1)
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action
@@ -512,8 +512,11 @@ class LocalUpdateSampler(object):
         axes[0, 1].set_ylabel("$S_{plaq}$")
         axes[0, 1].legend()
 
-        # axes[2].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
-        axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau} + S_{plaq}$')
+        # axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau} + S_{plaq}$')
+        axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
+        axes[1, 1].set_ylabel("$S_{tau}$")
+        axes[1, 1].set_xlabel("Steps")
+        axes[1, 1].legend()
         axes[1, 1].set_ylabel("$S_{tau} + S_{plaq}$")
         axes[1, 1].set_xlabel("Steps")
         axes[1, 1].legend()
@@ -678,7 +681,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '10000'))
+    Nstep = int(os.getenv("Nstep", '2000'))
     bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
