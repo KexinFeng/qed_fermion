@@ -73,8 +73,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
 
         G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
     
-        # err1 = error_mean(init_convex_seq_estimator(G_list[seq_idx_init].numpy())/ np.sqrt(seq_idx_init.size), axis=0) * 1.96
-        err1 = error_mean(std_root_n(G_list[seq_idx].numpy(), axis=0, lag_sum=100), axis=0) * 1.96
+        err1 = error_mean(init_convex_seq_estimator(G_list[seq_idx_init].numpy())/ np.sqrt(seq_idx_init.size), axis=0) * 1
+        # err1 = error_mean(std_root_n(G_list[seq_idx].numpy(), axis=0, lag_sum=100), axis=0)
         err2 = t_based_error(G_list[seq_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err_hmc = np.sqrt(err1**2)
@@ -114,8 +114,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
             G_local_mean *= scale_factor
         
-        # err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0) * 1.96
-        err1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=400), axis=0) * 1.96
+        err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0) * 1
+        # err1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=400), axis=0)
         err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err_local = np.sqrt(err1**2)
@@ -136,7 +136,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
         G_dqmc_err = np.concat([data[:, 1], data[:1, 1]])
         
         x_dqmc = np.array(list(range(G_dqmc.size)))
-        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err * 1.96, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err * 1, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
         
 
     # Add labels and title
@@ -154,31 +154,34 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
-    # # ======== Log plot ======== #
-    # plt.figure()
-    # if len(hmc_filename):
-    #     plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=err_hmc, linestyle='', marker='o', label='G_hmc', color='blue', lw=2)
+    # ======== Log plot ======== #
+    plt.figure()
+    if len(hmc_filename):
+        plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=err_hmc, linestyle='', marker='o', label='G_hmc', color='blue', lw=2)
 
-    # if len(local_update_filename):
-    #     plt.errorbar(x_local+1, G_local_mean, yerr=err_local, linestyle='', marker='*', markersize=10, label='G_local', color='green', lw=2)
+    if len(local_update_filename):
+        plt.errorbar(x_local+1, G_local_mean, yerr=err_local, linestyle='', marker='*', markersize=10, label='G_local', color='green', lw=2)
 
-    # # Add labels and title
-    # plt.xlabel('X-axis label')
-    # plt.ylabel('log10(G) values')
-    # plt.title(f"Ntau={Ltau} Nx=Ny={Lx} J={jtau_value} Nswp={end - start}")
-    # plt.legend(ncol=2)
+    if len(dqmc_filename):
+        plt.errorbar(x_dqmc + 1, G_dqmc, yerr=G_dqmc_err * 1, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+
+    # Add labels and title
+    plt.xlabel('X-axis label')
+    plt.ylabel('log10(G) values')
+    plt.title(f"Ntau={Ltau} Nx=Ny={Lx} J={jtau_value} Nswp={end - start}")
+    plt.legend(ncol=2)
   
-    # plt.xscale('log')
-    # plt.yscale('log')
+    plt.xscale('log')
+    plt.yscale('log')
 
-    # # --------- save_plot ---------
-    # class_name = __file__.split('/')[-1].replace('.py', '')
-    # method_name = "greens_log"
-    # save_dir = os.path.join(script_path, f"./figures/{class_name}")
-    # os.makedirs(save_dir, exist_ok=True) 
-    # file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Figure saved at: {file_path}")
+    # --------- save_plot ---------
+    class_name = __file__.split('/')[-1].replace('.py', '')
+    method_name = "greens_log"
+    save_dir = os.path.join(script_path, f"./figures/{class_name}")
+    os.makedirs(save_dir, exist_ok=True) 
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
 
 if __name__ == '__main__':
     Js = [0.5, 1, 3]
@@ -204,8 +207,8 @@ if __name__ == '__main__':
         # step_lmc = lmc.N_step
         # local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.get_specifics()}_step_{step_lmc}.pt"
 
-        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_bs5_Jtau_{J:.1g}_K_1_dtau_0.1_step_10000.pt"
-        local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_3600000bs_5_Jtau_{J:.1g}_K_1_dtau_0.1_step_3600000.pt"
+        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion2/ckpt/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_5000_bs5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_5000.pt"
+        local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion2/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
 
         dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
@@ -217,7 +220,7 @@ if __name__ == '__main__':
             (Lx, Ly, Ltau), 
             hmc_filename, local_update_filename, dqmc_filename,
             specifics=hmc.get_specifics(), 
-            starts=[3000, 3000*lmc.Vs], 
+            starts=[2000, 1000*lmc.Vs], 
             sample_steps=[1, lmc.Vs], 
             scale_it=[False, False])
 

@@ -41,7 +41,7 @@ def std_root_n(array, axis=None, unbiased=True, lag_sum=1):
     return std / np.sqrt(n / lag_sum)
 
 
-def t_based_error(data, confidence=0.95, axis=0):
+def t_based_error(data, confidence=0.68, axis=0):
     """
     Calculate confidence interval using Student's t-distribution along a specified axis
     Returns: margin_of_error along the specified axis
