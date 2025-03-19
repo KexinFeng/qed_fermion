@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 import math
 import numpy as np
@@ -74,7 +75,8 @@ class LocalUpdateSampler(object):
         self.Sf_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
-        ws_table = {0.5: 0.15, 1:0.2, 3: 0.25}
+        ws_table = defaultdict(lambda : 0.15) 
+        ws_table.update({0.5: 0.15, 1:0.2, 3: 0.25})
         self.w = ws_table[J] * torch.pi
 
         # Debug
@@ -89,6 +91,7 @@ class LocalUpdateSampler(object):
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform()
+        # self.initialize_boson_staggered_pi()
         self.boson = self.boson.to(device=device, dtype=dtype)
         
     def initialize_curl_mat(self):
@@ -400,7 +403,7 @@ class LocalUpdateSampler(object):
             self.S_plaq_list[-1] = self.action_boson_plaq(self.boson).cpu()
             self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
             detM = self.get_detM(self.boson)
-            self.fermion_energy = -2 * torch.log(torch.real(detM))
+            self.fermion_energy = -self.Nf * torch.log(torch.real(detM))
 
         # Measure
         data_folder = script_path + "/check_points/local_check_point/"
@@ -552,7 +555,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
     step = res['step']
     x = np.array(list(range(G_list[0].size(-1))))
 
-    start = 20
+    start = 1000
     end = step
     sample_step = Vs
     seq_idx = torch.arange(start * Vs, end, sample_step)

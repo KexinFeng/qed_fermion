@@ -1,0 +1,77 @@
+## J = infty
+
+------- dtau=0.5 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=0.00042504206119176047
+tau_input=2, Mutual Information=0.0003720641490190246
+tau_input=3, Mutual Information=0.0003252904030706105
+tau_input=4, Mutual Information=0.00044085791673253993
+
+------- dtau=0.1 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=1.642451827876812e-07
+tau_input=2, Mutual Information=1.384882128974141e-07
+tau_input=3, Mutual Information=1.727726921529893e-07
+tau_input=4, Mutual Information=1.4433855000106632e-08
+
+------- dtau=0.01 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=1.4138414883291262e-08
+tau_input=2, Mutual Information=1.4138414883291262e-08
+tau_input=3, Mutual Information=1.413841843600494e-08
+tau_input=4, Mutual Information=1.4138411330577583e-08
+
+
+## Various Js
+------- J=0.01 -------
+------- dtau=0.5 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=0.13366458154085592
+tau_input=2, Mutual Information=2.2371962060674377e-08
+tau_input=3, Mutual Information=1.6867878649406975e-08
+tau_input=4, Mutual Information=1.0200118971681604e-08
+
+------- J=1 -------
+------- dtau=0.5 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=0.10369095517839
+tau_input=2, Mutual Information=0.0001568723839877606
+tau_input=3, Mutual Information=0.00012781525956917505
+tau_input=4, Mutual Information=0.0001093024886795746
+
+------- J=1000 -------
+------- dtau=0.5 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=0.0004232979476554988
+tau_input=2, Mutual Information=0.00037189080220301207
+tau_input=3, Mutual Information=0.0003251307560496741
+tau_input=4, Mutual Information=0.0004406324035262088
+
+------- J=100000 -------
+------- dtau=0.5 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+tau_input=1, Mutual Information=0.0004250225064641455
+tau_input=2, Mutual Information=0.00037206241749743185
+tau_input=3, Mutual Information=0.00032528880852389364
+tau_input=4, Mutual Information=0.00044085566742069204
