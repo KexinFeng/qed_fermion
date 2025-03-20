@@ -19,7 +19,7 @@ def compute_pxy(boson, x_vals, y_vals, tau_input, get_detM, action_boson_tau_cmp
     # Clone boson for each (x, y) pair along the batch dimension
     boson_batch = boson.repeat(len(x_flat), *([1] * (boson.ndim - 1)))
     boson_batch[:, 0, 0, 0, 0] += x_flat
-    boson_batch[:, 0, 0, 0, tau_input] += y_flat
+    boson_batch[:, 0, tau_input, 0, 0] += y_flat
 
     # Compute determinant for each boson in the batch
     weight = torch.real(get_detM(boson_batch)) ** 2 
@@ -53,14 +53,15 @@ def compute_mutual_information(pxy):
     return S_X + S_Y - S_XY
 
 Js = [0.01, 1, 1000, 10**5]
-dtaus = [0.5]
+Js = [10**5]
+dtaus = [0.01, 0.1, 0.5]
 for J in Js:
     for dtau in reversed(dtaus):
-        print(f'\n------- J={J} -------')
+        # print(f'\n------- J={J} -------')
         print(f'------- dtau={dtau} -------')
         # Initialize parameters
         lmc = LocalUpdateSampler(J=J, bs=1)
-        lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
+        lmc.Lx, lmc.Ly, lmc.Ltau = 10, 10, 10
         lmc.dtau = dtau
         lmc.reset()
         
@@ -79,14 +80,14 @@ for J in Js:
         for i, boson in enumerate([boson_pi]):
             # Compute mutual information for various tau_input values
             results = {}
-            for tau_input in range(1, 5):  # tau_input in range (0, 5)
-                pxy = compute_pxy(boson, x_vals, y_vals, tau_input, lmc.get_detM, lmc.action_boson_tau_cmp)
+            for distance_input in range(1, 5):  # tau_input in range (0, 5)
+                pxy = compute_pxy(boson, x_vals, y_vals, distance_input, lmc.get_detM, lmc.action_boson_tau_cmp if J < 10**4 else None)
                 mutual_info = torch.real(compute_mutual_information(pxy))
-                results[tau_input] = mutual_info.item()
+                results[distance_input] = mutual_info.item()
 
             # Print results
             print(f"\n{boson_str[i]}")
-            for tau_input, mi in results.items():
-                print(f"tau_input={tau_input}, Mutual Information={mi}")
+            for distance_input, mi in results.items():
+                print(f"distance_input={distance_input}, Mutual Information={mi}")
 
 
