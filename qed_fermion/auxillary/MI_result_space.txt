@@ -1,0 +1,29 @@
+## J = infty
+
+------- dtau=0.5 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+distance_input=1, Mutual Information=0.00041627940606403513
+distance_input=2, Mutual Information=4.291595752548005e-06
+distance_input=3, Mutual Information=2.2416156042481816e-08
+distance_input=4, Mutual Information=1.413883410350536e-08
+------- dtau=0.1 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+distance_input=1, Mutual Information=1.6955305959243105e-07
+distance_input=2, Mutual Information=1.4150081995012442e-08
+distance_input=3, Mutual Information=1.4138443305000692e-08
+distance_input=4, Mutual Information=1.4138411330577583e-08
+------- dtau=0.01 -------
+dtype=torch.float64
+dtype=torch.float64
+
+boson_pi
+distance_input=1, Mutual Information=1.4138414883291262e-08
+distance_input=2, Mutual Information=1.4138411330577583e-08
+distance_input=3, Mutual Information=1.4138411330577583e-08
+distance_input=4, Mutual Information=1.4138411330577583e-08
