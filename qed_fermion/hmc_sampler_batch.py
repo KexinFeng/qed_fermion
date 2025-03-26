@@ -19,9 +19,12 @@ sys.path.insert(0, script_path + '/../')
 from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize_curl_mat
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 print(f"device: {device}")
-dtype = torch.float32
+
+dtype = torch.float64
+cdtype = torch.complex128
+print(f"dtype: {dtype}")
+print(f"cdtype: {cdtype}")
 
 class HmcSampler(object):
     def __init__(self, J=0.5, Nstep=3000, config=None):
@@ -294,7 +297,7 @@ class HmcSampler(object):
     # =========== Turn on fermions =========
     def get_dB(self):
         Vs = self.Lx * self.Ly
-        dB = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        dB = torch.zeros(Vs, Vs, device=device, dtype=cdtype)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB[diag_idx, diag_idx] = math.cosh(self.dtau/2 * self.t)
         return dB
@@ -302,21 +305,21 @@ class HmcSampler(object):
     def get_dB_sparse(self):
         Vs = self.Lx * self.Ly
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
-        values = torch.full((Vs,), math.cosh(self.dtau / 2 * self.t), device=device, dtype=torch.complex64)
+        values = torch.full((Vs,), math.cosh(self.dtau / 2 * self.t), device=device, dtype=cdtype)
         indices = torch.stack([diag_idx, diag_idx])
-        dB = torch.sparse_coo_tensor(indices, values, (Vs, Vs), device=device, dtype=torch.complex64).coalesce()
+        dB = torch.sparse_coo_tensor(indices, values, (Vs, Vs), device=device, dtype=cdtype).coalesce()
         return dB
     
     def get_dB_batch(self):
         Vs = self.Lx * self.Ly
-        dB = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        dB = torch.zeros(Vs, Vs, device=device, dtype=cdtype)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB[diag_idx, diag_idx] = math.cosh(self.dtau/2 * self.t)
         return dB.repeat(self.bs, 1, 1)
 
     def get_dB1(self):
         Vs = self.Lx * self.Ly
-        dB1 = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        dB1 = torch.zeros(Vs, Vs, device=device, dtype=cdtype)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB1[diag_idx, diag_idx] = math.cosh(self.dtau * self.t)
         return dB1
@@ -324,14 +327,14 @@ class HmcSampler(object):
     def get_dB1_sparse(self):
         Vs = self.Lx * self.Ly
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
-        values = torch.full((Vs,), math.cosh(self.dtau * self.t), device=device, dtype=torch.complex64)
+        values = torch.full((Vs,), math.cosh(self.dtau * self.t), device=device, dtype=cdtype)
         indices = torch.stack([diag_idx, diag_idx])
-        dB1 = torch.sparse_coo_tensor(indices, values, (Vs, Vs), device=device, dtype=torch.complex64).coalesce()
+        dB1 = torch.sparse_coo_tensor(indices, values, (Vs, Vs), device=device, dtype=cdtype).coalesce()
         return dB1
 
     def get_dB1_batch(self):
         Vs = self.Lx * self.Ly
-        dB1 = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
+        dB1 = torch.zeros(Vs, Vs, device=device, dtype=cdtype)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB1[diag_idx, diag_idx] = math.cosh(self.dtau * self.t)
         return dB1.repeat(self.bs, 1, 1)
@@ -348,7 +351,7 @@ class HmcSampler(object):
         t = self.t
         boson = boson.permute([3, 2, 1, 0]).reshape(-1)
 
-        M = torch.eye(Vs*self.Ltau, device=boson.device, dtype=torch.complex64)
+        M = torch.eye(Vs*self.Ltau, device=boson.device, dtype=cdtype)
         B1_list = []
         B2_list = []
         B3_list = []
@@ -414,10 +417,10 @@ class HmcSampler(object):
 
         M = torch.sparse_coo_tensor(
             torch.arange(Vs * self.Ltau, device=boson.device).repeat(2, 1),
-            torch.ones(Vs * self.Ltau, dtype=torch.complex64, device=boson.device),
+            torch.ones(Vs * self.Ltau, dtype=cdtype, device=boson.device),
             (Vs * self.Ltau, Vs * self.Ltau),
             device=boson.device,
-            dtype=torch.complex64
+            dtype=cdtype
         )
         
         B1_list = []
@@ -442,7 +445,7 @@ class HmcSampler(object):
                 torch.cat([dB1.values(), values]),
                 dB1.shape,
                 device=boson.device,
-                dtype=torch.complex64
+                dtype=cdtype
             ).coalesce()
             B = dB1
             B1_list.append(dB1)
@@ -461,7 +464,7 @@ class HmcSampler(object):
                 torch.cat([dB.values(), values]),
                 dB.shape,
                 device=boson.device,
-                dtype=torch.complex64
+                dtype=cdtype
             ).coalesce()
             B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
             B2_list.append(dB)
@@ -480,7 +483,7 @@ class HmcSampler(object):
                 torch.cat([dB.values(), values]),
                 dB.shape,
                 device=boson.device,
-                dtype=torch.complex64
+                dtype=cdtype
             ).coalesce()
             B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
             B3_list.append(dB)
@@ -499,7 +502,7 @@ class HmcSampler(object):
                 torch.cat([dB.values(), values]),
                 dB.shape,
                 device=boson.device,
-                dtype=torch.complex64
+                dtype=cdtype
             ).coalesce()
             B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
             B4_list.append(dB)
@@ -545,7 +548,7 @@ class HmcSampler(object):
         t = self.t
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1)
 
-        M = torch.eye(Vs * self.Ltau, device=boson.device, dtype=torch.complex64).repeat(self.bs, 1, 1)
+        M = torch.eye(Vs * self.Ltau, device=boson.device, dtype=cdtype).repeat(self.bs, 1, 1)
         B1_list = []
         B2_list = []
         B3_list = []
