@@ -29,7 +29,7 @@ class HmcSampler(object):
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 5
+        self.bs = 1
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -300,6 +300,14 @@ class HmcSampler(object):
         dB[diag_idx, diag_idx] = math.cosh(self.dtau/2 * self.t)
         return dB
     
+    def get_dB_sparse(self):
+        Vs = self.Lx * self.Ly
+        diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
+        values = torch.full((Vs,), math.cosh(self.dtau / 2 * self.t), device=device, dtype=torch.complex64)
+        indices = torch.stack([diag_idx, diag_idx])
+        dB = torch.sparse_coo_tensor(indices, values, (Vs, Vs), device=device, dtype=torch.complex64)
+        return dB
+    
     def get_dB_batch(self):
         Vs = self.Lx * self.Ly
         dB = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
@@ -312,6 +320,14 @@ class HmcSampler(object):
         dB1 = torch.zeros(Vs, Vs, device=device, dtype=torch.complex64)
         diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
         dB1[diag_idx, diag_idx] = math.cosh(self.dtau * self.t)
+        return dB1
+    
+    def get_dB1_sparse(self):
+        Vs = self.Lx * self.Ly
+        diag_idx = torch.arange(Vs, device=device, dtype=torch.int64)
+        values = torch.full((Vs,), math.cosh(self.dtau * self.t), device=device, dtype=torch.complex64)
+        indices = torch.stack([diag_idx, diag_idx])
+        dB1 = torch.sparse_coo_tensor(indices, values, (Vs, Vs), device=device, dtype=torch.complex64)
         return dB1
 
     def get_dB1_batch(self):
@@ -379,6 +395,142 @@ class HmcSampler(object):
                 M[row_start:row_end, col_start:col_end] = -B
             else:
                 M[:Vs, Vs*tau:] = B
+
+        return M, [B1_list, B2_list, B3_list, B4_list]
+
+
+    def get_M_sparse(self, boson):
+        """
+        boson: [bs=1, 2, Lx, Ly, Ltau]
+        """
+        assert len(boson.shape) == 4 or len(boson.shape) == 5 and boson.size(0) == 1
+        if len(boson.shape) == 5:
+            boson = boson.squeeze(0)
+
+        Vs = self.Lx * self.Ly
+        dtau = self.dtau
+        t = self.t
+        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+
+        M = torch.sparse_coo_tensor(
+            torch.arange(Vs * self.Ltau, device=boson.device).repeat(2, 1),
+            torch.ones(Vs * self.Ltau, dtype=torch.complex64, device=boson.device),
+            (Vs * self.Ltau, Vs * self.Ltau),
+            device=boson.device,
+            dtype=torch.complex64
+        )
+        
+        B1_list = []
+        B2_list = []
+        B3_list = []
+        B4_list = []
+        indices_list = []
+        values_list = []
+
+        for tau in range(self.Ltau):
+            dB1 = self.get_dB1_sparse()
+            indices = torch.cat([
+            torch.stack([self.i_list_1, self.j_list_1]),
+            torch.stack([self.j_list_1, self.i_list_1])
+            ], dim=1)
+            values = torch.cat([
+            torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_1]) * math.sinh(t * dtau),
+            torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            ])
+            dB1 = torch.sparse_coo_tensor(indices, values, dB1.shape, device=boson.device, dtype=torch.complex64)
+            B = dB1
+            B1_list.append(dB1)
+
+            dB = self.get_dB_sparse()
+            indices = torch.cat([
+            torch.stack([self.i_list_2, self.j_list_2]),
+            torch.stack([self.j_list_2, self.i_list_2])
+            ], dim=1)
+            values = torch.cat([
+            torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_2]) * math.sinh(t * dtau / 2),
+            torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_2]) * math.sinh(t * dtau / 2)
+            ])
+            dB = torch.sparse_coo_tensor(indices, values, dB.shape, device=boson.device, dtype=torch.complex64)
+            B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            B2_list.append(dB)
+
+            dB = self.get_dB_sparse()
+            indices = torch.cat([
+            torch.stack([self.i_list_3, self.j_list_3]),
+            torch.stack([self.j_list_3, self.i_list_3])
+            ], dim=1)
+            values = torch.cat([
+            torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_3]) * math.sinh(t * dtau / 2),
+            torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_3]) * math.sinh(t * dtau / 2)
+            ])
+            dB = torch.sparse_coo_tensor(indices, values, dB.shape, device=boson.device, dtype=torch.complex64)
+            B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            B3_list.append(dB)
+
+            dB = self.get_dB_sparse()
+            indices = torch.cat([
+            torch.stack([self.i_list_4, self.j_list_4]),
+            torch.stack([self.j_list_4, self.i_list_4])
+            ], dim=1)
+            values = torch.cat([
+            torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_4]) * math.sinh(t * dtau / 2),
+            torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_4]) * math.sinh(t * dtau / 2)
+            ])
+            dB = torch.sparse_coo_tensor(indices, values, dB.shape, device=boson.device, dtype=torch.complex64)
+            B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            B4_list.append(dB)
+
+            # Print the sparsity of B
+            sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))
+            print(f"Sparsity of B at tau={tau}: {sparsity:.4f}")
+
+            if tau < self.Ltau - 1:
+                row_start = Vs * (tau + 1)
+                col_start = Vs * tau
+                indices = B._indices() + torch.tensor([[row_start], [col_start]], device=device)
+                values = -B._values()
+            else:
+                indices = B._indices() + torch.tensor([[0], [Vs * tau]], device=device)
+                values = B._values()
+
+            indices_list.append(indices)
+            values_list.append(values)
+
+        # Combine all indices and values into M at once
+        M = torch.sparse_coo_tensor(
+            torch.cat([M._indices()] + indices_list, dim=1),
+            torch.cat([M._values()] + values_list),
+            M.shape,
+            device=device,
+            dtype=M.dtype
+        ).coalesce()
+
+        # Approximate the condition number of M'@M using power iteration for largest and smallest singular values
+        def power_iteration(A, num_iter=100):
+            b = torch.randn(A.size(1), device=A.device, dtype=A.dtype)
+            for _ in range(num_iter):
+                b = torch.nn.functional.normalize(torch.sparse.mm(A, b.unsqueeze(1)).squeeze(1), dim=0)
+            return torch.linalg.norm(torch.sparse.mm(A, b.unsqueeze(1)).squeeze(1))
+
+        import scipy.sparse as sp
+        import scipy.sparse.linalg as splinalg
+
+        def inverse_power_iteration(A, num_iter=100):
+            # Convert torch sparse_coo_tensor to scipy csr_matrix
+            A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
+                          A.indices().cpu().numpy()), 
+                         shape=A.shape)
+            b = torch.randn(A.size(1), device=A.device, dtype=A.dtype).cpu().numpy()
+            for _ in range(num_iter):
+                b, _ = splinalg.cg(A_scipy, b)
+                b = b / np.linalg.norm(b)
+            return 1.0 / np.linalg.norm(A_scipy @ b)
+
+        MtM = torch.sparse.mm(M.T.conj(), M)  # Compute M'@M
+        largest_singular = power_iteration(MtM, num_iter=50)
+        smallest_singular = inverse_power_iteration(MtM, num_iter=50)
+        cond_number_approx = largest_singular / smallest_singular
+        print(f"Approximate condition number of M'@M: {cond_number_approx}")
 
         return M, [B1_list, B2_list, B3_list, B4_list]
 
