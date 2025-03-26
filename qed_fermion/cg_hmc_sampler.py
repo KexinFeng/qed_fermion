@@ -201,7 +201,6 @@ class CgHmcSampler(HmcSampler):
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
         mean_sparsity = sum(blk_sparsities) / len(blk_sparsities) if blk_sparsities else None
 
-        print("\n")
         print("Mean convergence steps:", mean_conv_steps)
         print("Mean condition numbers:", mean_condition_num)
         print("Mean sparsities:", mean_sparsity)
@@ -226,7 +225,7 @@ if __name__ == '__main__':
         results = sampler.benchmark(bs=3)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n")
+        print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n\n")
 
         mean_conv_steps.append(results[0])
         mean_condition_nums.append(results[1])
