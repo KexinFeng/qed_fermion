@@ -134,7 +134,7 @@ class CgHmcSampler(HmcSampler):
     #     σ_min = CgHmcSampler.inverse_power_iteration(A, max_iters, cg_iters, tol)
     #     return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)  # Prevent division by zero
 
-    def benchmark(self, bs=5, device='cpu'):
+    def benchmark(self, bs=5):
         """
         Benchmark the preconditioned CG solver.
 
@@ -145,7 +145,7 @@ class CgHmcSampler(HmcSampler):
         torch.manual_seed(25)
 
         # Generate random boson field with uniform randomness across all dimensions
-        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=device) - 0.5) * 2*3.14
+        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=self.boson.device) - 0.5) * 2*3.14
 
         # Pi flux
         curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
@@ -155,7 +155,7 @@ class CgHmcSampler(HmcSampler):
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
         # Generate new bosons centered around delta_boson with varying sigma
-        sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=device)
+        sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
         new_bosons = torch.stack([
             delta_boson.squeeze(0) + torch.randn_like(delta_boson.squeeze(0)) * sigma
             for sigma in sigmas
@@ -210,9 +210,9 @@ class CgHmcSampler(HmcSampler):
 
 if __name__ == '__main__':
     sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
-    sampler.Lx, sampler.Ly = 20, 20    # initial test: Lx=Ly=6, Ltau=10
+    sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
 
-    Ltau_values = [10, 20, 50, 100, 200, 400, 600]
+    Ltau_values = [10, 20, 50, 100, 200, 400]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
@@ -220,9 +220,10 @@ if __name__ == '__main__':
     for Ltau in Ltau_values:
         sampler.Ltau = Ltau
         sampler.reset()
+        print(f"Start Ltau={sampler.Ltau}... ")
 
         start_time = time.time()
-        results = sampler.benchmark(bs=3, device='cpu')
+        results = sampler.benchmark(bs=3)
         end_time = time.time()
         execution_time = end_time - start_time
         print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n")

@@ -18,8 +18,8 @@ bs=5
 
 # done
 
-sbatch --job-name=test_cuda \
+sbatch --job-name=test_cond_num \
         --time=0-0:30:00 \
         --qos=debug \
         --mem-per-cpu=10G \
-        test_cuda.cmd
+        s_cg.cmd

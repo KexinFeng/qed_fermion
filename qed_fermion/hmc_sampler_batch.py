@@ -79,7 +79,6 @@ class HmcSampler(object):
         # self.m = 1/2
 
         self.delta_t = 0.05
-        print(f"delta_t = {self.delta_t}")
 
         self.N_leapfrog = 6
 
