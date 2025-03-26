@@ -31,7 +31,7 @@ cdtype = torch.complex128
 # torch.set_default_dtype(dtype)
 
 class LocalUpdateSampler(object):
-    def __init__(self, J=0.5, Nstep=2e2, bs=5, config=None):
+    def __init__(self, J=0.5, Nstep=2e2, bs=5, plt_rate=500, config=None):
         # Dims
         self.Lx = 6
         self.Ly = 6
@@ -58,7 +58,7 @@ class LocalUpdateSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
 
-        self.plt_rate = (self.Vs * 500) 
+        self.plt_rate = (self.Vs * plt_rate) 
         self.ckp_rate = (self.Vs * 2000)
 
         # Statistics
@@ -72,7 +72,7 @@ class LocalUpdateSampler(object):
         self.accp_rate = torch.zeros(self.N_step, self.bs)
         self.S_plaq_list = torch.zeros(self.N_step, self.bs)
         self.S_tau_list = torch.zeros(self.N_step, self.bs)
-        self.Sf_list = torch.zeros(self.N_step, self.bs)
+        self.detM_sign_list = torch.zeros(self.N_step, self.bs)
 
         # Local window
         ws_table = defaultdict(lambda : 0.15) 
@@ -384,7 +384,7 @@ class LocalUpdateSampler(object):
         self.boson_energy[accp] = boson_energy_new[accp]
         self.fermion_energy[accp] = fermion_energy_new[accp]
 
-        return self.boson, accp
+        return self.boson, accp, torch.sign(torch.real(detM)) 
   
     # @torch.inference_mode()
     @torch.no_grad()
@@ -404,12 +404,13 @@ class LocalUpdateSampler(object):
             self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
             detM = self.get_detM(self.boson)
             self.fermion_energy = -self.Nf * torch.log(torch.real(detM))
+            self.detM_sign_list[-1] = torch.sign(torch.real(detM))
 
         # Measure
         data_folder = script_path + "/check_points/local_check_point/"
         start = self.step
         for i in tqdm(range(start, start + self.N_step)):
-            boson, accp = self.local_u1_proposer()
+            boson, accp, detM_sign = self.local_u1_proposer()
 
             accp_cpu = accp.cpu()
             self.accp_list[i] = accp_cpu
@@ -423,7 +424,10 @@ class LocalUpdateSampler(object):
             self.S_plaq_list[i] = \
                 accp_cpu.view(-1) * self.action_boson_plaq(boson).cpu() \
                 + (1 - accp_cpu.view(-1).float()) * self.S_plaq_list[i-1]
-            
+            self.detM_sign_list[i] = \
+                accp_cpu.view(-1) * detM_sign.cpu() \
+                + (1 - accp_cpu.view(-1).float()) * self.detM_sign_list[i-1]
+
             # plotting
             if i % self.plt_rate == 0 and i > 0:
                 plt.pause(0.1)
@@ -442,7 +446,8 @@ class LocalUpdateSampler(object):
                        'S_plaq_list': self.S_plaq_list,
                        'S_tau_list': self.S_tau_list,
                        'accp_rate': self.accp_rate,
-                       'accp_list': self.accp_list}
+                       'accp_list': self.accp_list,
+                       'detM_sign_list': self.detM_sign_list}
                 
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
                 self.save_to_file(res, data_folder, file_name) 
@@ -457,7 +462,9 @@ class LocalUpdateSampler(object):
                'S_plaq_list': self.S_plaq_list,
                'S_tau_list': self.S_tau_list,
                'accp_rate': self.accp_rate,
-               'accp_list': self.accp_list}
+               'accp_list': self.accp_list,
+               'detM_sign_list': self.detM_sign_list}
+
 
         # Save to file
         file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
@@ -491,7 +498,7 @@ class LocalUpdateSampler(object):
         Visualize obsrv and accp in subplots.
         """
         # plt.figure()
-        fig, axes = plt.subplots(2, 2, figsize=(12, 7.5))
+        fig, axes = plt.subplots(3, 2, figsize=(12, 7.5))
         
         start = 50  # to prevent from being out of scale due to init out-liers
         Vs = self.Vs
@@ -517,12 +524,14 @@ class LocalUpdateSampler(object):
 
         # axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau} + S_{plaq}$')
         axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
-        axes[1, 1].set_ylabel("$S_{tau}$")
-        axes[1, 1].set_xlabel("Steps")
-        axes[1, 1].legend()
         axes[1, 1].set_ylabel("$S_{tau} + S_{plaq}$")
         axes[1, 1].set_xlabel("Steps")
         axes[1, 1].legend()
+        
+        axes[2, 0].plot(self.detM_sign_list[seq_idx].cpu().numpy(), '*', label='$sign(|M|)$')
+        axes[2, 0].set_ylabel("$sign(|M|)$")
+        axes[2, 0].set_xlabel("Steps")
+        axes[2, 0].legend()
 
         plt.tight_layout()
         # plt.show(block=False)
@@ -688,7 +697,7 @@ if __name__ == '__main__':
     bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs)
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=10)
 
     # Measure
     hmc.measure()
