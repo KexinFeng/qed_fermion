@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import sys, os
 import matplotlib.pyplot as plt
@@ -10,6 +11,10 @@ sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 import os
+import time
+
+import scipy.sparse as sp
+import scipy.sparse.linalg as splinalg
 
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
@@ -78,6 +83,26 @@ class CgHmcSampler(HmcSampler):
         print(f"Figure saved at: {file_path}")
 
         return x
+    
+    # Approximate the condition number
+    @staticmethod
+    def power_iteration(A, num_iter=100):
+        b = torch.randn(A.size(1), device=A.device, dtype=A.dtype)
+        for _ in range(num_iter):
+            b = torch.nn.functional.normalize(torch.sparse.mm(A, b.unsqueeze(1)).squeeze(1), dim=0)
+        return torch.linalg.norm(torch.sparse.mm(A, b.unsqueeze(1)).squeeze(1))
+
+    @staticmethod
+    def inverse_power_iteration(A, num_iter=100):
+        # Convert torch sparse_coo_tensor to scipy csr_matrix
+        A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
+                        A.indices().cpu().numpy()), 
+                        shape=A.shape)
+        b = torch.randn(A.size(1), device=A.device, dtype=A.dtype).cpu().numpy()
+        for _ in range(num_iter):
+            b, _ = splinalg.cg(A_scipy, b)
+            b = b / np.linalg.norm(b)
+        return 1.0 / np.linalg.norm(A_scipy @ b)
 
     def benchmark(self, bs=5, device='cpu'):
         """
@@ -90,29 +115,93 @@ class CgHmcSampler(HmcSampler):
         torch.manual_seed(25)
 
         # Generate random boson field with uniform randomness across all dimensions
-        self.boson = (torch.rand(bs - 1, 2, self.Lx, self.Ly, self.Ltau, device=device) - 0.5) * 0.2
+        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=device) - 0.5) * 2*3.14
 
+        # Pi flux
         curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         boson = boson.repeat(1 * self.Ltau, 1)
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
+        # Generate new bosons centered around delta_boson with varying sigma
+        sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=device)
+        new_bosons = torch.stack([
+            delta_boson.squeeze(0) + torch.randn_like(delta_boson.squeeze(0)) * sigma
+            for sigma in sigmas
+        ])
+        self.boson = torch.cat([self.boson, new_bosons], dim=0)
+
         # Initialize right-hand side vector b
         b = self.draw_psudo_fermion()
 
         # Benchmark preconditioned CG for each boson in the batch
         convergence_steps = []
-        for i in range(bs):
+        condition_numbers = []
+        blk_sparsities = []
+        for i in range(bs*2):
             boson = self.boson[i]
-            M, _ = self.get_M_sparse(boson)
-            x = self.preconditioned_cg(M, b, tol=1e-8, max_iter=1000)
-            convergence_steps.append(x)
+            MhM, _, blk_sparsity = self.get_M_sparse(boson)
 
-        return sum(convergence_steps) / len(convergence_steps)
+            # Compute condition number
+            # M_dense = self.get_M(boson_input.unsqueeze(0))[0]
+            # torch.testing.assert_close(M.to_dense(), M_dense, rtol=1e-5, atol=1e-5)
+            # torch.testing.assert_close(MhM.to_dense(), M_dense.T.conj() @ M_dense, rtol=1e-5, atol=1e-5)
+            
+            # largest_singular = power_iteration(MhM, num_iter=100)
+            # smallest_singular = inverse_power_iteration(MhM, num_iter=100)
+            # cond_number_approx = largest_singular / smallest_singular
+
+            condition_number = torch.linalg.cond(MhM.to_dense())
+            # torch.testing.assert_close(cond_number, cond_number_approx)
+            print(f"Approximate condition number of M'@M: {condition_number}")
+
+            condition_numbers.append(condition_number)
+            blk_sparsities.append(blk_sparsity)
+
+            # Check if M'M is correct
+            if self.Ltau < 50:
+                M, _ = self.get_M(boson.unsqueeze(0))
+                torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
+
+            # x = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
+            # convergence_steps.append(x)
+
+        mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
+        mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
+        mean_sparsity = sum(blk_sparsities) / len(blk_sparsities) if blk_sparsities else None
+
+        print("Mean convergence steps:", mean_conv_steps)
+        print("Mean condition numbers:", mean_condition_num)
+        print("Mean sparsities:", mean_sparsity)
+        print("\n")
+        return mean_conv_steps, mean_condition_num, mean_sparsity
+
 
 if __name__ == '__main__':
     sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
-    sampler.Lx, sampler.Ly, sampler.Ltau = 6, 6, 10
-    results = sampler.benchmark(bs=10, device='cpu')
-    print("Benchmark results:", results)
+    sampler.Lx, sampler.Ly = 20, 20    # initial test: Lx=Ly=6, Ltau=10
+
+    Ltau_values = [10, 20, 50, 100, 200, 400, 600]
+    mean_conv_steps = []
+    mean_condition_nums = []
+    mean_sparsities = []
+
+    for Ltau in Ltau_values:
+        sampler.Ltau = Ltau
+        sampler.reset()
+
+        start_time = time.time()
+        results = sampler.benchmark(bs=3, device='cpu')
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n")
+
+        mean_conv_steps.append(results[0])
+        mean_condition_nums.append(results[1])
+        mean_sparsities.append(results[2])
+
+    print("Ltau values:", Ltau_values)
+    print("Mean convergence steps:", mean_conv_steps)
+    print("Mean condition numbers:", mean_condition_nums)
+    print("Mean sparsities:", mean_sparsities)
