@@ -12,6 +12,7 @@ sys.path.insert(0, script_path + '/../')
 from qed_fermion.hmc_sampler_batch import HmcSampler
 import os
 import time
+import pandas as pd
 
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
@@ -168,6 +169,8 @@ class CgHmcSampler(HmcSampler):
         # Benchmark preconditioned CG for each boson in the batch
         convergence_steps = []
         condition_numbers = []
+        sig_max_values = []
+        sig_min_values = []
         blk_sparsities = []
         for i in range(bs*2):
             boson = self.boson[i]
@@ -180,18 +183,11 @@ class CgHmcSampler(HmcSampler):
             # Compute condition number            
             cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-6)
             print(f"Approximate condition number of M'@M: {cond_number_approx}")
-
-            # print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
-            # O_dense = MhM.to_dense()
-
-            # a = torch.svd(O_dense)
-            # print(f"Smallest singular value (s[-1]): {a.S[-1]}, Largest singular value (s[0]): {a.S[0]}")
-
-            # condition_number = torch.linalg.cond(O_dense)
-            # torch.testing.assert_close(condition_number, torch.tensor(cond_number_approx, dtype=condition_number.dtype, device=condition_number.device), rtol=1e-3, atol=1e-5),
-            # print(f"Approximate condition number of M'@M: {condition_number}")
+            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
 
             condition_numbers.append(cond_number_approx)
+            sig_max_values.append(sig_max)
+            sig_min_values.append(sig_min)
             blk_sparsities.append(blk_sparsity)
 
             # x = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
@@ -200,8 +196,10 @@ class CgHmcSampler(HmcSampler):
         mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
         mean_sparsity = sum(blk_sparsities) / len(blk_sparsities) if blk_sparsities else None
+        mean_sig_max = sum(sig_max_values) / len(sig_max_values) if sig_max_values else None
+        mean_sig_min = sum(sig_min_values) / len(sig_min_values) if sig_min_values else None
 
-        return mean_conv_steps, mean_condition_num, mean_sparsity, condition_numbers
+        return mean_conv_steps, mean_sparsity, mean_condition_num, condition_numbers, mean_sig_max, mean_sig_min, sig_max_values, sig_min_values
 
 
 if __name__ == '__main__':
@@ -224,18 +222,26 @@ if __name__ == '__main__':
         execution_time = end_time - start_time
 
         print("Mean convergence steps:", results[0])
-        print("Mean condition numbers:", results[1])
+        print("Mean sparsities:", results[1])
+        print("Mean condition numbers:", results[2])
         print("Condition numbers:", results[3])
-        print("Mean sparsities:", results[2])
+        print("Mean sigma max:", results[4])
+        print("Mean sigma min:", results[5])
+        print("Sigma max values:", results[6])
+        print("Sigma min values:", results[7])
         print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n\n")
 
         # Convert results to a dictionary
         results_dict = {
             "Ltau": sampler.Ltau,
             "Mean Convergence Steps": results[0],
-            "Mean Condition Numbers": results[1],
+            "Mean Sparsities": results[1],
+            "Mean Condition Numbers": results[2],
             "Condition Numbers": results[3],
-            "Mean Sparsities": results[2],
+            "Mean Sigma Max": results[4],
+            "Mean Sigma Min": results[5],
+            "Sigma Max Values": results[6],
+            "Sigma Min Values": results[7],
             "Execution Time (s)": execution_time
         }
 
@@ -250,11 +256,10 @@ if __name__ == '__main__':
         print(f"Results saved to: {torch_file_path}")
 
         # Save the results to a .csv file
-        csv_file_path = os.path.join(save_dir, f"Ltau_{sampler.Ltau}_results.csv")
-        with open(csv_file_path, "w") as csv_file:
-            csv_file.write("Ltau,Mean Convergence Steps,Mean Condition Numbers,Condition Numbers,Mean Sparsities,Execution Time (s)\n")
-            csv_file.write(f"{results_dict['Ltau']},{results_dict['Mean Convergence Steps']},{results_dict['Mean Condition Numbers']},\"{results_dict['Condition Numbers']}\",{results_dict['Mean Sparsities']},{results_dict['Execution Time (s)']}\n")
-        print(f"Results saved to: {csv_file_path}")
+        df = pd.DataFrame([results_dict])
+        csv_file_path = torch_file_path.replace('.pt', '.csv')
+        df.to_csv(csv_file_path, index=False)
+        print(f"-----> save to {csv_file_path}")
 
         # Append
         mean_conv_steps.append(results[0])
