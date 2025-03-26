@@ -23,7 +23,7 @@ sys.path.insert(0, script_path + '/../')
 from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize_curl_mat
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = torch.device('cpu')
+
 print(f"device: {device}")
 dtype = torch.float64
 cdtype = torch.complex128

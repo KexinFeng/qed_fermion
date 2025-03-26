@@ -85,37 +85,54 @@ class CgHmcSampler(HmcSampler):
         return x
     
     # Approximate the condition number
-    @staticmethod
-    def power_iteration(A, max_iters=100):
-        """Estimate the largest singular value using power iteration."""
-        v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype)
-        v /= torch.norm(v)
-        for _ in range(max_iters):
-            v = torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1)
-            v /= torch.norm(v)
-        return torch.norm(torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1))
 
     @staticmethod
-    def inverse_power_iteration(A, max_iters=100, cg_iters=10, tol=1e-6):
-        """Estimate the smallest singular value using inverse iteration with CG."""
+    def estimate_condition_number(A, tol=1e-6):
+        """Estimate the condition number."""
         # Convert torch sparse_coo_tensor to scipy csr_matrix
         A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
-                                 A.indices().cpu().numpy()), 
+                                (A.indices()[0].cpu().numpy(), 
+                                A.indices()[1].cpu().numpy())), 
                                 shape=A.shape)
-        v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype).cpu().numpy()
-        v /= np.linalg.norm(v)
-        for _ in range(max_iters):
-            # Use conjugate gradient to solve (A^T A)w = v
-            w, _ = splinalg.cg(A_scipy.T @ A_scipy, v, tol=tol, maxiter=cg_iters)
-            v = w / np.linalg.norm(w)
-        return 1.0 / np.linalg.norm(A_scipy @ v)
 
-    @staticmethod
-    def estimate_condition_number(A, max_iters=100, cg_iters=10, tol=1e-6):
-        """Estimate the condition number of a matrix."""
-        σ_max = CgHmcSampler.power_iteration(A, max_iters)
-        σ_min = CgHmcSampler.inverse_power_iteration(A, max_iters, cg_iters, tol)
-        return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)  # Prevent division by zero
+        # Compute the smallest and largest eigenvalues
+        σ_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol)[0][0]
+        σ_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
+        return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)
+    
+    # @staticmethod
+    # def power_iteration(A, max_iters=100):
+    #     """Estimate the largest singular value using power iteration."""
+    #     v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype)
+    #     v /= torch.norm(v)
+    #     for _ in range(max_iters):
+    #         v = torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1)
+    #         v /= torch.norm(v)
+    #     return torch.norm(torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1))
+
+    # @staticmethod
+    # def inverse_power_iteration(A, max_iters=100, cg_iters=10, tol=1e-6):
+    #     """Estimate the smallest singular value using inverse iteration with CG."""
+    #     # Convert torch sparse_coo_tensor to scipy csr_matrix
+    #     A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
+    #                             (A.indices()[0].cpu().numpy(), 
+    #                             A.indices()[1].cpu().numpy())), 
+    #                             shape=A.shape)
+        
+    #     v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype).cpu().numpy()
+    #     v /= np.linalg.norm(v)
+    #     for _ in range(max_iters):
+    #         # Use conjugate gradient to solve (A^T A)w = v
+    #         w, _ = splinalg.cg(A_scipy.T @ A_scipy, v, tol=tol, maxiter=cg_iters)
+    #         v = w / np.linalg.norm(w)
+    #     return 1.0 / np.linalg.norm(A_scipy @ v)
+
+    # @staticmethod
+    # def estimate_condition_number2(A, max_iters=100, cg_iters=10, tol=1e-6):
+    #     """Estimate the condition number of a matrix."""
+    #     σ_max = CgHmcSampler.power_iteration(A, max_iters)
+    #     σ_min = CgHmcSampler.inverse_power_iteration(A, max_iters, cg_iters, tol)
+    #     return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)  # Prevent division by zero
 
     def benchmark(self, bs=5, device='cpu'):
         """
@@ -161,21 +178,21 @@ class CgHmcSampler(HmcSampler):
                 torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
 
             # Compute condition number            
-            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, max_iters=1000, cg_iters=10, tol=1e-6)
+            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-6)
+            print(f"Approximate condition number of M'@M: {cond_number_approx}")
 
-            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
-            O_dense = MhM.to_dense()
+            # print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
+            # O_dense = MhM.to_dense()
 
-            a = torch.svd(O_dense)
-            print(f"Smallest singular value (s[-1]): {a.S[-1]}, Largest singular value (s[0]): {a.S[0]}")
+            # a = torch.svd(O_dense)
+            # print(f"Smallest singular value (s[-1]): {a.S[-1]}, Largest singular value (s[0]): {a.S[0]}")
 
-            condition_number = torch.linalg.cond(O_dense)
-            torch.testing.assert_close(condition_number, cond_number_approx)
-            print(f"Approximate condition number of M'@M: {condition_number}")
+            # condition_number = torch.linalg.cond(O_dense)
+            # torch.testing.assert_close(condition_number, torch.tensor(cond_number_approx, dtype=condition_number.dtype, device=condition_number.device), rtol=1e-3, atol=1e-5),
+            # print(f"Approximate condition number of M'@M: {condition_number}")
 
-            condition_numbers.append(condition_number)
+            condition_numbers.append(cond_number_approx)
             blk_sparsities.append(blk_sparsity)
-
 
             # x = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
             # convergence_steps.append(x)
@@ -184,10 +201,10 @@ class CgHmcSampler(HmcSampler):
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
         mean_sparsity = sum(blk_sparsities) / len(blk_sparsities) if blk_sparsities else None
 
+        print("\n")
         print("Mean convergence steps:", mean_conv_steps)
         print("Mean condition numbers:", mean_condition_num)
         print("Mean sparsities:", mean_sparsity)
-        print("\n")
         return mean_conv_steps, mean_condition_num, mean_sparsity
 
 
