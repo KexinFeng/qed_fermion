@@ -96,9 +96,9 @@ class CgHmcSampler(HmcSampler):
                                 shape=A.shape)
 
         # Compute the smallest and largest eigenvalues
-        σ_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol)[0][0]
-        σ_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
-        return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)
+        sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol)[0][0]
+        sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
+        return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
     
     # @staticmethod
     # def power_iteration(A, max_iters=100):
@@ -201,10 +201,7 @@ class CgHmcSampler(HmcSampler):
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
         mean_sparsity = sum(blk_sparsities) / len(blk_sparsities) if blk_sparsities else None
 
-        print("Mean convergence steps:", mean_conv_steps)
-        print("Mean condition numbers:", mean_condition_num)
-        print("Mean sparsities:", mean_sparsity)
-        return mean_conv_steps, mean_condition_num, mean_sparsity
+        return mean_conv_steps, mean_condition_num, mean_sparsity, condition_numbers
 
 
 if __name__ == '__main__':
@@ -225,8 +222,41 @@ if __name__ == '__main__':
         results = sampler.benchmark(bs=3)
         end_time = time.time()
         execution_time = end_time - start_time
+
+        print("Mean convergence steps:", results[0])
+        print("Mean condition numbers:", results[1])
+        print("Condition numbers:", results[3])
+        print("Mean sparsities:", results[2])
         print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n\n")
 
+        # Convert results to a dictionary
+        results_dict = {
+            "Ltau": sampler.Ltau,
+            "Mean Convergence Steps": results[0],
+            "Mean Condition Numbers": results[1],
+            "Condition Numbers": results[3],
+            "Mean Sparsities": results[2],
+            "Execution Time (s)": execution_time
+        }
+
+        # Save the results to a .py file
+        script_path = os.path.dirname(os.path.abspath(__file__))
+        class_name = __file__.split('/')[-1].replace('.py', '')
+        save_dir = os.path.join(script_path, f"./results/{class_name}")
+        os.makedirs(save_dir, exist_ok=True)
+
+        torch_file_path = os.path.join(save_dir, f"Ltau_{sampler.Ltau}_results.pt")
+        torch.save(results_dict, torch_file_path)
+        print(f"Results saved to: {torch_file_path}")
+
+        # Save the results to a .csv file
+        csv_file_path = os.path.join(save_dir, f"Ltau_{sampler.Ltau}_results.csv")
+        with open(csv_file_path, "w") as csv_file:
+            csv_file.write("Ltau,Mean Convergence Steps,Mean Condition Numbers,Condition Numbers,Mean Sparsities,Execution Time (s)\n")
+            csv_file.write(f"{results_dict['Ltau']},{results_dict['Mean Convergence Steps']},{results_dict['Mean Condition Numbers']},\"{results_dict['Condition Numbers']}\",{results_dict['Mean Sparsities']},{results_dict['Execution Time (s)']}\n")
+        print(f"Results saved to: {csv_file_path}")
+
+        # Append
         mean_conv_steps.append(results[0])
         mean_condition_nums.append(results[1])
         mean_sparsities.append(results[2])
