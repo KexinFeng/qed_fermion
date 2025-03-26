@@ -185,9 +185,9 @@ class CgHmcSampler(HmcSampler):
             print(f"Approximate condition number of M'@M: {cond_number_approx}")
             print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
 
-            condition_numbers.append(cond_number_approx)
-            sig_max_values.append(sig_max)
-            sig_min_values.append(sig_min)
+            condition_numbers.append(float(cond_number_approx))
+            sig_max_values.append(float(sig_max))
+            sig_min_values.append(float(sig_min))
             blk_sparsities.append(blk_sparsity)
 
             # x = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
@@ -229,7 +229,7 @@ if __name__ == '__main__':
         print("Mean sigma min:", results[5])
         print("Sigma max values:", results[6])
         print("Sigma min values:", results[7])
-        print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds\n\n")
+        print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds")
 
         # Convert results to a dictionary
         results_dict = {
@@ -265,6 +265,8 @@ if __name__ == '__main__':
         mean_conv_steps.append(results[0])
         mean_condition_nums.append(results[1])
         mean_sparsities.append(results[2])
+
+        print('\n')
 
     print("Ltau values:", Ltau_values)
     print("Mean convergence steps:", mean_conv_steps)
