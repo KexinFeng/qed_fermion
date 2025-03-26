@@ -86,23 +86,36 @@ class CgHmcSampler(HmcSampler):
     
     # Approximate the condition number
     @staticmethod
-    def power_iteration(A, num_iter=100):
-        b = torch.randn(A.size(1), device=A.device, dtype=A.dtype)
-        for _ in range(num_iter):
-            b = torch.nn.functional.normalize(torch.sparse.mm(A, b.unsqueeze(1)).squeeze(1), dim=0)
-        return torch.linalg.norm(torch.sparse.mm(A, b.unsqueeze(1)).squeeze(1))
+    def power_iteration(A, max_iters=100):
+        """Estimate the largest singular value using power iteration."""
+        v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype)
+        v /= torch.norm(v)
+        for _ in range(max_iters):
+            v = torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1)
+            v /= torch.norm(v)
+        return torch.norm(torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1))
 
     @staticmethod
-    def inverse_power_iteration(A, num_iter=100):
+    def inverse_power_iteration(A, max_iters=100, cg_iters=10, tol=1e-6):
+        """Estimate the smallest singular value using inverse iteration with CG."""
         # Convert torch sparse_coo_tensor to scipy csr_matrix
         A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
-                        A.indices().cpu().numpy()), 
-                        shape=A.shape)
-        b = torch.randn(A.size(1), device=A.device, dtype=A.dtype).cpu().numpy()
-        for _ in range(num_iter):
-            b, _ = splinalg.cg(A_scipy, b)
-            b = b / np.linalg.norm(b)
-        return 1.0 / np.linalg.norm(A_scipy @ b)
+                                 A.indices().cpu().numpy()), 
+                                shape=A.shape)
+        v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype).cpu().numpy()
+        v /= np.linalg.norm(v)
+        for _ in range(max_iters):
+            # Use conjugate gradient to solve (A^T A)w = v
+            w, _ = splinalg.cg(A_scipy.T @ A_scipy, v, tol=tol, maxiter=cg_iters)
+            v = w / np.linalg.norm(w)
+        return 1.0 / np.linalg.norm(A_scipy @ v)
+
+    @staticmethod
+    def estimate_condition_number(A, max_iters=100, cg_iters=10, tol=1e-6):
+        """Estimate the condition number of a matrix."""
+        σ_max = CgHmcSampler.power_iteration(A, max_iters)
+        σ_min = CgHmcSampler.inverse_power_iteration(A, max_iters, cg_iters, tol)
+        return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)  # Prevent division by zero
 
     def benchmark(self, bs=5, device='cpu'):
         """
@@ -142,27 +155,27 @@ class CgHmcSampler(HmcSampler):
         for i in range(bs*2):
             boson = self.boson[i]
             MhM, _, blk_sparsity = self.get_M_sparse(boson)
+            # Check if M'M is correct
+            if self.Ltau < 50:
+                M, _ = self.get_M(boson.unsqueeze(0))
+                torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
 
-            # Compute condition number
-            # M_dense = self.get_M(boson_input.unsqueeze(0))[0]
-            # torch.testing.assert_close(M.to_dense(), M_dense, rtol=1e-5, atol=1e-5)
-            # torch.testing.assert_close(MhM.to_dense(), M_dense.T.conj() @ M_dense, rtol=1e-5, atol=1e-5)
-            
-            # largest_singular = power_iteration(MhM, num_iter=100)
-            # smallest_singular = inverse_power_iteration(MhM, num_iter=100)
-            # cond_number_approx = largest_singular / smallest_singular
+            # Compute condition number            
+            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, max_iters=1000, cg_iters=10, tol=1e-6)
 
-            condition_number = torch.linalg.cond(MhM.to_dense())
-            # torch.testing.assert_close(cond_number, cond_number_approx)
+            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
+            O_dense = MhM.to_dense()
+
+            a = torch.svd(O_dense)
+            print(f"Smallest singular value (s[-1]): {a.S[-1]}, Largest singular value (s[0]): {a.S[0]}")
+
+            condition_number = torch.linalg.cond(O_dense)
+            torch.testing.assert_close(condition_number, cond_number_approx)
             print(f"Approximate condition number of M'@M: {condition_number}")
 
             condition_numbers.append(condition_number)
             blk_sparsities.append(blk_sparsity)
 
-            # Check if M'M is correct
-            if self.Ltau < 50:
-                M, _ = self.get_M(boson.unsqueeze(0))
-                torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
 
             # x = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
             # convergence_steps.append(x)
