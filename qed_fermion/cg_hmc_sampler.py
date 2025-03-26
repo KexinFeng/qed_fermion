@@ -181,7 +181,7 @@ class CgHmcSampler(HmcSampler):
                 torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
 
             # Compute condition number            
-            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-6)
+            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-3)
             print(f"Approximate condition number of M'@M: {cond_number_approx}")
             print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
 

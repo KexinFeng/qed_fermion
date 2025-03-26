@@ -40,3 +40,6 @@ cache*/
 report*/
 # *.err
 # *.out
+
+*.csv
+*.pt
