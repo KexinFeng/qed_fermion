@@ -215,7 +215,7 @@ class HmcSampler(object):
     def draw_psudo_fermion(self):
         """
         Draw psudo_fermion psi = M(x0)'R
-        :return: [bs, Lx * Ly * Ltau] gaussian tensor
+        :return: [bs, Ltau * Ly * Lx] gaussian tensor
         """
         R = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2) + 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
         return R.to(dtype=cdtype)

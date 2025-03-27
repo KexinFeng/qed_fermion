@@ -20,8 +20,9 @@ import scipy.sparse.linalg as splinalg
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J, Nstep, config)
+        self.plt_cg = True
 
-    def preconditioned_cg(self, MhM, b, MhM_inv=None, tol=1e-8, max_iter=100):
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, tol=1e-8, max_iter=100, b_idx=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -32,25 +33,41 @@ class CgHmcSampler(HmcSampler):
         :return: Solution vector x
         """
         # Initialize variables
-        x = torch.zeros_like(b, dtype=torch.complex64, device=b.device)
-        r = b - torch.sparse.mm(MhM, x)
+        x = torch.zeros_like(b).view(-1, 1)
+        r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
         z = torch.sparse.mm(MhM_inv, r) if MhM_inv else r
         p = z
-        rz_old = torch.dot(r.conj(), z).real
+        rz_old = torch.dot(r.conj().view(-1), z.view(-1)).real
 
         errors = []
 
+        fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
+
+        residuals = []
         for i in range(max_iter):
             # Matrix-vector product with M'M
             Op = torch.sparse.mm(MhM, p)
             
-            zeta = rz_old / torch.dot(p.conj(), Op).real
-            x += zeta * p
-            r -= zeta * Op
+            alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
+            x += alpha * p
+            r -= alpha * Op
 
             # Compute and store the error (norm of the residual)
-            error = torch.norm(r).item()
+            error = torch.norm(r).item() / torch.norm(b).item()
             errors.append(error)
+            residuals.append(error)
+
+            if self.plt_cg:
+                # Plot intermediate results
+                axs.cla()
+                axs.plot(residuals, marker='o', linestyle='-', color='b', label='Residual Norm')
+                axs.set_ylabel('Residual Norm')
+                axs.set_yscale('log')
+                axs.legend()
+                axs.grid()
+                axs.set_title(f'{self.Lx}x{self.Ly}x{self.Ltau} Lattice b_idx={b_idx}')
+
+                plt.pause(0.01)  # Pause to update the plot
 
             # Check for convergence
             if error < tol:
@@ -58,19 +75,10 @@ class CgHmcSampler(HmcSampler):
                 break
 
             z = torch.sparse.mm(MhM_inv, r) if MhM_inv else r  # Apply preconditioner to r
-            rz_new = torch.dot(r.conj(), z).real
+            rz_new = torch.dot(r.conj().view(-1), z.view(-1)).real
             beta = rz_new / rz_old
             p = z + beta * p
             rz_old = rz_new
-
-        # Plot the error and save the figure
-        plt.figure()
-        plt.plot(errors, label="Residual Norm")
-        plt.yscale("log")
-        plt.xlabel("Iteration")
-        plt.ylabel("Error (Log Scale)")
-        plt.title("Convergence of Preconditioned CG")
-        plt.legend()
 
         # Save the plot
         script_path = os.path.dirname(os.path.abspath(__file__))
@@ -82,7 +90,7 @@ class CgHmcSampler(HmcSampler):
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
-        return x
+        return x, errors[-1]
     
     # Approximate the condition number
     @staticmethod
@@ -97,10 +105,22 @@ class CgHmcSampler(HmcSampler):
         # Compute the smallest and largest eigenvalues
         sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol)[0][0]
                                 # ncv=50, maxiter=300000)[0][0]
-        sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
+        # sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
+                                # ncv=50, maxiter=300000)[0][0]                                
+        try:
+            sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
                                 # ncv=50, maxiter=300000)[0][0]
-        
+        except splinalg.ArpackNoConvergence as e:
+            print(f"Warning: {e}")
+            if len(e.eigenvalues) > 0:
+                sigma_min = e.eigenvalues[0]  # This is the smallest eigenvalue among the converged ones
+                print(f"Using the smallest available eigenvalue: {sigma_min}")
+            else:
+                sigma_min = 1e-12  # Fallback to a very small value
+                print("No eigenvalues available. Falling back to a default value of 1e-12.")
+
         return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
+
 
     def benchmark(self, bs=5):
         """
@@ -113,25 +133,55 @@ class CgHmcSampler(HmcSampler):
         torch.manual_seed(25)
 
         # Generate random boson field with uniform randomness across all dimensions
-        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=self.boson.device) - 0.5) * 2*3.14
+        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=self.boson.device) - 0.5) * torch.linspace(0.2 * 3.14, 2 * 3.14, bs, device=self.boson.device).reshape(-1, 1, 1, 1, 1)
 
         # Pi flux
         curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         boson = boson.repeat(1 * self.Ltau, 1)
-        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+        pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+        self.boson = torch.cat([self.boson, pi_flux_boson], dim=0)
 
-        # Generate new bosons centered around delta_boson with varying sigma
+        # Generate new bosons centered around pi_flux_boson with varying sigma
         sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
         new_bosons = torch.stack([
-            delta_boson.squeeze(0) + torch.randn_like(delta_boson.squeeze(0)) * sigma
+            pi_flux_boson.squeeze(0) + torch.randn_like(pi_flux_boson.squeeze(0)) * sigma
             for sigma in sigmas
         ])
         self.boson = torch.cat([self.boson, new_bosons], dim=0)
 
         # Initialize right-hand side vector b
-        b = self.draw_psudo_fermion()
+        b = self.draw_psudo_fermion().squeeze(0)
+
+        # Get preconditioner
+        # MhM, _, _ = self.get_M_sparse(pi_flux_boson)
+        # MhM_scipy = sp.csr_matrix((MhM.values().cpu().numpy(), 
+        #         (MhM.indices()[0].cpu().numpy(), 
+        #         MhM.indices()[1].cpu().numpy())), 
+        #         shape=MhM.shape)
+        # LU = sp.linalg.spilu(MhM_scipy + 0.05 * sp.eye(MhM_scipy.shape[0]))  # Sparse incomplete LU (can be used as a preconditioner)
+        # dd = np.diag(np.diag(LU.U.toarray()))  # Extract diagonal elements from U
+        # I = sp.eye(MhM_scipy.shape[0])
+        # M_itr = sp.csr_matrix(I - sp.csr_matrix(LU.U) @ sp.csr_matrix(np.linalg.inv(dd)))
+
+        # # Neumann series approximation for matrix inverse
+        # M_temp = sp.csr_matrix(I)
+        # M_inv = sp.csr_matrix(I)
+        # for _ in range(20):
+        #     M_temp = M_temp @ M_itr
+        #     M_inv = M_inv + M_temp
+
+        # M_inv = M_inv.multiply(1.0 / np.diag(dd))
+        # O_inv = M_inv.T @ M_inv
+
+        # # Filter small elements to maintain sparsity
+        # O_inv = O_inv.multiply(abs(O_inv) >= 0.1)
+        # MhM_inv = torch.sparse_coo_tensor(
+        #     torch.tensor([O_inv.row, O_inv.col], dtype=torch.long),
+        #     torch.tensor(O_inv.data, dtype=torch.float32),
+        #     size=O_inv.shape,
+        #     device=MhM.device
+        # )
 
         # Benchmark preconditioned CG for each boson in the batch
         convergence_steps = []
@@ -147,18 +197,18 @@ class CgHmcSampler(HmcSampler):
                 M, _ = self.get_M(boson.unsqueeze(0))
                 torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
 
-            # Compute condition number            
-            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-3)
-            print(f"Approximate condition number of M'@M: {cond_number_approx}")
-            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
+            # # Compute condition number            
+            # cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-3)
+            # print(f"Approximate condition number of M'@M: {cond_number_approx}")
+            # print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
 
-            condition_numbers.append(float(cond_number_approx))
-            sig_max_values.append(float(sig_max))
-            sig_min_values.append(float(sig_min))
+            # condition_numbers.append(float(cond_number_approx))
+            # sig_max_values.append(float(sig_max))
+            # sig_min_values.append(float(sig_min))
             blk_sparsities.append(blk_sparsity)
 
             # Test cg and preconditioned_cg
-            conv_step = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
+            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i)
             convergence_steps.append(conv_step)
 
         mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
@@ -173,8 +223,10 @@ class CgHmcSampler(HmcSampler):
 if __name__ == '__main__':
     sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
     sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
+    cg_bs = 2
 
     Ltau_values = [10, 20, 50, 100, 200, 400, 600]
+    Ltau_values = [200, 400, 600]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
@@ -185,7 +237,7 @@ if __name__ == '__main__':
         print(f"Start Ltau={sampler.Ltau}... ")
 
         start_time = time.time()
-        results = sampler.benchmark(bs=3)
+        results = sampler.benchmark(bs=cg_bs)
         end_time = time.time()
         execution_time = end_time - start_time
 
