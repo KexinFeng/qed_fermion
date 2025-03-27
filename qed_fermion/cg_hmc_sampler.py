@@ -122,6 +122,19 @@ class CgHmcSampler(HmcSampler):
         return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
 
 
+    def get_precon(self, pi_flux_boson):
+        MhM, _, _ = self.get_M_sparse(pi_flux_boson)
+        retrieved_indices = MhM.indices()
+        retrieved_values = MhM.values()
+
+
+        
+
+
+
+
+        return MhM_inv
+
     def benchmark(self, bs=5):
         """
         Benchmark the preconditioned CG solver.
@@ -133,7 +146,7 @@ class CgHmcSampler(HmcSampler):
         torch.manual_seed(25)
 
         # Generate random boson field with uniform randomness across all dimensions
-        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=self.boson.device) - 0.5) * torch.linspace(0.2 * 3.14, 2 * 3.14, bs, device=self.boson.device).reshape(-1, 1, 1, 1, 1)
+        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=self.boson.device) - 0.5) * torch.linspace(0.5 * 3.14, 2 * 3.14, bs, device=self.boson.device).reshape(-1, 1, 1, 1, 1)
 
         # Pi flux
         curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
@@ -154,34 +167,7 @@ class CgHmcSampler(HmcSampler):
         b = self.draw_psudo_fermion().squeeze(0)
 
         # Get preconditioner
-        # MhM, _, _ = self.get_M_sparse(pi_flux_boson)
-        # MhM_scipy = sp.csr_matrix((MhM.values().cpu().numpy(), 
-        #         (MhM.indices()[0].cpu().numpy(), 
-        #         MhM.indices()[1].cpu().numpy())), 
-        #         shape=MhM.shape)
-        # LU = sp.linalg.spilu(MhM_scipy + 0.05 * sp.eye(MhM_scipy.shape[0]))  # Sparse incomplete LU (can be used as a preconditioner)
-        # dd = np.diag(np.diag(LU.U.toarray()))  # Extract diagonal elements from U
-        # I = sp.eye(MhM_scipy.shape[0])
-        # M_itr = sp.csr_matrix(I - sp.csr_matrix(LU.U) @ sp.csr_matrix(np.linalg.inv(dd)))
-
-        # # Neumann series approximation for matrix inverse
-        # M_temp = sp.csr_matrix(I)
-        # M_inv = sp.csr_matrix(I)
-        # for _ in range(20):
-        #     M_temp = M_temp @ M_itr
-        #     M_inv = M_inv + M_temp
-
-        # M_inv = M_inv.multiply(1.0 / np.diag(dd))
-        # O_inv = M_inv.T @ M_inv
-
-        # # Filter small elements to maintain sparsity
-        # O_inv = O_inv.multiply(abs(O_inv) >= 0.1)
-        # MhM_inv = torch.sparse_coo_tensor(
-        #     torch.tensor([O_inv.row, O_inv.col], dtype=torch.long),
-        #     torch.tensor(O_inv.data, dtype=torch.float32),
-        #     size=O_inv.shape,
-        #     device=MhM.device
-        # )
+        precon = self.get_precon(pi_flux_boson)
 
         # Benchmark preconditioned CG for each boson in the batch
         convergence_steps = []
@@ -189,7 +175,11 @@ class CgHmcSampler(HmcSampler):
         sig_max_values = []
         sig_min_values = []
         blk_sparsities = []
+        residual_errors = []
         for i in range(bs*2):
+            if not i in [1]: 
+                continue
+
             boson = self.boson[i]
             MhM, _, blk_sparsity = self.get_M_sparse(boson)
             # Check if M'M is correct
@@ -210,6 +200,7 @@ class CgHmcSampler(HmcSampler):
             # Test cg and preconditioned_cg
             conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i)
             convergence_steps.append(conv_step)
+            residual_errors.append(r_err)
 
         mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
@@ -217,7 +208,7 @@ class CgHmcSampler(HmcSampler):
         mean_sig_max = sum(sig_max_values) / len(sig_max_values) if sig_max_values else None
         mean_sig_min = sum(sig_min_values) / len(sig_min_values) if sig_min_values else None
 
-        return mean_conv_steps, mean_sparsity, mean_condition_num, condition_numbers, mean_sig_max, mean_sig_min, sig_max_values, sig_min_values
+        return mean_conv_steps, mean_sparsity, mean_condition_num, condition_numbers, mean_sig_max, mean_sig_min, sig_max_values, sig_min_values, residual_errors
 
 
 if __name__ == '__main__':
@@ -249,6 +240,7 @@ if __name__ == '__main__':
         print("Mean sigma min:", results[5])
         print("Sigma max values:", results[6])
         print("Sigma min values:", results[7])
+        print("Relative residual errors:", results[8])
         print(f"Execution time for Ltau={sampler.Ltau}: {execution_time:.2f} seconds")
 
         # Convert results to a dictionary
@@ -262,6 +254,7 @@ if __name__ == '__main__':
             "mean_sig_min": results[5],
             "sig_max_vals": results[6],
             "sig_min_vals": results[7],
+            "rel_res_err": results[8],
             "exec_time_s": execution_time
         }
 
