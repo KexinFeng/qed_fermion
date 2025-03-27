@@ -21,7 +21,7 @@ class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J, Nstep, config)
 
-    def preconditioned_cg(self, M, b, tol=1e-8, max_iter=100):
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, tol=1e-8, max_iter=100):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -33,21 +33,20 @@ class CgHmcSampler(HmcSampler):
         """
         # Initialize variables
         x = torch.zeros_like(b, dtype=torch.complex64, device=b.device)
-        r = b.clone()
-        z = r.clone()  # Preconditioner is identity for now
-        p = z.clone()
+        r = b - torch.sparse.mm(MhM, x)
+        z = torch.sparse.mm(MhM_inv, r) if MhM_inv else r
+        p = z
         rz_old = torch.dot(r.conj(), z).real
 
         errors = []
 
         for i in range(max_iter):
             # Matrix-vector product with M'M
-            Mp = torch.sparse.mm(M, p)
-            Mtp = torch.sparse.mm(M.T.conj(), Mp)
+            Op = torch.sparse.mm(MhM, p)
             
-            alpha = rz_old / torch.dot(p.conj(), Mtp).real
-            x += alpha * p
-            r -= alpha * Mtp
+            zeta = rz_old / torch.dot(p.conj(), Op).real
+            x += zeta * p
+            r -= zeta * Op
 
             # Compute and store the error (norm of the residual)
             error = torch.norm(r).item()
@@ -58,7 +57,7 @@ class CgHmcSampler(HmcSampler):
                 print(f"Converged in {i+1} iterations.")
                 break
 
-            z = r.clone()  # Preconditioner is identity for now
+            z = torch.sparse.mm(MhM_inv, r) if MhM_inv else r  # Apply preconditioner to r
             rz_new = torch.dot(r.conj(), z).real
             beta = rz_new / rz_old
             p = z + beta * p
@@ -158,8 +157,9 @@ class CgHmcSampler(HmcSampler):
             sig_min_values.append(float(sig_min))
             blk_sparsities.append(blk_sparsity)
 
-            # x = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
-            # convergence_steps.append(x)
+            # Test cg and preconditioned_cg
+            conv_step = self.preconditioned_cg(MhM, b, tol=1e-8, max_iter=1000)
+            convergence_steps.append(conv_step)
 
         mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None

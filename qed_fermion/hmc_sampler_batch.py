@@ -218,7 +218,7 @@ class HmcSampler(object):
         :return: [bs, Lx * Ly * Ltau] gaussian tensor
         """
         R = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2) + 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        return R
+        return R.to(dtype=cdtype)
 
 
     def sin_curl_greens_function_batch(self, boson):
