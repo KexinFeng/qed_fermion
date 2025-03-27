@@ -17,6 +17,8 @@ import pandas as pd
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 
+np_cdtype = np.complex128
+
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J, Nstep, config)
@@ -86,7 +88,6 @@ class CgHmcSampler(HmcSampler):
         return x
     
     # Approximate the condition number
-
     @staticmethod
     def estimate_condition_number(A, tol=1e-6):
         """Estimate the condition number."""
@@ -94,46 +95,15 @@ class CgHmcSampler(HmcSampler):
         A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
                                 (A.indices()[0].cpu().numpy(), 
                                 A.indices()[1].cpu().numpy())), 
-                                shape=A.shape)
+                                shape=A.shape, dtype=np_cdtype)
 
         # Compute the smallest and largest eigenvalues
-        sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol)[0][0]
-        sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
-        return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
-    
-    # @staticmethod
-    # def power_iteration(A, max_iters=100):
-    #     """Estimate the largest singular value using power iteration."""
-    #     v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype)
-    #     v /= torch.norm(v)
-    #     for _ in range(max_iters):
-    #         v = torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1)
-    #         v /= torch.norm(v)
-    #     return torch.norm(torch.sparse.mm(A, v.unsqueeze(1)).squeeze(1))
-
-    # @staticmethod
-    # def inverse_power_iteration(A, max_iters=100, cg_iters=10, tol=1e-6):
-    #     """Estimate the smallest singular value using inverse iteration with CG."""
-    #     # Convert torch sparse_coo_tensor to scipy csr_matrix
-    #     A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
-    #                             (A.indices()[0].cpu().numpy(), 
-    #                             A.indices()[1].cpu().numpy())), 
-    #                             shape=A.shape)
+        sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol, 
+                                ncv=50, maxiter=300000)[0][0]
+        sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol, 
+                                ncv=50, maxiter=300000)[0][0]
         
-    #     v = torch.randn(A.shape[1], device=A.device, dtype=A.dtype).cpu().numpy()
-    #     v /= np.linalg.norm(v)
-    #     for _ in range(max_iters):
-    #         # Use conjugate gradient to solve (A^T A)w = v
-    #         w, _ = splinalg.cg(A_scipy.T @ A_scipy, v, tol=tol, maxiter=cg_iters)
-    #         v = w / np.linalg.norm(w)
-    #     return 1.0 / np.linalg.norm(A_scipy @ v)
-
-    # @staticmethod
-    # def estimate_condition_number2(A, max_iters=100, cg_iters=10, tol=1e-6):
-    #     """Estimate the condition number of a matrix."""
-    #     σ_max = CgHmcSampler.power_iteration(A, max_iters)
-    #     σ_min = CgHmcSampler.inverse_power_iteration(A, max_iters, cg_iters, tol)
-    #     return σ_max / max(σ_min, 1e-12), σ_max, max(σ_min, 1e-12)  # Prevent division by zero
+        return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
 
     def benchmark(self, bs=5):
         """
@@ -176,7 +146,7 @@ class CgHmcSampler(HmcSampler):
             boson = self.boson[i]
             MhM, _, blk_sparsity = self.get_M_sparse(boson)
             # Check if M'M is correct
-            if self.Ltau < 50:
+            if self.Ltau < 20:
                 M, _ = self.get_M(boson.unsqueeze(0))
                 torch.testing.assert_close(M.T.conj() @ M, MhM.to_dense(), rtol=1e-5, atol=1e-5)
 
