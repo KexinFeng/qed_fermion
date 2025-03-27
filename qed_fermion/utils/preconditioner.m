@@ -1,6 +1,12 @@
 function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx, Ny)
     % Create sparse matrix O from input indices and values
-    O = sparse(O_indices(1, :), O_indices(2, :), O_values, Nx, Ny);
+    M = sparse(O_indices(1, :), O_indices(2, :), O_values, Nx, Ny);
+
+    O = M' * M;
+
+    disp(size(O_indices));
+    disp(size(O_values));
+    disp(size(O));
 
     % Incomplete Cholesky factorization for preconditioning
     M_pc = ichol(O, struct('diagcomp', 0.05));

@@ -25,7 +25,7 @@ class CgHmcSampler(HmcSampler):
         super().__init__(J, Nstep, config)
         self.plt_cg = True
 
-    def preconditioned_cg(self, MhM, b, MhM_inv=None, tol=1e-8, max_iter=100, b_idx=None):
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, tol=1e-8, max_iter=100, b_idx=None, axs=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -44,8 +44,6 @@ class CgHmcSampler(HmcSampler):
 
         errors = []
 
-        fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-
         residuals = []
         for i in range(max_iter):
             # Matrix-vector product with M'M
@@ -60,10 +58,10 @@ class CgHmcSampler(HmcSampler):
             errors.append(error)
             residuals.append(error)
 
-            if self.plt_cg:
+            if self.plt_cg and axs is not None:
                 # Plot intermediate results
                 axs.cla()
-                axs.plot(residuals, marker='o', linestyle='-', color='b', label='Residual Norm')
+                axs.plot(residuals, marker='o', linestyle='-', color='b' if MhM_inv else 'r', label='precon.' if MhM_inv else 'no precon.')
                 axs.set_ylabel('Residual Norm')
                 axs.set_yscale('log')
                 axs.legend()
@@ -83,15 +81,17 @@ class CgHmcSampler(HmcSampler):
             p = z + beta * p
             rz_old = rz_new
 
-        # Save the plot
-        script_path = os.path.dirname(os.path.abspath(__file__))
-        class_name = __file__.split('/')[-1].replace('.py', '')
-        method_name = "preconditioned_cg"
-        save_dir = os.path.join(script_path, f"./figures/{class_name}")
-        os.makedirs(save_dir, exist_ok=True)
-        file_path = os.path.join(save_dir, f"{method_name}_convergence.pdf")
-        plt.savefig(file_path, format="pdf", bbox_inches="tight")
-        print(f"Figure saved at: {file_path}")
+
+        # if self.plt_cg and axs is not None:
+        #     # Save the plot
+        #     script_path = os.path.dirname(os.path.abspath(__file__))
+        #     class_name = __file__.split('/')[-1].replace('.py', '')
+        #     method_name = "preconditioned_cg"
+        #     save_dir = os.path.join(script_path, f"./figures/{class_name}")
+        #     os.makedirs(save_dir, exist_ok=True)
+        #     file_path = os.path.join(save_dir, f"{method_name}_convergence.pdf")
+        #     plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        #     print(f"Figure saved at: {file_path}")
 
         return x, errors[-1]
     
@@ -126,9 +126,9 @@ class CgHmcSampler(HmcSampler):
 
 
     def get_precon(self, pi_flux_boson):
-        MhM, _, _ = self.get_M_sparse(pi_flux_boson)
-        retrieved_indices = MhM.indices() + 1  # Convert to 1-based indexing for MATLAB
-        retrieved_values = MhM.values()
+        MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
+        retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
+        retrieved_values = M.values()
 
         # Pass indices and values to MATLAB
         matlab_function_path = '/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/utils/'
@@ -141,19 +141,21 @@ class CgHmcSampler(HmcSampler):
 
         # Call MATLAB function
         result_indices, result_values = eng.preconditioner(
-            matlab_indices, matlab_values, MhM.size(0), MhM.size(1), nargout=2
+            matlab_indices, matlab_values, M.size(0), M.size(1), nargout=2
         )
         eng.quit()
 
         # Convert MATLAB results directly to PyTorch tensors
-        result_indices = torch.tensor(result_indices, dtype=torch.long, device=MhM.device) - 1
-        result_values = torch.tensor(result_values, dtype=MhM.dtype, device=MhM.device)
+        result_indices = torch.tensor(result_indices, dtype=torch.long, device=M.device).T - 1
+        result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
 
         # Create MhM_inv as a sparse_coo_tensor
         MhM_inv = torch.sparse_coo_tensor(
             result_indices,
             result_values,
-            size=MhM.shape
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
         ).coalesce()
 
         return MhM_inv
@@ -194,17 +196,19 @@ class CgHmcSampler(HmcSampler):
 
         # Benchmark preconditioned CG for each boson in the batch
         convergence_steps = []
+        convergence_steps_precon = []
         condition_numbers = []
         sig_max_values = []
         sig_min_values = []
         blk_sparsities = []
         residual_errors = []
+        residual_errors_precon = []
         for i in range(bs*2):
             if not i in [1]: 
                 continue
 
             boson = self.boson[i]
-            MhM, _, blk_sparsity = self.get_M_sparse(boson)
+            MhM, _, blk_sparsity, _ = self.get_M_sparse(boson)
             # Check if M'M is correct
             if self.Ltau < 20:
                 M, _ = self.get_M(boson.unsqueeze(0))
@@ -221,9 +225,24 @@ class CgHmcSampler(HmcSampler):
             blk_sparsities.append(blk_sparsity)
 
             # Test cg and preconditioned_cg
-            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=precon)
+            fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
+            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=precon, axs=axs)
+            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=None, axs=axs)
+
             convergence_steps.append(conv_step)
+            convergence_steps_precon.append(conv_step_precon)
             residual_errors.append(r_err)
+            residual_errors_precon.append(r_err_precon)
+
+            # Plot save
+            script_path = os.path.dirname(os.path.abspath(__file__))
+            class_name = __file__.split('/')[-1].replace('.py', '')
+            method_name = "preconditioned_cg"
+            save_dir = os.path.join(script_path, f"./figures/{class_name}")
+            os.makedirs(save_dir, exist_ok=True)
+            file_path = os.path.join(save_dir, f"{method_name}_convergence.pdf")
+            plt.savefig(file_path, format="pdf", bbox_inches="tight")
+            print(f"Figure saved at: {file_path}")
 
         mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
@@ -240,7 +259,7 @@ if __name__ == '__main__':
     cg_bs = 2
 
     Ltau_values = [10, 20, 50, 100, 200, 400, 600]
-    Ltau_values = [200, 400, 600]
+    Ltau_values = [100, 200, 400, 600]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []

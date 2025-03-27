@@ -533,7 +533,7 @@ class HmcSampler(object):
         ).coalesce()
 
         MhM = torch.sparse.mm(M.T.conj(), M)  # Compute M'@M
-        return MhM, [B1_list, B2_list, B3_list, B4_list], blk_sparsity
+        return MhM, [B1_list, B2_list, B3_list, B4_list], blk_sparsity, M
 
 
     def get_M_batch(self, boson):
