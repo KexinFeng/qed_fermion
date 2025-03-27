@@ -124,6 +124,7 @@ Mean convergence steps: None
 Mean condition numbers: 4465392.5
 Mean sparsities: 0.7000000000000001
 Execution time for Ltau=100: 467.81 seconds
+
 Sparsity of B at tau=0: 0.7000
 Approximate condition number of M'@M: 36573900.0
 Sparsity of B at tau=0: 0.7000

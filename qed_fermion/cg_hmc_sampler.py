@@ -207,6 +207,7 @@ if __name__ == '__main__':
     sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
 
     Ltau_values = [10, 20, 50, 100, 200, 300, 400]
+    Ltau_values = [200, 300, 400]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
