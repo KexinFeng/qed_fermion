@@ -17,7 +17,7 @@ import pandas as pd
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 
-np_cdtype = np.complex128
+# np_cdtype = np.complex128
 
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
@@ -95,7 +95,7 @@ class CgHmcSampler(HmcSampler):
         A_scipy = sp.csr_matrix((A.values().cpu().numpy(), 
                                 (A.indices()[0].cpu().numpy(), 
                                 A.indices()[1].cpu().numpy())), 
-                                shape=A.shape, dtype=np_cdtype)
+                                shape=A.shape)
 
         # Compute the smallest and largest eigenvalues
         sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol, 
