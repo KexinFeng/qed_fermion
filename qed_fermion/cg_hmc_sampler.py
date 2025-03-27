@@ -17,8 +17,6 @@ import pandas as pd
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 
-# np_cdtype = np.complex128
-
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J, Nstep, config)
@@ -98,10 +96,10 @@ class CgHmcSampler(HmcSampler):
                                 shape=A.shape)
 
         # Compute the smallest and largest eigenvalues
-        sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol, 
-                                ncv=50, maxiter=300000)[0][0]
-        sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol, 
-                                ncv=50, maxiter=300000)[0][0]
+        sigma_max = splinalg.eigsh(A_scipy, k=1, which='LM', tol=tol)[0][0]
+                                # ncv=50, maxiter=300000)[0][0]
+        sigma_min = splinalg.eigsh(A_scipy, k=1, which='SM', tol=tol)[0][0]
+                                # ncv=50, maxiter=300000)[0][0]
         
         return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
 
@@ -176,8 +174,7 @@ if __name__ == '__main__':
     sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
     sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
 
-    Ltau_values = [10, 20, 50, 100, 200, 300, 400]
-    Ltau_values = [200, 300, 400]
+    Ltau_values = [10, 20, 50, 100, 200, 400, 600]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
@@ -204,16 +201,16 @@ if __name__ == '__main__':
 
         # Convert results to a dictionary
         results_dict = {
-            "Ltau": sampler.Ltau,
-            "Mean Convergence Steps": results[0],
-            "Mean Sparsities": results[1],
-            "Mean Condition Numbers": results[2],
-            "Condition Numbers": results[3],
-            "Mean Sigma Max": results[4],
-            "Mean Sigma Min": results[5],
-            "Sigma Max Values": results[6],
-            "Sigma Min Values": results[7],
-            "Execution Time (s)": execution_time
+            "ltau": sampler.Ltau,
+            "mean_conv_steps": results[0],
+            "mean_sparsity": results[1],
+            "mean_cond_num": results[2],
+            "cond_nums": results[3],
+            "mean_sig_max": results[4],
+            "mean_sig_min": results[5],
+            "sig_max_vals": results[6],
+            "sig_min_vals": results[7],
+            "exec_time_s": execution_time
         }
 
         # Save the results to a .py file
