@@ -17,6 +17,9 @@ import pandas as pd
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 
+import matlab.engine
+
+
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J, Nstep, config)
@@ -124,14 +127,34 @@ class CgHmcSampler(HmcSampler):
 
     def get_precon(self, pi_flux_boson):
         MhM, _, _ = self.get_M_sparse(pi_flux_boson)
-        retrieved_indices = MhM.indices()
+        retrieved_indices = MhM.indices() + 1  # Convert to 1-based indexing for MATLAB
         retrieved_values = MhM.values()
 
+        # Pass indices and values to MATLAB
+        matlab_function_path = '/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/utils/'
+        eng = matlab.engine.start_matlab()
+        eng.addpath(matlab_function_path)
 
-        
+        # Convert indices and values directly to MATLAB format
+        matlab_indices = matlab.double(retrieved_indices.cpu().tolist())
+        matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
 
+        # Call MATLAB function
+        result_indices, result_values = eng.preconditioner(
+            matlab_indices, matlab_values, MhM.size(0), MhM.size(1), nargout=2
+        )
+        eng.quit()
 
+        # Convert MATLAB results directly to PyTorch tensors
+        result_indices = torch.tensor(result_indices, dtype=torch.long, device=MhM.device) - 1
+        result_values = torch.tensor(result_values, dtype=MhM.dtype, device=MhM.device)
 
+        # Create MhM_inv as a sparse_coo_tensor
+        MhM_inv = torch.sparse_coo_tensor(
+            result_indices,
+            result_values,
+            size=MhM.shape
+        ).coalesce()
 
         return MhM_inv
 
@@ -198,7 +221,7 @@ class CgHmcSampler(HmcSampler):
             blk_sparsities.append(blk_sparsity)
 
             # Test cg and preconditioned_cg
-            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i)
+            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=precon)
             convergence_steps.append(conv_step)
             residual_errors.append(r_err)
 
