@@ -264,6 +264,10 @@ class CgHmcSampler(HmcSampler):
         # print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
         # self.visual(precon)
 
+        # matL, _ = self.get_ichol(pi_flux_boson)
+        # self.visual(matL) 
+
+
         # # Visualize the sparsity pattern of the preconditioner
         # if precon is not None and self.plt_pattern:
         #     precon_dense = precon.to_dense().cpu().numpy()
@@ -295,8 +299,8 @@ class CgHmcSampler(HmcSampler):
             boson = self.boson[i]
             # O ~ L*L' -> O_inv ~ L'^-1 * L^-1 
             matL, _ = self.get_ichol(boson)
-            self.visual(matL) 
-            self.save_plot(f"matL_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf") 
+            # self.visual(matL) 
+            # self.save_plot(f"matL_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf") 
 
             precon = None
             # precon = self.get_precon(boson)
