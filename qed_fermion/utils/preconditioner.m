@@ -9,7 +9,7 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     disp(size(O));
 
     % Incomplete Cholesky factorization for preconditioning
-    M_pc = ichol(O, struct('diagcomp', 0.05));
+    M_pc = ichol(O, struct('diagcomp', 0.0001));
     dd = diag(diag(M_pc));
     
     % Check if a GPU is available
@@ -33,9 +33,15 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     M_inv = M_inv .* (1 ./ diag(dd));
 
     % Filter small elements to maintain sparsity directly on the sparse matrix
-    [i, j, v] = find(M_inv' * M_inv);
+    O_inv1 = M_inv' * M_inv;
+    disp('Sparsity of O_inv1:');
+    disp(nnz(O_inv1) / numel(O_inv1));
+
+    [i, j, v] = find(O_inv1);
     v(abs(v) < 0.1) = 0; % Set small elements to zero
     O_inv = sparse(i, j, v, Nx, Ny);
+    disp('Sparsity of O_inv:');
+    disp(nnz(O_inv) / numel(O_inv));
 
     % % Filter small elements to maintain sparsity
     % O_inv_ref = full(M_inv' * M_inv);

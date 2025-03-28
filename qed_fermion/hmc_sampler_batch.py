@@ -510,6 +510,8 @@ class HmcSampler(object):
             if tau in [0]:
                 blk_sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))
                 print(f"Sparsity of B at tau={tau}: {blk_sparsity:.4f}")
+                blk_sparsity_BtB = 1.0 - (torch.sparse.mm(B.T.conj(), B)._nnz() / (B.size(0) * B.size(1)))
+                print(f"Sparsity of B.T.conj() @ B at tau={tau}: {blk_sparsity_BtB:.4f}")
 
             if tau < self.Ltau - 1:
                 row_start = Vs * (tau + 1)

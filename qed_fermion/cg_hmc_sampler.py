@@ -25,8 +25,31 @@ class CgHmcSampler(HmcSampler):
         super().__init__(J, Nstep, config)
         self.plt_cg = True
         self.plt_pattern = False
+    
+    @staticmethod
+    def apply_preconditioner(r, MhM_inv=None, matL=None):
+        if MhM_inv is None and matL is None:
+            return r
+        if MhM_inv is not None:
+            return torch.sparse.mm(MhM_inv, r)
+        
+        # Apply incomplete Cholesky preconditioner via SpSV solver
+        # Convert sparse tensor to scipy sparse matrix
+        matL_scipy = sp.csr_matrix((matL.values().cpu().numpy(),
+                    (matL.indices()[0].cpu().numpy(),
+                        matL.indices()[1].cpu().numpy())),
+                    shape=matL.shape)
+        r_numpy = r.cpu().numpy()
 
-    def preconditioned_cg(self, MhM, b, MhM_inv=None, tol=1e-8, max_iter=100, b_idx=None, axs=None):
+        # Solve using scipy's sparse triangular solver
+        tmp = splinalg.spsolve_triangular(matL_scipy, r_numpy, lower=True)
+        output = splinalg.spsolve_triangular(matL_scipy.T.conj(), tmp, lower=False)
+        
+        # Convert back to torch tensor
+        return torch.tensor(output, dtype=r.dtype, device=r.device)  
+
+
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, tol=1e-8, max_iter=100, b_idx=None, axs=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -39,7 +62,8 @@ class CgHmcSampler(HmcSampler):
         # Initialize variables
         x = torch.zeros_like(b).view(-1, 1)
         r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
-        z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
+        # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
+        z = self.apply_preconditioner(r, MhM_inv, matL)
         p = z
         rz_old = torch.dot(r.conj().view(-1), z.view(-1)).real
 
@@ -48,7 +72,7 @@ class CgHmcSampler(HmcSampler):
 
         if self.plt_cg and axs is not None:
             # Plot intermediate results
-            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None else 'precon.')
+            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
             axs.set_ylabel('Residual Norm')
             axs.set_yscale('log')
             axs.legend()
@@ -82,7 +106,8 @@ class CgHmcSampler(HmcSampler):
                 print(f"Converged in {i+1} iterations.")
                 break
 
-            z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to r
+            # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to r
+            z = self.apply_preconditioner(r, MhM_inv, matL)
             rz_new = torch.dot(r.conj().view(-1), z.view(-1)).real
             beta = rz_new / rz_old
             p = z + beta * p
@@ -165,6 +190,41 @@ class CgHmcSampler(HmcSampler):
         ).coalesce()
 
         return MhM_inv
+    
+    def get_ichol(self, pi_flux_boson):
+        MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
+        retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
+        retrieved_values = M.values()
+
+        # Pass indices and values to MATLAB
+        matlab_function_path = '/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/utils/'
+        eng = matlab.engine.start_matlab()
+        eng.addpath(matlab_function_path)
+
+        # Convert indices and values directly to MATLAB format
+        matlab_indices = matlab.double(retrieved_indices.cpu().tolist())
+        matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
+
+        # Call MATLAB function
+        result_indices, result_values = eng.ichol_mlb(
+            matlab_indices, matlab_values, M.size(0), M.size(1), nargout=2
+        )
+        eng.quit()
+
+        # Convert MATLAB results directly to PyTorch tensors
+        result_indices = torch.tensor(result_indices, dtype=torch.long, device=M.device).T - 1
+        result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
+
+        # Create MhM_inv as a sparse_coo_tensor
+        L = torch.sparse_coo_tensor(
+            result_indices,
+            result_values,
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
+
+        return L, M
 
     def benchmark(self, bs=5):
         """
@@ -198,24 +258,26 @@ class CgHmcSampler(HmcSampler):
         b = self.draw_psudo_fermion().squeeze(0)
 
         # Get preconditioner
-        precon = self.get_precon(pi_flux_boson)
-        # Calculate and print the sparsity of the preconditioner
-        precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
-        print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
-        # Visualize the sparsity pattern of the preconditioner
-        if precon is not None and self.plt_pattern:
-            precon_dense = precon.to_dense().cpu().numpy()
-            plt.figure(figsize=(10, 10))
-            plt.spy(precon_dense, markersize=0.5)
-            plt.title("Sparsity Pattern of Preconditioner")
-            plt.xlabel("Columns")
-            plt.ylabel("Rows")
-            plt.show()
+        # precon = self.get_precon(pi_flux_boson)
+        # # Calculate and print the sparsity of the preconditioner
+        # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
+        # print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
+        # self.visual(precon)
 
-            # condition number
-            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(precon, tol=1e-3)
-            print(f"Approximate condition number of preconditioner: {cond_number_approx}")
-            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
+        # # Visualize the sparsity pattern of the preconditioner
+        # if precon is not None and self.plt_pattern:
+        #     precon_dense = precon.to_dense().cpu().numpy()
+        #     plt.figure(figsize=(10, 10))
+        #     plt.spy(precon_dense, markersize=0.5)
+        #     plt.title("Sparsity Pattern of Preconditioner")
+        #     plt.xlabel("Columns")
+        #     plt.ylabel("Rows")
+        #     plt.show()
+
+        #     # condition number
+        #     cond_number_approx, sig_max, sig_min = self.estimate_condition_number(precon, tol=1e-3)
+        #     print(f"Approximate condition number of preconditioner: {cond_number_approx}")
+        #     print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
 
         # Benchmark preconditioned CG for each boson in the batch
         convergence_steps = []
@@ -227,11 +289,27 @@ class CgHmcSampler(HmcSampler):
         residual_errors = []
         residual_errors_precon = []
         for i in range(bs*2):
-            # if not i in [0]: 
-            #     continue
+            if not i in [3]: 
+                continue
 
             boson = self.boson[i]
+            # O ~ L*L' -> O_inv ~ L'^-1 * L^-1 
+            matL, _ = self.get_ichol(boson)
+            self.visual(matL) 
+            self.save_plot(f"matL_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf") 
+
+            precon = None
+            # precon = self.get_precon(boson)
+            # # Calculate and print the sparsity of the preconditioner
+            # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
+            # print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
+     
             MhM, _, blk_sparsity, M = self.get_M_sparse(boson)
+            self.visual(MhM)
+            # self.save_plot(f"MhM_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf")
+            MhM_sparsity = 1 - (MhM._nnz() / (MhM.size(0) * MhM.size(1)))
+            print(f"Sparsity of MhM: {MhM_sparsity:.6f}")
+
             # Check if M'M is correct
             if self.Ltau < 20:
                 M_ref, _ = self.get_M(boson.unsqueeze(0))
@@ -258,22 +336,15 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=500, b_idx=i, MhM_inv=precon, axs=axs)
-            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=500, b_idx=i, MhM_inv=None, axs=axs)
+            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-4, max_iter=1000, b_idx=i, matL=None, MhM_inv=precon, axs=axs)
+            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=None, axs=axs)            
 
             convergence_steps.append(conv_step)
             convergence_steps_precon.append(conv_step_precon)
             residual_errors.append(r_err)
             residual_errors_precon.append(r_err_precon)
 
-            # Plot save
-            script_path = os.path.dirname(os.path.abspath(__file__))
-            class_name = __file__.split('/')[-1].replace('.py', '')
-            save_dir = os.path.join(script_path, f"./figures/{class_name}")
-            os.makedirs(save_dir, exist_ok=True)
-            file_path = os.path.join(save_dir, f"convergence_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf")
-            plt.savefig(file_path, format="pdf", bbox_inches="tight")
-            print(f"Figure saved at: {file_path}")
+            self.save_plot(f"convergence_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf")
 
         mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
         mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
@@ -283,6 +354,24 @@ class CgHmcSampler(HmcSampler):
 
         return mean_conv_steps, mean_sparsity, mean_condition_num, condition_numbers, mean_sig_max, mean_sig_min, sig_max_values, sig_min_values, residual_errors
 
+    def save_plot(self, file_name):
+        script_path = os.path.dirname(os.path.abspath(__file__))
+        class_name = __file__.split('/')[-1].replace('.py', '')
+        save_dir = os.path.join(script_path, f"./figures/{class_name}")
+        os.makedirs(save_dir, exist_ok=True)
+        file_path = os.path.join(save_dir, file_name)
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
+
+    @staticmethod
+    def visual(M):
+        M_dense = M.to_dense().cpu().numpy()
+        plt.figure(figsize=(8, 8))
+        plt.spy(M_dense, markersize=0.5)
+        plt.title("Sparsity Pattern")
+        plt.xlabel("Columns")
+        plt.ylabel("Rows")
+        plt.show()  
 
 if __name__ == '__main__':
     sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
@@ -290,7 +379,7 @@ if __name__ == '__main__':
     cg_bs = 4
 
     Ltau_values = [10, 20, 50, 100, 200, 400, 600]
-    # Ltau_values = [10, 200, 400, 600]
+    Ltau_values = [200, 400, 600]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
