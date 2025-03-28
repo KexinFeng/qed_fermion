@@ -35,13 +35,13 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     % Filter small elements to maintain sparsity directly on the sparse matrix
     O_inv1 = M_inv' * M_inv;
     disp('Sparsity of O_inv1:');
-    disp(nnz(O_inv1) / numel(O_inv1));
+    disp(1 - nnz(O_inv1) / numel(O_inv1));
 
     [i, j, v] = find(O_inv1);
     v(abs(v) < 0.1) = 0; % Set small elements to zero
     O_inv = sparse(i, j, v, Nx, Ny);
     disp('Sparsity of O_inv:');
-    disp(nnz(O_inv) / numel(O_inv));
+    disp(1 - nnz(O_inv) / numel(O_inv));
 
     % % Filter small elements to maintain sparsity
     % O_inv_ref = full(M_inv' * M_inv);

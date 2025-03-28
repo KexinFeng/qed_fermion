@@ -336,7 +336,7 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-4, max_iter=1000, b_idx=i, matL=None, MhM_inv=precon, axs=axs)
+            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-4, max_iter=1000, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
             conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=None, axs=axs)            
 
             convergence_steps.append(conv_step)
