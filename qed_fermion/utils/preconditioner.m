@@ -31,11 +31,19 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     end
 
     M_inv = M_inv .* (1 ./ diag(dd));
-    O_inv = full(M_inv' * M_inv);
 
-    % Filter small elements to maintain sparsity
-    O_inv = O_inv - O_inv .* ((abs(O_inv)) < 0.1);
-    O_inv = sparse(O_inv);
+    % Filter small elements to maintain sparsity directly on the sparse matrix
+    [i, j, v] = find(M_inv' * M_inv);
+    v(abs(v) < 0.1) = 0; % Set small elements to zero
+    O_inv = sparse(i, j, v, Nx, Ny);
+
+    % % Filter small elements to maintain sparsity
+    % O_inv_ref = full(M_inv' * M_inv);
+    % O_inv_ref = O_inv_ref - O_inv_ref .* ((abs(O_inv_ref)) < 0.1);
+    % O_inv_ref = sparse(O_inv_ref);
+
+    % % Assert that O_inv is equal to O_inv_ref
+    % assert(isequal(O_inv, O_inv_ref), 'O_inv does not match O_inv_ref');
 
     % Gather data from GPU if computed on GPU
     if gpuDeviceCount > 0
