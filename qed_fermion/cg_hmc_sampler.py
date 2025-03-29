@@ -31,14 +31,16 @@ class CgHmcSampler(HmcSampler):
         if MhM_inv is None and matL is None:
             return r
         if MhM_inv is not None:
+            MhM_inv = MhM_inv.to(r.dtype)
             return torch.sparse.mm(MhM_inv, r)
         
+        matL = matL.to(r.dtype)
         # Apply incomplete Cholesky preconditioner via SpSV solver
         # Convert sparse tensor to scipy sparse matrix
         matL_scipy = sp.csr_matrix((matL.values().cpu().numpy(),
                     (matL.indices()[0].cpu().numpy(),
                         matL.indices()[1].cpu().numpy())),
-                    shape=matL.shape)
+                    shape=matL.shape, dtype=matL.values().cpu().numpy().dtype)
         r_numpy = r.cpu().numpy()
 
         # Solve using scipy's sparse triangular solver
@@ -49,7 +51,7 @@ class CgHmcSampler(HmcSampler):
         return torch.tensor(output, dtype=r.dtype, device=r.device)  
 
 
-    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, tol=1e-8, max_iter=100, b_idx=None, axs=None):
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, tol=1e-8, max_iter=100, b_idx=None, axs=None, dtype=torch.complex128):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -59,6 +61,9 @@ class CgHmcSampler(HmcSampler):
         :param max_iter: Maximum number of iterations
         :return: Solution vector x
         """
+        MhM = MhM.to(dtype)
+        b = b.to(dtype)
+
         # Initialize variables
         x = torch.zeros_like(b).view(-1, 1)
         r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
@@ -76,7 +81,7 @@ class CgHmcSampler(HmcSampler):
             axs.set_ylabel('Residual Norm')
             axs.set_yscale('log')
             axs.legend()
-            axs.grid()
+            axs.grid(True)
             axs.set_title(f'{self.Lx}x{self.Ly}x{self.Ltau} Lattice b_idx={b_idx}')
 
             plt.pause(0.01)  # Pause to update the plot
@@ -247,7 +252,8 @@ class CgHmcSampler(HmcSampler):
         self.boson = torch.cat([self.boson, pi_flux_boson], dim=0)
 
         # Generate new bosons centered around pi_flux_boson with varying sigma
-        sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
+        # sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
+        sigmas = torch.linspace(0.5 * 3.14, 1*3.14, bs-1, device=self.boson.device)
         new_bosons = torch.stack([
             pi_flux_boson.squeeze(0) + torch.randn_like(pi_flux_boson.squeeze(0)) * sigma
             for sigma in sigmas
@@ -258,7 +264,7 @@ class CgHmcSampler(HmcSampler):
         b = self.draw_psudo_fermion().squeeze(0)
 
         # Get preconditioner
-        # precon = self.get_precon(pi_flux_boson)
+        precon = self.get_precon(pi_flux_boson)
         # # Calculate and print the sparsity of the preconditioner
         # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
         # print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
@@ -293,23 +299,24 @@ class CgHmcSampler(HmcSampler):
         residual_errors = []
         residual_errors_precon = []
         for i in range(bs*2):
-            if not i in [3]: 
-                continue
+            # if not i in [4]: 
+            #     continue
 
             boson = self.boson[i]
             # O ~ L*L' -> O_inv ~ L'^-1 * L^-1 
-            matL, _ = self.get_ichol(boson)
+            matL = None
+            # matL, _ = self.get_ichol(boson)
             # self.visual(matL) 
             # self.save_plot(f"matL_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf") 
 
-            precon = None
+            # precon = None
             # precon = self.get_precon(boson)
             # # Calculate and print the sparsity of the preconditioner
             # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
             # print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
      
             MhM, _, blk_sparsity, M = self.get_M_sparse(boson)
-            self.visual(MhM)
+            # self.visual(MhM)
             # self.save_plot(f"MhM_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf")
             MhM_sparsity = 1 - (MhM._nnz() / (MhM.size(0) * MhM.size(1)))
             print(f"Sparsity of MhM: {MhM_sparsity:.6f}")
@@ -340,8 +347,8 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-4, max_iter=1000, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
-            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=1000, b_idx=i, MhM_inv=None, axs=axs)            
+            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=2000, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=2000, b_idx=i, MhM_inv=None, axs=axs)            
 
             convergence_steps.append(conv_step)
             convergence_steps_precon.append(conv_step_precon)
@@ -383,7 +390,8 @@ if __name__ == '__main__':
     cg_bs = 4
 
     Ltau_values = [10, 20, 50, 100, 200, 400, 600]
-    Ltau_values = [200, 400, 600]
+    # Ltau_values = [200, 400, 600]
+    Ltau_values = [10]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []

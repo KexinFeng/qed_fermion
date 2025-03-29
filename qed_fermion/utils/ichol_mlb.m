@@ -10,7 +10,7 @@ function [L_indices, L_values] = ichol(M_indices, M_values, Nx, Ny)
 
     % Incomplete Cholesky factorization for preconditioning
     % O ~ L*L' -> O_inv ~ L'^-1 * L^-1
-    L = ichol(O, struct('diagcomp', 0.00001));
+    L = ichol(O, struct('diagcomp', 0.0001));  % further reducing the diagcomp will incur zero pivot error
 
     % Extract indices and values for COO sparse storage of L
     [row_L, col_L, val_L] = find(L);
