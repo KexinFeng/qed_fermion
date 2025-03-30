@@ -31,7 +31,7 @@ cdtype = torch.complex64
 # torch.set_default_dtype(dtype)
 
 class LocalUpdateSampler(object):
-    def __init__(self, J=0.5, Nstep=2e2, bs=5, plt_rate=500, config=None):
+    def __init__(self, J=0.5, Nstep=2e2, bs=5, plt_rate=500, ckpt_rate=500, config=None):
         # Dims
         self.Lx = 10
         self.Ly = 10
@@ -59,7 +59,7 @@ class LocalUpdateSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         self.plt_rate = (self.Vs * plt_rate) 
-        self.ckp_rate = (self.Vs * 500)
+        self.ckp_rate = (self.Vs * ckpt_rate)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
@@ -702,11 +702,11 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
 
     J = float(os.getenv("J", '10'))
-    Nstep = int(os.getenv("Nstep", '2000'))
+    Nstep = int(os.getenv("Nstep", '1000'))
     bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=200)
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=50, ckpt_rate=50)
 
     # Measure
     hmc.measure()
