@@ -29,7 +29,7 @@ for J in $J_array; do
         sbatch --job-name=${config}_hmc \
         --time=0-20:00:00 \
         --qos=gpu \
-        --mem-per-cpu=10G \
+        --mem-per-cpu=50G \
         s_local.cmd
 done
 

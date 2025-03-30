@@ -59,7 +59,7 @@ class LocalUpdateSampler(object):
         self.polar = 0  # 0: x, 1: y
 
         self.plt_rate = (self.Vs * plt_rate) 
-        self.ckp_rate = (self.Vs * 2000)
+        self.ckp_rate = (self.Vs * 500)
 
         # Statistics
         self.N_step = int(Nstep) * self.Lx * self.Ly * self.Ltau
