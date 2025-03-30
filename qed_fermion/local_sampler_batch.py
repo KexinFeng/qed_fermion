@@ -32,11 +32,11 @@ print(f"dtype: {dtype}, cdtype: {cdtype}")
 # torch.set_default_dtype(dtype)
 
 class LocalUpdateSampler(object):
-    def __init__(self, J=0.5, Nstep=2e2, bs=5, plt_rate=500, ckpt_rate=500, config=None):
+    def __init__(self, J=0.5, Nstep=2e2, bs=5, plt_rate=500, ckpt_rate=500, config=None, Ltau=100):
         # Dims
         self.Lx = 10
         self.Ly = 10
-        self.Ltau = 100
+        self.Ltau = Ltau
         self.bs = bs
         self.Vs = self.Lx * self.Ly * self.Ltau
 
@@ -355,7 +355,7 @@ class LocalUpdateSampler(object):
         # Compute new energy
         boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
         detM = self.get_detM(boson_new)
-        fermion_energy_new = -self.Nf * torch.log(torch.real(detM))
+        fermion_energy_new = -self.Nf * torch.log(torch.abs(detM))
 
         # Metropolis_update
         H0 = self.boson_energy + self.fermion_energy
@@ -383,7 +383,7 @@ class LocalUpdateSampler(object):
         # Compute new energy
         boson_energy_new = self.action_boson_tau_cmp(boson_new) + self.action_boson_plaq(boson_new)
         detM = self.get_detM(boson_new)
-        fermion_energy_new = -self.Nf * torch.log(torch.real(detM))
+        fermion_energy_new = -self.Nf * torch.log(torch.abs(detM))
 
         # Metropolis_update
         H0 = self.boson_energy + self.fermion_energy
@@ -413,7 +413,7 @@ class LocalUpdateSampler(object):
             self.S_plaq_list[-1] = self.action_boson_plaq(self.boson).cpu()
             self.boson_energy = self.action_boson_tau_cmp(self.boson) + self.action_boson_plaq(self.boson)
             detM = self.get_detM(self.boson)
-            self.fermion_energy = -self.Nf * torch.log(torch.real(detM))
+            self.fermion_energy = -self.Nf * torch.log(torch.abs(detM))
             self.detM_sign_list[-1] = torch.sign(torch.real(detM))
 
         # Measure
@@ -510,7 +510,7 @@ class LocalUpdateSampler(object):
         # plt.figure()
         fig, axes = plt.subplots(3, 2, figsize=(12, 7.5))
         
-        start = 50  # to prevent from being out of scale due to init out-liers
+        start = self.plt_rate // self.Vs - 1  # to prevent from being out of scale due to init out-liers
         Vs = self.Vs
         seq_idx = np.arange(start * Vs, self.step, Vs)
  
@@ -704,10 +704,11 @@ if __name__ == '__main__':
 
     J = float(os.getenv("J", '10'))
     Nstep = int(os.getenv("Nstep", '1000'))
+    Ltau = int(os.getenv("Ltau", '100'))
     bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=1, ckpt_rate=1)
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=1, ckpt_rate=1, Ltau=Ltau)
 
     # Measure
     hmc.measure()

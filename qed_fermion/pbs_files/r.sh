@@ -20,14 +20,15 @@ J_array=$(echo '10')
 
 Nstep=100
 bs=5
+Ltau=100
 for J in $J_array; do
         #
-        config=$(echo local_J_${J}_Nstep_${Nstep}_bs_${bs})
+        config=$(echo local_J_${J}_Nstep_${Nstep}_bs_${bs}_Ltau_${Ltau})
         echo $config
-        export J Nstep bs
+        export J Nstep bs Ltau
         #
         sbatch --job-name=${config}_hmc \
-        --time=0-20:00:00 \
+        --time=0-24:00:00 \
         --qos=gpu \
         --mem-per-cpu=50G \
         s_local.cmd
