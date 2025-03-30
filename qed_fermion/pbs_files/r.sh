@@ -20,7 +20,7 @@ J_array=$(echo '10')
 
 Nstep=100
 bs=5
-Ltau=100
+Ltau=200
 for J in $J_array; do
         #
         config=$(echo local_J_${J}_Nstep_${Nstep}_bs_${bs}_Ltau_${Ltau})

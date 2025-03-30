@@ -93,7 +93,8 @@ class LocalUpdateSampler(object):
         self.initialize_specifics()
         # self.initialize_boson_time_slice_random_uniform()
         # self.initialize_boson_staggered_pi()
-        self.initialize_boson_uniform()
+        # self.initialize_boson_uniform()
+        self.initialize_boson_staggered_randn()
         self.boson = self.boson.to(device=device, dtype=dtype)
         
     def initialize_curl_mat(self):
@@ -211,6 +212,21 @@ class LocalUpdateSampler(object):
         """
         bs = self.bs
         self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=device) - 0.5) * torch.linspace(0.5 * 3.14, 2 * 3.14, bs, device=device).reshape(-1, 1, 1, 1, 1)
+
+    def initialize_boson_staggered_randn(self):
+        # Pi flux
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+
+        # Generate new bosons centered around pi_flux_boson with varying sigma
+        sigmas = torch.linspace(0.5 * 3.14, 1*3.14, self.bs-1, device=device)
+        new_bosons = torch.stack([
+            pi_flux_boson.squeeze(0) + torch.randn_like(pi_flux_boson.squeeze(0)) * sigma
+            for sigma in sigmas
+        ])
+        self.boson = torch.cat([pi_flux_boson, new_bosons], dim=0)
 
     def sin_curl_greens_function_batch(self, boson):
         """
@@ -708,7 +724,7 @@ if __name__ == '__main__':
     bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=1, ckpt_rate=1, Ltau=Ltau)
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, Ltau=Ltau, plt_rate=1, ckpt_rate=1)
 
     # Measure
     hmc.measure()
