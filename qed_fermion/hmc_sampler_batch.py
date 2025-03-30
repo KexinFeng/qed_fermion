@@ -887,24 +887,20 @@ class HmcSampler(object):
         x = x0
 
         R_u = self.draw_psudo_fermion()
-        R_d = self.draw_psudo_fermion()
         M0, B_list = self.get_M_batch(x)
         psi_u = torch.einsum('brs,bs->br', M0.permute(0, 2, 1).conj(), R_u)
-        psi_d = torch.einsum('brs,bs->br', M0.permute(0, 2, 1).conj(), R_d)
 
-        (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f_batch([psi_u, psi_d], M0, x, B_list)
+        (force_f_u,), (xi_t_u,) = self.force_f_batch([psi_u], M0, x, B_list)
 
         Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
-        Sf0_d = torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d)
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
-        Sf0_d = torch.real(Sf0_d)
 
         assert x.grad is None
 
         Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq(x0)
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-        H0 += Sf0_u + Sf0_d
+        H0 += Sf0_u
 
         dt = self.delta_t
 
@@ -986,7 +982,7 @@ class HmcSampler(object):
 
         for leap in range(self.N_leapfrog):
 
-            p = p + dt/2 * (force_f_u + force_f_d)
+            p = p + dt/2 * (force_f_u)
 
             # Update (p, x)
             x_last = x
@@ -1011,18 +1007,17 @@ class HmcSampler(object):
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
 
             Mt, B_list = self.get_M_batch(x)
-            (force_f_u, force_f_d), (xi_t_u, xi_t_d) = self.force_f_batch([psi_u, psi_d], Mt, x, B_list)
-            p = p + dt/2 * (force_f_u + force_f_d)
+            (force_f_u,), (xi_t_u,) = self.force_f_batch([psi_u], Mt, x, B_list)
+            p = p + dt/2 * (force_f_u)
 
             if self.debug_pde:
                 Sf_u = torch.real(torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u))
-                Sf_d = torch.real(torch.einsum('bi,bi->b', psi_d.conj(), xi_t_d))
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x)
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-                H_t += Sf_u + Sf_d
+                H_t += Sf_u
 
                 dSb = -torch.dot((x - x_last).view(-1), (force_b_plaq + force_b_tau).reshape(-1))
-                dSf = -torch.dot((x - x_last).view(-1), (force_f_u + force_f_d).reshape(-1))
+                dSf = -torch.dot((x - x_last).view(-1), (force_f_u).reshape(-1))
 
                 torch.testing.assert_close(H0, H_t, atol=1e-1, rtol=5e-2)
 
@@ -1030,10 +1025,10 @@ class HmcSampler(object):
                 Hs.append(H_t[b_idx].item())
                 Sbs.append(Sb_t[b_idx].item())
                 Sbs_integ.append(Sbs_integ[-1] + dSb)
-                Sfs.append((Sf_u + Sf_d)[b_idx].item())
+                Sfs.append((Sf_u)[b_idx].item())
                 Sfs_integ.append(Sfs_integ[-1] + dSf)
                 force_bs.append(torch.linalg.norm((force_b_plaq + force_b_tau).reshape(self.bs, -1), dim=1)[b_idx].item())
-                force_fs.append(torch.norm((force_f_u + force_f_d).reshape(self.bs, -1), dim=1)[b_idx].item())
+                force_fs.append(torch.norm((force_f_u).reshape(self.bs, -1), dim=1)[b_idx].item())
 
                 # Update data for both subplots
                 line_Hs.set_data(range(len(Hs)), Hs)
@@ -1088,14 +1083,12 @@ class HmcSampler(object):
 
         # Final energies
         Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
-        Sf_fin_d = torch.einsum('br,br->b', psi_d.conj(), xi_t_d)
         torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
-        Sf_fin_d = torch.real(Sf_fin_d)
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
         H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-        H_fin += Sf_fin_u + Sf_fin_d
+        H_fin += Sf_fin_u
 
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
         torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-3)
