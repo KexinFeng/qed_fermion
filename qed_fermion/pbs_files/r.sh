@@ -18,7 +18,7 @@ J_array=$(echo '10')
 #         s_hmc.cmd
 # done
 
-Nstep=2000
+Nstep=100
 bs=5
 for J in $J_array; do
         #
