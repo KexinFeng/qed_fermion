@@ -208,15 +208,8 @@ class LocalUpdateSampler(object):
         """
         Generate random boson field with uniform randomness across all dimensions
         """
-        bs = self.bs-1
+        bs = self.bs
         self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=device) - 0.5) * torch.linspace(0.5 * 3.14, 2 * 3.14, bs, device=device).reshape(-1, 1, 1, 1, 1)
-
-        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
-        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-        boson = boson.repeat(1 * self.Ltau, 1)
-        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
-
 
     def sin_curl_greens_function_batch(self, boson):
         """
