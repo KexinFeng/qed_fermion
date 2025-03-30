@@ -33,9 +33,9 @@ cdtype = torch.complex128
 class LocalUpdateSampler(object):
     def __init__(self, J=0.5, Nstep=2e2, bs=5, plt_rate=500, config=None):
         # Dims
-        self.Lx = 6
-        self.Ly = 6
-        self.Ltau = 10
+        self.Lx = 10
+        self.Ly = 10
+        self.Ltau = 100
         self.bs = bs
         self.Vs = self.Lx * self.Ly * self.Ltau
 
@@ -90,8 +90,9 @@ class LocalUpdateSampler(object):
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson_time_slice_random_uniform()
+        # self.initialize_boson_time_slice_random_uniform()
         # self.initialize_boson_staggered_pi()
+        self.initialize_boson_uniform()
         self.boson = self.boson.to(device=device, dtype=dtype)
         
     def initialize_curl_mat(self):
@@ -157,7 +158,7 @@ class LocalUpdateSampler(object):
 
     def initialize_boson_time_slice_random(self):
         """
-        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+        Initialize bosons with random values within each time slice; across the time dimensions, the values are consistent.
 
         :return: None
         """
@@ -175,7 +176,7 @@ class LocalUpdateSampler(object):
 
     def initialize_boson_time_slice_random_uniform(self):
         """
-        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+        Initialize bosons with random values within each time slice; across the time dimensions, the values are consistent.
 
         :return: None
         """
@@ -201,6 +202,21 @@ class LocalUpdateSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         self.boson = boson.repeat(self.bs*self.Ltau, 1)
         self.boson = self.boson.reshape(self.bs, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+
+
+    def initialize_boson_uniform(self):
+        """
+        Generate random boson field with uniform randomness across all dimensions
+        """
+        bs = self.bs-1
+        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=device) - 0.5) * torch.linspace(0.5 * 3.14, 2 * 3.14, bs, device=device).reshape(-1, 1, 1, 1, 1)
+
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+
 
     def sin_curl_greens_function_batch(self, boson):
         """
@@ -524,7 +540,7 @@ class LocalUpdateSampler(object):
 
         # axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau} + S_{plaq}$')
         axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
-        axes[1, 1].set_ylabel("$S_{tau} + S_{plaq}$")
+        axes[1, 1].set_ylabel("$S_{tau}$")
         axes[1, 1].set_xlabel("Steps")
         axes[1, 1].legend()
         
@@ -692,12 +708,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
 
-    J = float(os.getenv("J", '0.5'))
+    J = float(os.getenv("J", '10'))
     Nstep = int(os.getenv("Nstep", '2000'))
     bs = int(os.getenv("bs", '5'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=500)
+    hmc = LocalUpdateSampler(J=J, Nstep=Nstep, bs=bs, plt_rate=10)
 
     # Measure
     hmc.measure()
