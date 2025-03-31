@@ -451,6 +451,13 @@ class HmcSampler(object):
             B = dB1
             B1_list.append(dB1)
 
+            if tau in [-1]:
+                blk_sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))
+                print(f"Sparsity of B at tau={tau}: {blk_sparsity:.4f}")
+                print(f"Non-zero elements of B at tau={tau}: {B._nnz()}, Ratio: {B._nnz() / self.Lx:.4f}")
+                blk_ratio = dB1._nnz() / self.Lx
+                print(f"Ratio of non-zero elements of dB at tau={tau}: {blk_ratio:.4f}")
+
             dB = self.get_dB_sparse()
             indices = torch.cat([
                 torch.stack([self.i_list_2, self.j_list_2]),
@@ -469,6 +476,13 @@ class HmcSampler(object):
             ).coalesce()
             B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
             B2_list.append(dB)
+
+            if tau in [-1]:
+                blk_sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))
+                print(f"Sparsity of B at tau={tau}: {blk_sparsity:.4f}")
+                print(f"Non-zero elements of B at tau={tau}: {B._nnz()}, Ratio: {B._nnz() / self.Lx:.4f}")
+                blk_ratio = dB._nnz() / self.Lx
+                print(f"Ratio of non-zero elements of dB at tau={tau}: {blk_ratio:.4f}")
 
             dB = self.get_dB_sparse()
             indices = torch.cat([
@@ -489,6 +503,13 @@ class HmcSampler(object):
             B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
             B3_list.append(dB)
 
+            if tau in [-1]:
+                blk_sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))
+                print(f"Sparsity of B at tau={tau}: {blk_sparsity:.4f}")
+                print(f"Non-zero elements of B at tau={tau}: {B._nnz()}, Ratio: {B._nnz() / self.Lx:.4f}")
+                blk_ratio = dB._nnz() / self.Lx
+                print(f"Ratio of non-zero elements of dB at tau={tau}: {blk_ratio:.4f}")
+
             dB = self.get_dB_sparse()
             indices = torch.cat([
                 torch.stack([self.i_list_4, self.j_list_4]),
@@ -507,6 +528,15 @@ class HmcSampler(object):
             ).coalesce()
             B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
             B4_list.append(dB)
+
+            if tau in [-1]:
+                blk_sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))
+                print(f"Sparsity of B at tau={tau}: {blk_sparsity:.4f}")
+                print(f"Non-zero elements of B at tau={tau}: {B._nnz()}, Ratio: {B._nnz() / self.Lx:.4f}")
+                blk_ratio = dB._nnz() / self.Lx
+                print(f"Ratio of non-zero elements of dB at tau={tau}: {blk_ratio:.4f}")
+            
+                print('----------------')
 
             if tau in [0]:
                 blk_sparsity = 1.0 - (B._nnz() / (B.size(0) * B.size(1)))

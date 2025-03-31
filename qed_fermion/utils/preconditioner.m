@@ -42,13 +42,13 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     % Filter small elements to maintain sparsity directly on the sparse matrix
     O_inv1 = M_inv' * M_inv;
     disp('Sparsity of O_inv1:');
-    disp(1 - nnz(O_inv1) / numel(O_inv1));
+    disp(sprintf('%.2g, %d, %d', 1 - double(nnz(O_inv1)) / double(Nx * Ny), nnz(O_inv1), Nx * Ny));
 
     [i, j, v] = find(O_inv1);
     % v(abs(v) < 0.1) = 0; % Set small elements to zero
     % O_inv = sparse(i, j, v, Nx, Ny);
     % disp('Sparsity of O_inv:');
-    % disp(1 - length(v) / (Nx * Ny));
+    % disp(sprintf('%.2g, %d, %d', 1 - double(length(v)) / double(Nx * Ny), length(v), Nx * Ny));
 
     % % Filter small elements to maintain sparsity
     % O_inv_ref = full(M_inv' * M_inv);
@@ -71,8 +71,8 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     filter = abs(v) >= thrhld;
     O_inv_indices = gather([i(filter), j(filter)]);
     O_inv_values = gather(v(filter));
-    disp('Sparsity of O_inv:');
-    disp(1 - length(O_inv_values) / (Nx * Ny));
+    disp('Sparsity of O_inv::');
+    disp(sprintf('%.8g, %d, %d', 1 - length(O_inv_values)/double(Nx * Ny), length(O_inv_values), Nx * Ny));
 
     % % Assert that O_inv_indices and O_inv_values match their references
     % assert(isequal(O_inv_indices, O_inv_indices_ref), 'O_inv_indices does not match O_inv_indices_ref');

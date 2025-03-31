@@ -86,6 +86,7 @@ class CgHmcSampler(HmcSampler):
 
             plt.pause(0.01)  # Pause to update the plot
 
+        cnt = 0
         for i in range(max_iter):
             # Matrix-vector product with M'M
             Op = torch.sparse.mm(MhM, p)
@@ -118,6 +119,8 @@ class CgHmcSampler(HmcSampler):
             p = z + beta * p
             rz_old = rz_new
 
+            cnt += 1
+
         # if self.plt_cg and axs is not None:
         #     # Save the plot
         #     script_path = os.path.dirname(os.path.abspath(__file__))
@@ -129,7 +132,7 @@ class CgHmcSampler(HmcSampler):
         #     plt.savefig(file_path, format="pdf", bbox_inches="tight")
         #     print(f"Figure saved at: {file_path}")
 
-        return x, errors[-1]
+        return x, cnt, errors[-1]
     
     # Approximate the condition number
     @staticmethod
@@ -299,8 +302,8 @@ class CgHmcSampler(HmcSampler):
         residual_errors = []
         residual_errors_precon = []
         for i in range(bs*2):
-            # if not i in [4]: 
-            #     continue
+            if not i in [4]: 
+                continue
 
             boson = self.boson[i]
             # O ~ L*L' -> O_inv ~ L'^-1 * L^-1 
@@ -347,8 +350,8 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=2000, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
-            conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=2000, b_idx=i, MhM_inv=None, axs=axs)            
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=2000, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            _, conv_step, r_err = self.preconditioned_cg(MhM, b, tol=1e-3, max_iter=2000, b_idx=i, MhM_inv=None, axs=axs)            
 
             convergence_steps.append(conv_step)
             convergence_steps_precon.append(conv_step_precon)
@@ -387,11 +390,12 @@ class CgHmcSampler(HmcSampler):
 if __name__ == '__main__':
     sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
     sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
+    sampler.bs = 1
     cg_bs = 4
 
     Ltau_values = [10, 20, 50, 100, 200, 400, 600]
     # Ltau_values = [200, 400, 600]
-    Ltau_values = [10]
+    Ltau_values = [200]
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
