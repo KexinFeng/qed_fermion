@@ -88,6 +88,8 @@ class LocalUpdateSampler(object):
         self.reset()
     
     def reset(self):
+        self.Vs = self.Lx * self.Ly * self.Ltau
+        
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()

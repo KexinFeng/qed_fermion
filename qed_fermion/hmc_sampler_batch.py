@@ -32,7 +32,7 @@ class HmcSampler(object):
         self.Lx = 6
         self.Ly = 6
         self.Ltau = 10
-        self.bs = 1
+        self.bs = 5
         self.Vs = self.Lx * self.Ly * self.Ltau
 
         # Couplings
@@ -60,8 +60,8 @@ class HmcSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
 
-        self.plt_rate = 100
-        self.ckp_rate = 10000
+        self.plt_rate = 1000
+        self.ckp_rate = 5000
 
         # Statistics
         self.N_step = Nstep
@@ -92,6 +92,7 @@ class HmcSampler(object):
         self.reset()
     
     def reset(self):
+        self.Vs = self.Lx * self.Ly * self.Ltau
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
@@ -101,10 +102,10 @@ class HmcSampler(object):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device=device, dtype=dtype)
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf:.2g}_dtau_{self.dtau:.2g}"
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -1381,14 +1382,14 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
 
-    J = float(os.getenv("J", '3'))
+    J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '10000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = HmcSampler(J=J, Nstep=Nstep)
 
     # Measure
-    G_avg, G_std = hmc.measure()
+    # G_avg, G_std = hmc.measure()
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)

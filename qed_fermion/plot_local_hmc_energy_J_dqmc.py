@@ -41,8 +41,9 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     for J in Js:
 
-        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion2/ckpt/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_5000_bs5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_5000.pt"
-        local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion2/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
+        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_bs5_Jtau_{J:.1g}_K_1_dtau_0.1_step_10000.pt"
+        local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
+        
         dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename = os.path.join(dqmc_folder, name)
