@@ -267,6 +267,8 @@ class CgHmcSampler(HmcSampler):
         b = self.draw_psudo_fermion().squeeze(0)
 
         # Get preconditioner
+        matL = None
+        # matL, _ = self.get_ichol(pi_flux_boson)
         precon = self.get_precon(pi_flux_boson)
         # # Calculate and print the sparsity of the preconditioner
         # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
@@ -302,12 +304,12 @@ class CgHmcSampler(HmcSampler):
         residual_errors = []
         residual_errors_precon = []
         for i in range(bs*2):
-            if not i in [4]: 
+            if not i in [5]: 
                 continue
 
             boson = self.boson[i]
             # O ~ L*L' -> O_inv ~ L'^-1 * L^-1 
-            matL = None
+            # matL = None
             # matL, _ = self.get_ichol(boson)
             # self.visual(matL) 
             # self.save_plot(f"matL_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf") 

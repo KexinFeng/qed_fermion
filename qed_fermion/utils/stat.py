@@ -48,7 +48,7 @@ def t_based_error(data, confidence=0.68, axis=0):
     """
     n = data.shape[axis]
     if n < 2:
-        raise ValueError("Sample size must be at least 2")
+        return np.zeros_like(np.mean(data, axis=axis))
 
     mean = np.mean(data, axis=axis)
     std = np.std(data, axis=axis, ddof=1)  # Sample standard deviation

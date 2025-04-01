@@ -114,8 +114,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', loca
             scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
             G_local_mean *= scale_factor
         
-        err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0) * 1
-        # err1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=100), axis=0)
+        # err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0) * 1
+        err1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=100), axis=0)
         err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
         print(err1, '\n', err2)
         err_local = np.sqrt(err1**2)
@@ -207,8 +207,10 @@ if __name__ == '__main__':
         # step_lmc = lmc.N_step
         # local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.get_specifics()}_step_{step_lmc}.pt"
 
+
         hmc_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_bs5_Jtau_{J:.1g}_K_1_dtau_0.1_step_10000.pt"
         local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
+        local_update_filename = ''
 
         dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
         name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
