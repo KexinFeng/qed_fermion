@@ -836,7 +836,7 @@ class HmcSampler(object):
         return tuple(F_ts), tuple(xi_ts)
 
      
-    def force_f_batch(self, psis, Mt, boson, B_list):
+    def force_f_batch(self, psi, Mt, boson, B_list):
         """
         Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
 
@@ -853,99 +853,94 @@ class HmcSampler(object):
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1)
         # psis = [psi.T for psi in psis]
 
-        Ot = torch.einsum('bij,bjk->bik', Mt.permute(0, 2, 1).conj(), Mt)
-        L = torch.linalg.cholesky(Ot)
-        Ot_inv = torch.cholesky_inverse(L)
-
-        F_ts = []
-        xi_ts = []
+        # Ot = torch.einsum('bij,bjk->bik', Mt.permute(0, 2, 1).conj(), Mt)
+        # L = torch.linalg.cholesky(Ot)
+        # Ot_inv = torch.cholesky_inverse(L)
 
         B1_list = B_list[0]
         B2_list = B_list[1]
         B3_list = B_list[2]
         B4_list = B_list[3]
-        for psi in psis:
-            xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
 
-            Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
-            xi_t = xi_t.view(self.bs, Ltau, Ly * Lx)
+        # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
+        MhM = torch.sparse.mm(Mt.T.conj(), Mt)  
+        xi_t = self.Ot_inv_psi(psi, MhM)
 
-            Ft = torch.zeros(self.bs, Ltau, Ly * Lx * 2, device=device, dtype=dtype)
-            for tau in range(self.Ltau):
-                xi_c = xi_t[:, tau].view(self.bs, -1, 1)
-                xi_n = xi_t[:, (tau + 1) % Ltau].view(self.bs, -1, 1)
-                B_xi = xi_c
-                mat_Bs = [B4_list[tau], B3_list[tau], B2_list[tau], B1_list[tau], B2_list[tau], B3_list[tau], B4_list[tau]]
-                for mat_B in mat_Bs:
-                    B_xi = torch.einsum('bij,bjk->bik', mat_B, B_xi)
-                B_xi = B_xi.permute(0, 2, 1).conj()
+        Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
+        xi_t = xi_t.view(self.bs, Ltau, Ly * Lx)
 
-                xi_n_lft_5 = xi_n.permute(0, 2, 1).conj().view(self.bs, -1)
-                xi_n_lft_4 = torch.einsum('bi,bij->bj', xi_n_lft_5, B4_list[tau])
-                xi_n_lft_3 = torch.einsum('bi,bij->bj', xi_n_lft_4, B3_list[tau])
-                xi_n_lft_2 = torch.einsum('bi,bij->bj', xi_n_lft_3, B2_list[tau])
-                xi_n_lft_1 = torch.einsum('bi,bij->bj', xi_n_lft_2, B1_list[tau])
-                xi_n_lft_0 = torch.einsum('bi,bij->bj', xi_n_lft_1, B2_list[tau])
-                xi_n_lft_m1 = torch.einsum('bi,bij->bj', xi_n_lft_0, B3_list[tau])
+        Ft = torch.zeros(self.bs, Ltau, Ly * Lx * 2, device=device, dtype=dtype)
+        for tau in range(self.Ltau):
+            xi_c = xi_t[:, tau].view(self.bs, -1, 1)
+            xi_n = xi_t[:, (tau + 1) % Ltau].view(self.bs, -1, 1)
+            B_xi = xi_c
+            mat_Bs = [B4_list[tau], B3_list[tau], B2_list[tau], B1_list[tau], B2_list[tau], B3_list[tau], B4_list[tau]]
+            for mat_B in mat_Bs:
+                B_xi = torch.einsum('bij,bjk->bik', mat_B, B_xi)
+            B_xi = B_xi.permute(0, 2, 1).conj()
 
-                xi_c_rgt_5 = xi_c.view(self.bs, -1)
-                xi_c_rgt_4 = torch.einsum('bij,bj->bi', B4_list[tau], xi_c_rgt_5)
-                xi_c_rgt_3 = torch.einsum('bij,bj->bi', B3_list[tau], xi_c_rgt_4)
-                xi_c_rgt_2 = torch.einsum('bij,bj->bi', B2_list[tau], xi_c_rgt_3)
-                xi_c_rgt_1 = torch.einsum('bij,bj->bi', B1_list[tau], xi_c_rgt_2)
-                xi_c_rgt_0 = torch.einsum('bij,bj->bi', B2_list[tau], xi_c_rgt_1)
-                xi_c_rgt_m1 = torch.einsum('bij,bj->bi', B3_list[tau], xi_c_rgt_0)
+            xi_n_lft_5 = xi_n.permute(0, 2, 1).conj().view(self.bs, -1)
+            xi_n_lft_4 = torch.einsum('bi,bij->bj', xi_n_lft_5, B4_list[tau])
+            xi_n_lft_3 = torch.einsum('bi,bij->bj', xi_n_lft_4, B3_list[tau])
+            xi_n_lft_2 = torch.einsum('bi,bij->bj', xi_n_lft_3, B2_list[tau])
+            xi_n_lft_1 = torch.einsum('bi,bij->bj', xi_n_lft_2, B1_list[tau])
+            xi_n_lft_0 = torch.einsum('bi,bij->bj', xi_n_lft_1, B2_list[tau])
+            xi_n_lft_m1 = torch.einsum('bi,bij->bj', xi_n_lft_0, B3_list[tau])
 
-                B_xi_5 = B_xi.view(self.bs, -1)
-                B_xi_4 = torch.einsum('bi,bij->bj', B_xi_5, B4_list[tau])
-                B_xi_3 = torch.einsum('bi,bij->bj', B_xi_4, B3_list[tau])
-                B_xi_2 = torch.einsum('bi,bij->bj', B_xi_3, B2_list[tau])
-                B_xi_1 = torch.einsum('bi,bij->bj', B_xi_2, B1_list[tau])
-                B_xi_0 = torch.einsum('bi,bij->bj', B_xi_1, B2_list[tau])
-                B_xi_m1 = torch.einsum('bi,bij->bj', B_xi_0, B3_list[tau])
+            xi_c_rgt_5 = xi_c.view(self.bs, -1)
+            xi_c_rgt_4 = torch.einsum('bij,bj->bi', B4_list[tau], xi_c_rgt_5)
+            xi_c_rgt_3 = torch.einsum('bij,bj->bi', B3_list[tau], xi_c_rgt_4)
+            xi_c_rgt_2 = torch.einsum('bij,bj->bi', B2_list[tau], xi_c_rgt_3)
+            xi_c_rgt_1 = torch.einsum('bij,bj->bi', B1_list[tau], xi_c_rgt_2)
+            xi_c_rgt_0 = torch.einsum('bij,bj->bi', B2_list[tau], xi_c_rgt_1)
+            xi_c_rgt_m1 = torch.einsum('bij,bj->bi', B3_list[tau], xi_c_rgt_0)
 
-                Vs = self.Lx * self.Ly
-                sign_B = -1 if tau < Ltau - 1 else 1
+            B_xi_5 = B_xi.view(self.bs, -1)
+            B_xi_4 = torch.einsum('bi,bij->bj', B_xi_5, B4_list[tau])
+            B_xi_3 = torch.einsum('bi,bij->bj', B_xi_4, B3_list[tau])
+            B_xi_2 = torch.einsum('bi,bij->bj', B_xi_3, B2_list[tau])
+            B_xi_1 = torch.einsum('bi,bij->bj', B_xi_2, B1_list[tau])
+            B_xi_0 = torch.einsum('bi,bij->bj', B_xi_1, B2_list[tau])
+            B_xi_m1 = torch.einsum('bi,bij->bj', B_xi_0, B3_list[tau])
 
-                boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_1]
-                Ft[:, tau, self.boson_idx_list_1] = 2 * torch.real(
-                    self.df_dot(boson_list, xi_n_lft_2, xi_c_rgt_2, self.i_list_1, self.j_list_1, is_group_1=True) * sign_B
-                    + self.df_dot(boson_list, B_xi_2, xi_c_rgt_2, self.i_list_1, self.j_list_1, is_group_1=True)
-                )
+            Vs = self.Lx * self.Ly
+            sign_B = -1 if tau < Ltau - 1 else 1
 
-                boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_2]
-                Ft[:, tau, self.boson_idx_list_2] = 2 * torch.real(
-                    self.df_dot(boson_list, xi_n_lft_3, xi_c_rgt_1, self.i_list_2, self.j_list_2) * sign_B
-                    + self.df_dot(boson_list, xi_n_lft_1, xi_c_rgt_3, self.i_list_2, self.j_list_2) * sign_B
-                    + self.df_dot(boson_list, B_xi_3, xi_c_rgt_1, self.i_list_2, self.j_list_2)
-                    + self.df_dot(boson_list, B_xi_1, xi_c_rgt_3, self.i_list_2, self.j_list_2)
-                )
+            boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_1]
+            Ft[:, tau, self.boson_idx_list_1] = 2 * torch.real(
+                self.df_dot(boson_list, xi_n_lft_2, xi_c_rgt_2, self.i_list_1, self.j_list_1, is_group_1=True) * sign_B
+                + self.df_dot(boson_list, B_xi_2, xi_c_rgt_2, self.i_list_1, self.j_list_1, is_group_1=True)
+            )
 
-                boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_3]
-                Ft[:, tau, self.boson_idx_list_3] = 2 * torch.real(
-                    self.df_dot(boson_list, xi_n_lft_4, xi_c_rgt_0, self.i_list_3, self.j_list_3) * sign_B
-                    + self.df_dot(boson_list, xi_n_lft_0, xi_c_rgt_4, self.i_list_3, self.j_list_3) * sign_B
-                    + self.df_dot(boson_list, B_xi_4, xi_c_rgt_0, self.i_list_3, self.j_list_3)
-                    + self.df_dot(boson_list, B_xi_0, xi_c_rgt_4, self.i_list_3, self.j_list_3)
-                )
+            boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_2]
+            Ft[:, tau, self.boson_idx_list_2] = 2 * torch.real(
+                self.df_dot(boson_list, xi_n_lft_3, xi_c_rgt_1, self.i_list_2, self.j_list_2) * sign_B
+                + self.df_dot(boson_list, xi_n_lft_1, xi_c_rgt_3, self.i_list_2, self.j_list_2) * sign_B
+                + self.df_dot(boson_list, B_xi_3, xi_c_rgt_1, self.i_list_2, self.j_list_2)
+                + self.df_dot(boson_list, B_xi_1, xi_c_rgt_3, self.i_list_2, self.j_list_2)
+            )
 
-                boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_4]
-                Ft[:, tau, self.boson_idx_list_4] = 2 * torch.real(
-                    self.df_dot(boson_list, xi_n_lft_5, xi_c_rgt_m1, self.i_list_4, self.j_list_4) * sign_B
-                    + self.df_dot(boson_list, xi_n_lft_m1, xi_c_rgt_5, self.i_list_4, self.j_list_4) * sign_B
-                    + self.df_dot(boson_list, B_xi_5, xi_c_rgt_m1, self.i_list_4, self.j_list_4)
-                    + self.df_dot(boson_list, B_xi_m1, xi_c_rgt_5, self.i_list_4, self.j_list_4)
-                )
+            boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_3]
+            Ft[:, tau, self.boson_idx_list_3] = 2 * torch.real(
+                self.df_dot(boson_list, xi_n_lft_4, xi_c_rgt_0, self.i_list_3, self.j_list_3) * sign_B
+                + self.df_dot(boson_list, xi_n_lft_0, xi_c_rgt_4, self.i_list_3, self.j_list_3) * sign_B
+                + self.df_dot(boson_list, B_xi_4, xi_c_rgt_0, self.i_list_3, self.j_list_3)
+                + self.df_dot(boson_list, B_xi_0, xi_c_rgt_4, self.i_list_3, self.j_list_3)
+            )
 
-            # Ft = -Ft, neg from derivative inverse cancels neg dS/dx
-            Ft = Ft.view(self.bs, Ltau, Ly, Lx, 2).permute(0, 4, 3, 2, 1)
+            boson_list = boson[:, 2 * Vs * tau + self.boson_idx_list_4]
+            Ft[:, tau, self.boson_idx_list_4] = 2 * torch.real(
+                self.df_dot(boson_list, xi_n_lft_5, xi_c_rgt_m1, self.i_list_4, self.j_list_4) * sign_B
+                + self.df_dot(boson_list, xi_n_lft_m1, xi_c_rgt_5, self.i_list_4, self.j_list_4) * sign_B
+                + self.df_dot(boson_list, B_xi_5, xi_c_rgt_m1, self.i_list_4, self.j_list_4)
+                + self.df_dot(boson_list, B_xi_m1, xi_c_rgt_5, self.i_list_4, self.j_list_4)
+            )
 
-            xi_t = xi_t.view(self.bs, -1)
-
-            F_ts.append(Ft)
-            xi_ts.append(xi_t)
-
-        return tuple(F_ts), tuple(xi_ts)
+        # Ft = -Ft, neg from derivative inverse cancels neg dS/dx
+        Ft = Ft.view(self.bs, Ltau, Ly, Lx, 2).permute(0, 4, 3, 2, 1)
+        xi_t = xi_t.view(self.bs, -1)
+        return Ft, xi_t
+    
 
     def Ot_inv_psi(self, psi, MhM):
         # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
@@ -964,8 +959,8 @@ class HmcSampler(object):
         )
         psi_scipy = psi.cpu().numpy()
         
-        Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
-        # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=self.precon)[0]
+        # Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
+        Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=self.precon)[0]
         return torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
@@ -986,17 +981,10 @@ class HmcSampler(object):
             boson = boson.squeeze(0)
         boson = boson.permute([3, 2, 1, 0]).reshape(-1)
 
-
-        # Ot = torch.einsum('bij,bjk->bik', Mt.permute(0, 2, 1).conj(), Mt)
-        # L = torch.linalg.cholesky(Ot)
-        # Ot_inv = torch.cholesky_inverse(L)
-
-
         B1_list = B_list[0]
         B2_list = B_list[1]
         B3_list = B_list[2]
         B4_list = B_list[3]
-
 
         # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
         xi_t = self.Ot_inv_psi(psi, MhM)
@@ -1110,7 +1098,7 @@ class HmcSampler(object):
         M0, B_list = self.get_M_batch(x)
         psi_u = torch.einsum('brs,bs->br', M0.permute(0, 2, 1).conj(), R_u)
 
-        (force_f_u,), (xi_t_u,) = self.force_f_batch([psi_u], M0, x, B_list)
+        force_f_u, xi_t_u = self.force_f_batch([psi_u], M0, x, B_list)
 
         Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
@@ -1145,13 +1133,13 @@ class HmcSampler(object):
             fig, axs = plt.subplots(3, 2, figsize=(12, 7.5))  # Two rows, one column
 
             Hs = [H0[b_idx].item()]
-            # Ss = [(Sf0_u + Sf0_d + Sb0)[b_idx].item()]
+            # Ss = [(Sf0_u + Sb0)[b_idx].item()]
             Sbs = [Sb0[b_idx].item()]
             Sbs_integ = [Sb0[b_idx].item()]
-            Sfs = [Sf0_u[b_idx].item() + Sf0_d[b_idx].item()]
-            Sfs_integ = [Sf0_u[b_idx].item() + Sf0_d[b_idx].item()]
+            Sfs = [Sf0_u[b_idx].item()]
+            Sfs_integ = [Sf0_u[b_idx].item()]
             force_bs = [torch.linalg.norm((force_b_plaq + force_b_tau).reshape(self.bs, -1), dim=1)[b_idx].item()]
-            force_fs = [torch.linalg.norm((force_f_u + force_f_d).reshape(self.bs, -1), dim=1)[b_idx].item()]
+            force_fs = [torch.linalg.norm((force_f_u).reshape(self.bs, -1), dim=1)[b_idx].item()]
 
             # Setup for 1st subplot (Hs)
             line_Hs, = axs[0, 0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
@@ -1227,7 +1215,7 @@ class HmcSampler(object):
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
 
             Mt, B_list = self.get_M_batch(x)
-            (force_f_u,), (xi_t_u,) = self.force_f_batch([psi_u], Mt, x, B_list)
+            force_f_u, xi_t_u = self.force_f_batch([psi_u], Mt, x, B_list)
             p = p + dt/2 * (force_f_u)
 
             if self.debug_pde:
@@ -1345,10 +1333,10 @@ class HmcSampler(object):
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
         result = self.get_M_sparse(x)
-        M0, B_list = result[0], result[1]
+        MhM0, B_list, M0 = result[0], result[1], result[-1]
         psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
 
-        force_f_u, xi_t_u = self.force_f_sparse(psi_u, M0, x, B_list)
+        force_f_u, xi_t_u = self.force_f_sparse(psi_u, MhM0, x, B_list)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
@@ -1843,7 +1831,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 if __name__ == '__main__':
     J = float(os.getenv("J", '0.5'))
-    Nstep = int(os.getenv("Nstep", '5000'))
+    Nstep = int(os.getenv("Nstep", '6000'))
     print(f'J={J} \nNstep={Nstep}')
 
     hmc = HmcSampler(J=J, Nstep=Nstep)

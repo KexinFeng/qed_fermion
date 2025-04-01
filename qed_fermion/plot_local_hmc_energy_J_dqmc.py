@@ -40,7 +40,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     Stau_list_tau = []
 
     for J in Js:
-        hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_5000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_5000.pt"
+        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/cg_result_check2/ckpt/ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
         local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
         local_update_filename = ''
         
@@ -72,6 +72,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     # ====== Index ====== #
     hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
     end = int(hmc_match.group(1))
+    # end = 5000
     start = starts.pop(0)
     sample_step = sample_steps.pop(0)
     seq_idx = np.arange(start, end, sample_step)
@@ -90,8 +91,8 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # HMC
     ys = [Sb_plaq[seq_idx].mean().item() for Sb_plaq in Sb_plaq_list_hmc]  # [seq, bs]
-    yerr1 = [error_mean(init_convex_seq_estimator(Sb_plaq[seq_idx_init].numpy()) / np.sqrt(seq_idx_init.size)) * 1.00 for Sb_plaq in Sb_plaq_list_hmc]
-    # yerr1 = [std_root_n(Sb_plaq[seq_idx].numpy(), axis=0, lag_sum=50).mean() for Sb_plaq in Sb_plaq_list_hmc]
+    # yerr1 = [error_mean(init_convex_seq_estimator(Sb_plaq[seq_idx_init].numpy()) / np.sqrt(seq_idx_init.size)) * 1.00 for Sb_plaq in Sb_plaq_list_hmc]
+    yerr1 = [std_root_n(Sb_plaq[seq_idx].numpy(), axis=0, lag_sum=50).mean() for Sb_plaq in Sb_plaq_list_hmc]
     yerr2 = [t_based_error(Sb_plaq[seq_idx].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_hmc] 
     print(yerr1, '\n', yerr2)
     yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
@@ -164,8 +165,8 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     if local_update_filename != '':
         # Local
         ys = [Stau[seq_idx_local].mean().item() for Stau in Stau_list_local]  # [seq, bs]
-        yerr1 = [error_mean(init_convex_seq_estimator(Stau[seq_idx_local_init].numpy()) / np.sqrt(seq_idx_local_init.size)) * 1.00  for Stau in Stau_list_local]  
-        # yerr1 = [std_root_n(Stau[seq_idx_local].numpy(), axis=0, lag_sum=200).mean() for Stau in Stau_list_local]
+        # yerr1 = [error_mean(init_convex_seq_estimator(Stau[seq_idx_local_init].numpy()) / np.sqrt(seq_idx_local_init.size)) * 1.00  for Stau in Stau_list_local]  
+        yerr1 = [std_root_n(Stau[seq_idx_local].numpy(), axis=0, lag_sum=200).mean() for Stau in Stau_list_local]
         yerr2 = [t_based_error(Stau[seq_idx_local].mean(axis=0).numpy()) for Stau in Stau_list_local] 
         print(yerr1, '\n', yerr2)
         yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
