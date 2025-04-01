@@ -19,7 +19,7 @@ import scipy.sparse.linalg as splinalg
 
 import matlab.engine
 
-
+cg_dtype = torch.complex128
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J, Nstep, config)
@@ -51,7 +51,7 @@ class CgHmcSampler(HmcSampler):
         return torch.tensor(output, dtype=r.dtype, device=r.device)  
 
 
-    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, tol=1e-8, max_iter=100, b_idx=None, axs=None, dtype=torch.complex128):
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, tol=1e-8, max_iter=100, b_idx=None, axs=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -61,8 +61,8 @@ class CgHmcSampler(HmcSampler):
         :param max_iter: Maximum number of iterations
         :return: Solution vector x
         """
-        MhM = MhM.to(dtype)
-        b = b.to(dtype)
+        MhM = MhM.to(cg_dtype)
+        b = b.to(cg_dtype)
 
         # Initialize variables
         x = torch.zeros_like(b).view(-1, 1)

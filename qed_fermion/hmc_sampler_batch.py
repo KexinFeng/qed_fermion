@@ -63,9 +63,10 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-
         self.plt_rate = 1000
         self.ckp_rate = 5000
+        self.plt_cg = False
+        self.verbose_cg = False
 
         # Statistics
         self.N_step = Nstep
@@ -91,6 +92,7 @@ class HmcSampler(object):
 
         # CG
         self.cg_rtol = 1e-8
+        self.max_iter = 1000
         self.precon = None
 
         # Debug
@@ -111,9 +113,9 @@ class HmcSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         boson = boson.repeat(1 * self.Ltau, 1)
         pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.precon = self.get_precon_scipy(pi_flux_boson)
+        self.precon = self.get_precon_scipy(pi_flux_boson, output_scipy=False)
     
-    def get_precon_scipy(self, pi_flux_boson):
+    def get_precon_scipy(self, pi_flux_boson, output_scipy=True):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
         retrieved_values = M.values()
@@ -137,15 +139,102 @@ class HmcSampler(object):
         result_indices = torch.tensor(result_indices, dtype=torch.long, device=M.device).T - 1
         result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
 
-        # Create MhM_inv as a sparse_coo_tensor
-        MhM_inv = sp.csr_matrix(
-            (np.array(result_values.cpu()),
-             (np.array(result_indices[0].cpu()), np.array(result_indices[1].cpu()))),
-            shape=(M.size(0), M.size(1)),
-            dtype=np.complex128 if M.dtype == torch.complex128 else np.complex64
-        )
+        if output_scipy:
+            # Create MhM_inv as a sparse_coo_tensor
+            MhM_inv = sp.csr_matrix(
+                (np.array(result_values.cpu()),
+                (np.array(result_indices[0].cpu()), np.array(result_indices[1].cpu()))),
+                shape=(M.size(0), M.size(1)),
+                dtype=np.complex128 if M.dtype == torch.complex128 else np.complex64
+            )
+            return MhM_inv
+        else:
+            # Create MhM_inv as a sparse_coo_tensor
+            MhM_inv = torch.sparse_coo_tensor(
+                result_indices,
+                result_values,
+                (M.size(0), M.size(1)),
+                dtype=M.dtype,
+                device=M.device
+            ).coalesce()
+            return MhM_inv
+    
+    def preconditioned_cg_bs1(self, MhM, b, MhM_inv=None, matL=None, rtol=1e-8, max_iter=None, b_idx=None, axs=None, cg_dtype=torch.complex128):
+        """
+        Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
-        return MhM_inv
+        :param M: Sparse matrix M from get_M_sparse()
+        :param b: Right-hand side vector
+        :param tol: Tolerance for convergence
+        :param max_iter: Maximum number of iterations
+        :return: Solution vector x
+        """
+        dtype_init = MhM.dtype
+        MhM = MhM.to(cg_dtype)
+        b = b.to(cg_dtype)
+        if MhM_inv is not None:
+            MhM_inv = MhM_inv.to(cg_dtype)
+
+        # Initialize variables
+        x = torch.zeros_like(b).view(-1, 1)
+        r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
+        z = torch.sparse.mm(MhM_inv, r)
+        p = z
+        rz_old = torch.dot(r.conj().view(-1), z.view(-1)).real
+
+        errors = []
+        residuals = []
+
+        if self.plt_cg and axs is not None:
+            # Plot intermediate results
+            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
+            axs.set_ylabel('Residual Norm')
+            axs.set_yscale('log')
+            axs.legend()
+            axs.grid(True)
+            axs.set_title(f'{self.Lx}x{self.Ly}x{self.Ltau} Lattice b_idx={b_idx}')
+
+            plt.pause(0.01)  # Pause to update the plot
+
+        cnt = 0
+        for i in range(max_iter):
+            # Matrix-vector product with M'M
+            Op = torch.sparse.mm(MhM, p)
+            
+            alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
+            x += alpha * p
+            r -= alpha * Op
+
+            # Compute and store the error (norm of the residual)
+            error = torch.norm(r).item() / torch.norm(b).item()
+            errors.append(error)
+            residuals.append(error)
+
+            if self.plt_cg and axs is not None:
+                # Plot intermediate results
+                line_res[0].set_data(range(len(residuals)), residuals)
+                axs.relim()
+                axs.autoscale_view()
+                plt.pause(0.01)  # Pause to update the plot
+
+            # Check for convergence
+            if error < rtol:
+                if self.verbose_cg:
+                    print(f"Converged in {i+1} iterations.")
+                break
+
+            # Update the preconditioner
+            z = torch.sparse.mm(MhM_inv, r)
+            rz_new = torch.dot(r.conj().view(-1), z.view(-1)).real
+            beta = rz_new / rz_old
+            p = z + beta * p
+            rz_old = rz_new
+
+            cnt += 1
+
+        x = x.to(dtype_init)
+        return x, cnt, errors[-1]
+  
 
     def initialize_curl_mat(self):
         self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device=device, dtype=dtype)
@@ -851,20 +940,17 @@ class HmcSampler(object):
         """
         # assert boson.size(0) == 1
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1)
-        # psis = [psi.T for psi in psis]
 
-        # Ot = torch.einsum('bij,bjk->bik', Mt.permute(0, 2, 1).conj(), Mt)
-        # L = torch.linalg.cholesky(Ot)
-        # Ot_inv = torch.cholesky_inverse(L)
+        Ot = torch.einsum('bij,bjk->bik', Mt.permute(0, 2, 1).conj(), Mt)
+        L = torch.linalg.cholesky(Ot)
+        Ot_inv = torch.cholesky_inverse(L)
 
         B1_list = B_list[0]
         B2_list = B_list[1]
         B3_list = B_list[2]
         B4_list = B_list[3]
 
-        # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
-        MhM = torch.sparse.mm(Mt.T.conj(), Mt)  
-        xi_t = self.Ot_inv_psi(psi, MhM)
+        xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
 
         Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
         xi_t = xi_t.view(self.bs, Ltau, Ly * Lx)
@@ -950,18 +1036,27 @@ class HmcSampler(object):
         # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
         # return xi_t.view(-1)
               
-        # Convert MhM to a scipy sparse matrix
-        MhM_scipy_csr = sp.csr_matrix(
-            (MhM.values().cpu().numpy(),
-             (MhM.indices()[0].cpu().numpy(), MhM.indices()[1].cpu().numpy())),
-            shape=MhM.shape,
-            dtype=MhM.values().cpu().numpy().dtype
-        )
-        psi_scipy = psi.cpu().numpy()
-        
-        # Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
-        Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=self.precon)[0]
-        return torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
+        # # Convert MhM to a scipy sparse matrix
+        # MhM_scipy_csr = sp.csr_matrix(
+        #     (MhM.values().cpu().numpy(),
+        #      (MhM.indices()[0].cpu().numpy(), MhM.indices()[1].cpu().numpy())),
+        #     shape=MhM.shape,
+        #     dtype=MhM.values().cpu().numpy().dtype
+        # )
+        # psi_scipy = psi.cpu().numpy()
+
+        # precon = sp.csr_matrix(
+        #     (self.precon.values().cpu().numpy(),
+        #      (self.precon.indices()[0].cpu().numpy(), self.precon.indices()[1].cpu().numpy())),
+        #     shape=self.precon.shape,
+        #     dtype=self.precon.values().cpu().numpy().dtype
+        # )
+        # # Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
+        # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
+        # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
+
+        Ot_inv_psi, _, _ = self.preconditioned_cg_bs1(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon)
+        return Ot_inv_psi
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
         """
@@ -1098,7 +1193,7 @@ class HmcSampler(object):
         M0, B_list = self.get_M_batch(x)
         psi_u = torch.einsum('brs,bs->br', M0.permute(0, 2, 1).conj(), R_u)
 
-        force_f_u, xi_t_u = self.force_f_batch([psi_u], M0, x, B_list)
+        force_f_u, xi_t_u = self.force_f_batch(psi_u, M0, x, B_list)
 
         Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
@@ -1215,7 +1310,7 @@ class HmcSampler(object):
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
 
             Mt, B_list = self.get_M_batch(x)
-            force_f_u, xi_t_u = self.force_f_batch([psi_u], Mt, x, B_list)
+            force_f_u, xi_t_u = self.force_f_batch(psi_u, Mt, x, B_list)
             p = p + dt/2 * (force_f_u)
 
             if self.debug_pde:
