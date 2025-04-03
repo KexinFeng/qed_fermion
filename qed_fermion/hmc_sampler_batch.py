@@ -67,6 +67,7 @@ class HmcSampler(object):
         self.ckp_rate = 5000
         self.plt_cg = False
         self.verbose_cg = False
+        self.stream_write_rate = Nstep
 
         # Statistics
         self.N_step = Nstep
@@ -80,6 +81,9 @@ class HmcSampler(object):
         self.S_tau_list = torch.zeros(self.N_step, self.bs)
         self.Sf_list = torch.zeros(self.N_step, self.bs)
         self.H_list = torch.zeros(self.N_step, self.bs)
+
+        # boson_seq
+        self.boson_seq_buffer = torch.zeros(self.stream_write_rate, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
 
         # Leapfrog
         self.debug_pde = False
@@ -114,6 +118,46 @@ class HmcSampler(object):
         boson = boson.repeat(1 * self.Ltau, 1)
         pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
         self.precon = self.get_precon_scipy(pi_flux_boson, output_scipy=False)
+
+    def convert(self, boson):
+        # Transpose indices
+        Lx, Ly = self.Lx, self.Ly
+
+        xs = torch.arange(0, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
+        ys = torch.arange(0, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
+        d_i_list_1 = (xs + ys * Lx).view(-1)
+        d_i_list_3 = ((xs - 1)%Lx + ys * Lx).view(-1)
+        d_i_list_4 = (xs + (ys-1)%Ly * Lx).view(-1)
+        d_i_list_1 = d_i_list_1.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        d_i_list_3 = d_i_list_3.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        d_i_list_4 = d_i_list_4.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+
+        xs2 = torch.arange(1, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
+        ys2 = torch.arange(1, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
+        dd_i_list_1 = (xs2 + ys2 * Lx).view(-1)
+        dd_i_list_3 = ((xs2 - 1) % Lx + ys2 * Lx).view(-1)
+        dd_i_list_4 = (xs2 + (ys2-1)%Ly * Lx).view(-1)
+        dd_i_list_1 = dd_i_list_1.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        dd_i_list_3 = dd_i_list_3.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        dd_i_list_4 = dd_i_list_4.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        
+        intertwined_i_list_1 = torch.stack((d_i_list_1, dd_i_list_1), dim=0).T.flatten()
+        intertwined_i_list_3 = torch.stack((d_i_list_3, dd_i_list_3), dim=0).T.flatten()
+        intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).T.flatten()
+
+        # [2, Lx, Ly, Ltau]
+        result = []
+        for tau in range(self.Ltau):
+            # [2, Lx, Ly]
+            boson_x = boson[0, :, :, tau].T.flatten()
+            boson_y = boson[1, :, :, tau].T.flatten()
+            
+            result.append(boson_x[intertwined_i_list_1])
+            result.append(boson_y[intertwined_i_list_1])
+            result.append(-boson_x[intertwined_i_list_3])
+            result.append(-boson_y[intertwined_i_list_4])
+            
+        return torch.cat(result, dim=0).view(-1)
     
     def get_precon_scipy(self, pi_flux_boson, output_scipy=True):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
@@ -1469,10 +1513,10 @@ class HmcSampler(object):
             # Ss = [(Sf0_u + Sf0_d + Sb0)[b_idx].item()]
             Sbs = [Sb0[b_idx].item()]
             Sbs_integ = [Sb0[b_idx].item()]
-            Sfs = [Sf0_u[b_idx].item() + Sf0_d[b_idx].item()]
-            Sfs_integ = [Sf0_u[b_idx].item() + Sf0_d[b_idx].item()]
+            Sfs = [Sf0_u[b_idx].item()]
+            Sfs_integ = [Sf0_u[b_idx].item()]
             force_bs = [torch.linalg.norm((force_b_plaq + force_b_tau).reshape(self.bs, -1), dim=1)[b_idx].item()]
-            force_fs = [torch.linalg.norm((force_f_u + force_f_d).reshape(self.bs, -1), dim=1)[b_idx].item()]
+            force_fs = [torch.linalg.norm((force_f_u).reshape(self.bs, -1), dim=1)[b_idx].item()]
 
             # Setup for 1st subplot (Hs)
             line_Hs, = axs[0, 0].plot(Hs, marker='o', linestyle='-', color='b', label='H_s')
@@ -1675,6 +1719,7 @@ class HmcSampler(object):
 
         # Measure
         # fig = plt.figure()
+        cnt_stream_write = 0
         for i in tqdm(range(self.N_step)):
             boson, accp = self.metropolis_update()
             self.accp_list[i] = accp
@@ -1690,8 +1735,19 @@ class HmcSampler(object):
               + (1 - accp.view(-1).to(torch.float)) * self.S_tau_list[i-1]
             # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
+            self.boson_seq_buffer[cnt_stream_write] = self.convert(boson.squeeze(0))
+
             self.step += 1
             self.cur_step += 1
+            cnt_stream_write += 1
+
+            # stream writing
+            # if cnt_stream_write % self.stream_write_rate == 0:
+            #     data_folder = script_path + "/check_points/hmc_check_point/"
+            #     file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
+            #     self.save_to_file(self.boson_seq[:cnt_stream_write].cpu(), data_folder, file_name)  
+
+            #     cnt_stream_write = 0
             
             # plotting
             if i % self.plt_rate == 0 and i > 0:
@@ -1704,15 +1760,16 @@ class HmcSampler(object):
             # checkpointing
             if i % self.ckp_rate == 0 and i > 0:
                 res = {'boson': boson,
-                    'step': self.step,
-                    'G_list': self.G_list.cpu(),
-                    'S_plaq_list': self.S_plaq_list.cpu(),
-                    'S_tau_list': self.S_tau_list.cpu()}
+                        'step': self.step,
+                        'G_list': self.G_list.cpu(),
+                        'S_plaq_list': self.S_plaq_list.cpu(),
+                        'S_tau_list': self.S_tau_list.cpu()}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
-                self.save_to_file(res, data_folder, file_name)           
+                self.save_to_file(res, data_folder, file_name)  
 
+   
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
@@ -1723,7 +1780,12 @@ class HmcSampler(object):
         # Save to file
         data_folder = script_path + "/check_points/hmc_check_point/"
         file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
-        self.save_to_file(res, data_folder, file_name)           
+        self.save_to_file(res, data_folder, file_name)  
+
+        # Save stream data
+        data_folder = script_path + "/check_points/hmc_check_point/"
+        file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
+        self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
 
         return G_avg, G_std
 
