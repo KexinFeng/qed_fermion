@@ -2,6 +2,7 @@ import json
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import scipy.sparse as sp
 import torch
 from tqdm import tqdm
@@ -112,6 +113,32 @@ class HmcSampler(object):
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform()
 
+        # self.initialize_boson()
+        # # self.initialize_boson_staggered_pi()   
+        # self.boson[:] = 0
+        # self.boson[0, 0, 0, 0, 1] = 1.0
+
+        # self.boson_seq_buffer[0] = self.convert(self.boson.squeeze(0))
+        # data_folder = script_path + "/check_points/hmc_check_point/"
+        # file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
+        # self.save_to_file(self.boson_seq_buffer[:1].cpu(), data_folder, file_name) 
+
+        # # debug
+        # Stau = self.action_boson_tau_cmp(self.boson)/36 
+        # Splaq = self.action_boson_plaq(self.boson)/36
+        # data_folder = script_path + "/check_points/hmc_check_point/"
+        # file_name = "ener"
+        # results_dict = {"Stau": Stau.tolist(), "Splaq": Splaq.tolist()}
+        # self.save_to_file(results_dict, data_folder, file_name)
+
+        # # Save the results to a .csv file
+        # df = pd.DataFrame([results_dict])
+        # csv_file_path = data_folder + file_name + '.csv'
+        # df.to_csv(csv_file_path, index=False)
+        # print(f"-----> save to {csv_file_path}")
+
+        # exit(0)
+
     def reset_precon(self):
         curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
@@ -128,22 +155,22 @@ class HmcSampler(object):
         d_i_list_1 = (xs + ys * Lx).view(-1)
         d_i_list_3 = ((xs - 1)%Lx + ys * Lx).view(-1)
         d_i_list_4 = (xs + (ys-1)%Ly * Lx).view(-1)
-        d_i_list_1 = d_i_list_1.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
-        d_i_list_3 = d_i_list_3.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
-        d_i_list_4 = d_i_list_4.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        d_i_list_1 = d_i_list_1.view(Ly // 2, Lx // 2).T
+        d_i_list_3 = d_i_list_3.view(Ly // 2, Lx // 2).T
+        d_i_list_4 = d_i_list_4.view(Ly // 2, Lx // 2).T
 
         xs2 = torch.arange(1, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
         ys2 = torch.arange(1, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
         dd_i_list_1 = (xs2 + ys2 * Lx).view(-1)
         dd_i_list_3 = ((xs2 - 1) % Lx + ys2 * Lx).view(-1)
         dd_i_list_4 = (xs2 + (ys2-1)%Ly * Lx).view(-1)
-        dd_i_list_1 = dd_i_list_1.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
-        dd_i_list_3 = dd_i_list_3.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
-        dd_i_list_4 = dd_i_list_4.view(Ly // 2, Lx // 2).T.contiguous().view(-1)
+        dd_i_list_1 = dd_i_list_1.view(Ly // 2, Lx // 2).T
+        dd_i_list_3 = dd_i_list_3.view(Ly // 2, Lx // 2).T
+        dd_i_list_4 = dd_i_list_4.view(Ly // 2, Lx // 2).T
         
-        intertwined_i_list_1 = torch.stack((d_i_list_1, dd_i_list_1), dim=0).T.flatten()
-        intertwined_i_list_3 = torch.stack((d_i_list_3, dd_i_list_3), dim=0).T.flatten()
-        intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).T.flatten()
+        intertwined_i_list_1 = torch.stack((d_i_list_1, dd_i_list_1), dim=0).transpose(0, 1).flatten()
+        intertwined_i_list_3 = torch.stack((d_i_list_3, dd_i_list_3), dim=0).transpose(0, 1).flatten()
+        intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).transpose(0, 1).flatten()
 
         # [2, Lx, Ly, Ltau]
         result = []
@@ -1735,7 +1762,7 @@ class HmcSampler(object):
               + (1 - accp.view(-1).to(torch.float)) * self.S_tau_list[i-1]
             # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
-            self.boson_seq_buffer[cnt_stream_write] = self.convert(boson.squeeze(0))
+            self.boson_seq_buffer[cnt_stream_write] = boson.squeeze(0).flatten()
 
             self.step += 1
             self.cur_step += 1
@@ -1987,7 +2014,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 
 
 if __name__ == '__main__':
-    J = float(os.getenv("J", '0.5'))
+    J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
     print(f'J={J} \nNstep={Nstep}')
 

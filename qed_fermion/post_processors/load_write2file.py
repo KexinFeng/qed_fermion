@@ -75,7 +75,7 @@ def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_ste
 if __name__ == '__main__':
     Lx = 6
     Ltau = 10
-    Js = [0.5]
+    Js = [0.5, 1, 3]
     for J in Js:
         hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
         load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=hmc_filename, starts=[0], sample_steps=[1])
