@@ -12,7 +12,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../')
+sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler
@@ -57,11 +57,12 @@ def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_ste
         start = starts.pop(0)
         sample_step = sample_steps.pop(0)
         seq_idx = set(list(range(start, end, sample_step)))
-        seq_idx_init = np.arange(0, end, sample_step)
 
         # Write result to file
-        output_file_name = f'confin_all_confs_J_{jtau_value:.1g}_Lx_{Lx}_Ltau_{Ltau}'
-        output_path = os.path.join(script_path + '/check_points/hmc_check_point/', output_file_name)
+        # output_file_name = f'confin_all_confs_J_{jtau_value:.1g}_Lx_{Lx}_Ltau_{Ltau}'
+        # output_path = os.path.join(script_path + '/check_points/hmc_check_point/', output_file_name)
+
+        output_path = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{jtau_value:.1g}/confin_all_confs"
         with open(output_path, 'w') as f:
             for i, boson in enumerate(boson_seq):
                 if i not in seq_idx: continue
@@ -77,5 +78,5 @@ if __name__ == '__main__':
     Js = [0.5, 1, 3]
     for J in Js:
         hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=hmc_filename, starts=[2000], sample_steps=[1])
+        load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=hmc_filename, starts=[0], sample_steps=[1])
 
