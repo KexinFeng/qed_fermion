@@ -83,6 +83,8 @@ class HmcSampler(object):
         self.Sf_list = torch.zeros(self.N_step, self.bs)
         self.H_list = torch.zeros(self.N_step, self.bs)
 
+        self.cg_iter_list = torch.zeros(self.N_step, self.bs)
+
         # boson_seq
         self.boson_seq_buffer = torch.zeros(self.stream_write_rate, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
 
@@ -1126,8 +1128,8 @@ class HmcSampler(object):
         # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
         # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
 
-        Ot_inv_psi, _, _ = self.preconditioned_cg_bs1(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon)
-        return Ot_inv_psi
+        Ot_inv_psi, cnt, _ = self.preconditioned_cg_bs1(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon)
+        return Ot_inv_psi, cnt
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
         """
@@ -1153,7 +1155,7 @@ class HmcSampler(object):
         B4_list = B_list[3]
 
         # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
-        xi_t = self.Ot_inv_psi(psi, MhM)
+        xi_t, cg_converge_iter = self.Ot_inv_psi(psi, MhM)
 
         Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
         xi_t = xi_t.view(Ltau, Ly * Lx)
@@ -1229,7 +1231,7 @@ class HmcSampler(object):
         # Ft = -Ft, neg from derivative inverse cancels neg dS/dx
         Ft = Ft.view(Ltau, Ly, Lx, 2).permute(3, 2, 1, 0)
 
-        return Ft, xi_t.view(-1)
+        return Ft, xi_t.view(-1), cg_converge_iter
 
      
     def leapfrog_proposer4_cmptau(self):
@@ -1502,7 +1504,7 @@ class HmcSampler(object):
         MhM0, B_list, M0 = result[0], result[1], result[-1]
         psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
 
-        force_f_u, xi_t_u = self.force_f_sparse(psi_u, MhM0, x, B_list)
+        force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
@@ -1592,6 +1594,7 @@ class HmcSampler(object):
         # Multi-scale Leapfrog
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
 
+        cg_converge_iters = [cg_converge_iter]
         for leap in range(self.N_leapfrog):
 
             p = p + dt/2 * (force_f_u.unsqueeze(0))
@@ -1621,9 +1624,10 @@ class HmcSampler(object):
             result = self.get_M_sparse(x)
             MhM = result[0]
             B_list = result[1]
-            force_f_u, xi_t_u = self.force_f_sparse(psi_u, MhM, x, B_list)
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
             p = p + dt/2 * (force_f_u.unsqueeze(0))
 
+            cg_converge_iters.append(cg_converge_iter)
             if self.debug_pde:
                 Sf_u = torch.real(torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u))
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x)
@@ -1708,7 +1712,7 @@ class HmcSampler(object):
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
         torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-3)
 
-        return x, H0, H_fin
+        return x, H0, H_fin, sum(cg_converge_iters)/len(cg_converge_iters)
 
     def metropolis_update(self):
         """
@@ -1718,7 +1722,7 @@ class HmcSampler(object):
 
         :return: None
         """
-        boson_new, H_old, H_new = self.leapfrog_proposer5_cmptau()
+        boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
 
         # print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
         # print(f"threshold: {torch.exp(H_old - H_new).item()}")
@@ -1726,7 +1730,7 @@ class HmcSampler(object):
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
         # print(f'Accp?: {accp.item()}')
         self.boson[accp] = boson_new[accp]
-        return self.boson, accp
+        return self.boson, accp, cg_converge_iter
     
     # @torch.inference_mode()
     @torch.no_grad()
@@ -1748,7 +1752,7 @@ class HmcSampler(object):
         # fig = plt.figure()
         cnt_stream_write = 0
         for i in tqdm(range(self.N_step)):
-            boson, accp = self.metropolis_update()
+            boson, accp, cg_converge_iter = self.metropolis_update()
             self.accp_list[i] = accp
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
             self.G_list[i] = \
@@ -1761,6 +1765,8 @@ class HmcSampler(object):
                 accp.view(-1) * self.action_boson_tau_cmp(boson) \
               + (1 - accp.view(-1).to(torch.float)) * self.S_tau_list[i-1]
             # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
+
+            self.cg_iter_list[i] = cg_converge_iter
 
             self.boson_seq_buffer[cnt_stream_write] = boson.squeeze(0).flatten()
 
@@ -1829,7 +1835,7 @@ class HmcSampler(object):
         Visualize obsrv and accp in subplots.
         """
         # plt.figure()
-        fig, axes = plt.subplots(2, 2, figsize=(12, 7.5))
+        fig, axes = plt.subplots(3, 2, figsize=(12, 7.5))
         
         start = start_total_monitor  # to prevent from being out of scale due to init out-liers
         seq_idx = np.arange(start, self.cur_step, 1)
@@ -1857,6 +1863,12 @@ class HmcSampler(object):
         axes[1, 1].set_ylabel("$S_{tau}$")
         axes[1, 1].set_xlabel("Steps")
         axes[1, 1].legend()
+
+        # CG_converge_iter
+        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label='$CG_conv_iter$')
+        axes[2, 0].set_ylabel("$CG_converge_iter$")
+        axes[2, 0].set_xlabel("Steps")
+        axes[2, 0].legend()
 
         plt.tight_layout()
         # plt.show(block=False)
