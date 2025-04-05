@@ -5,6 +5,8 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
 
     % Create sparse matrix O from input indices and values
     M = sparse(O_indices(1, :), O_indices(2, :), O_values, Nx, Ny);
+    disp('After creating sparse matrix:');
+    print_memory_usage();
 
     O = M' * M;
 
@@ -14,9 +16,11 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
 
     % Incomplete Cholesky factorization for preconditioning
     % M_pc = ichol(O, struct('diagcomp', 0.0001));  % further reducing the diagcomp will incur zero pivot error
-    M_pc = ichol(O, struct('diagcomp', diagcomp));  % further reducing the diagcomp will incur zero pivot error
+    M_pc = ichol(O, struct('diagcomp', diagcomp));
+    disp('After incomplete Cholesky factorization:');
+    print_memory_usage();
     dd = diag(diag(M_pc));
-    
+
     % Check if a GPU is available
     if gpuDeviceCount > 0
         I = gpuArray(speye(Nx)); % Use GPU if available
@@ -35,6 +39,8 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
         M_temp = M_temp * M_itr;
         M_inv = M_inv + M_temp;
     end
+    disp('After Neumann series approximation:');
+    print_memory_usage();
 
     % ie. dd^-1 * L_inv
     M_inv = M_inv .* (1 ./ diag(dd));
@@ -77,4 +83,20 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     % % Assert that O_inv_indices and O_inv_values match their references
     % assert(isequal(O_inv_indices, O_inv_indices_ref), 'O_inv_indices does not match O_inv_indices_ref');
     % assert(isequal(O_inv_values, O_inv_values_ref), 'O_inv_values does not match O_inv_values_ref');
+    % Final memory usage
+    disp('Final memory usage:');
+    print_memory_usage();
+end
+
+function print_memory_usage()
+    if ispc
+        % For Windows systems
+        [~, mem] = memory;
+        disp(['Current memory usage: ', num2str(mem.MemUsedMATLAB / 1e6), ' MB']);
+        disp(['Peak memory usage: ', num2str(mem.PeakMemUsedMATLAB / 1e6), ' MB']);
+    else
+        % For macOS/Linux systems
+        [~, memInfo] = system('ps -o rss= -p $(pgrep MATLAB)');
+        disp(['Current memory usage: ', strtrim(memInfo), ' KB']);
+    end
 end
