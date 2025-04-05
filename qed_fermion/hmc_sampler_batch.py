@@ -32,11 +32,11 @@ start_total_monitor = 500
 start_load = 2000
 
 class HmcSampler(object):
-    def __init__(self, J=0.5, Nstep=3000, config=None):
+    def __init__(self, Lx=6, Ltau=10, J=0.5, Nstep=3000, config=None):
         # Dims
-        self.Lx = 6
-        self.Ly = 6
-        self.Ltau = 10
+        self.Lx = Lx
+        self.Ly = Lx
+        self.Ltau = Ltau
         self.bs = 1
         self.Vs = self.Lx * self.Ly * self.Ltau
 
@@ -78,10 +78,10 @@ class HmcSampler(object):
         self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1, device=device)
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
         self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
-        self.S_plaq_list = torch.zeros(self.N_step, self.bs)
-        self.S_tau_list = torch.zeros(self.N_step, self.bs)
-        self.Sf_list = torch.zeros(self.N_step, self.bs)
-        self.H_list = torch.zeros(self.N_step, self.bs)
+        self.S_plaq_list = torch.zeros(self.N_step, self.bs, device=device)
+        self.S_tau_list = torch.zeros(self.N_step, self.bs, device=device)
+        self.Sf_list = torch.zeros(self.N_step, self.bs, device=device)
+        self.H_list = torch.zeros(self.N_step, self.bs, device=device)
 
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
 
@@ -98,7 +98,7 @@ class HmcSampler(object):
         self.N_leapfrog = 6
 
         # CG
-        self.cg_rtol = 1e-8
+        self.cg_rtol = 1e-7
         self.max_iter = 1000
         self.precon = None
 
@@ -1702,7 +1702,7 @@ class HmcSampler(object):
         # Final energies
         # Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
         Sf_fin_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1)).view(-1)
-        torch.testing.assert_close(torch.imag(Sf_fin_u).cpu(), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
+        torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
@@ -1796,7 +1796,8 @@ class HmcSampler(object):
                         'step': self.step,
                         'G_list': self.G_list.cpu(),
                         'S_plaq_list': self.S_plaq_list.cpu(),
-                        'S_tau_list': self.S_tau_list.cpu()}
+                        'S_tau_list': self.S_tau_list.cpu(),
+                        'cg_iter_list': self.cg_iter_list}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
@@ -1808,7 +1809,8 @@ class HmcSampler(object):
                'step': self.step,
                'G_list': self.G_list.cpu(),
                'S_plaq_list': self.S_plaq_list.cpu(),
-               'S_tau_list': self.S_tau_list.cpu()}
+               'S_tau_list': self.S_tau_list.cpu(),
+               'cg_iter_list': self.cg_iter_list}
 
         # Save to file
         data_folder = script_path + "/check_points/hmc_check_point/"
@@ -2028,9 +2030,11 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifi
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
+    Lx = int(os.getenv("Lx", '10'))
+    Ltau = int(os.getenv("Ltau", '400'))
     print(f'J={J} \nNstep={Nstep}')
 
-    hmc = HmcSampler(J=J, Nstep=Nstep)
+    hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
     # Measure
     G_avg, G_std = hmc.measure()
