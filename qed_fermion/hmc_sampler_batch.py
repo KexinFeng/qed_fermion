@@ -150,10 +150,10 @@ class HmcSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         boson = boson.repeat(1 * self.Ltau, 1)
         pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.precon = self.get_precon_scipy(pi_flux_boson, output_scipy=False)
+        self.precon = self.get_precon(pi_flux_boson, output_scipy=False)
 
 
-    def get_precon_scipy(self, pi_flux_boson, output_scipy=True):
+    def get_precon(self, pi_flux_boson, output_scipy=True):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
         retrieved_values = M.values()

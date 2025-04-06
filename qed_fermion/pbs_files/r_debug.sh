@@ -1,9 +1,9 @@
 mkdir -p report
 
 J_array=$(echo '1')
-L_array=$(echo '6')
+L_array=$(echo '10')
 
-Nstep=5000
+Nstep=6000
 for L in $L_array; do
         #
         for J in $J_array; do
@@ -13,9 +13,9 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config}_hmc \
-                --time=0-0:30:00 \
+                --time=0-0:10:00 \
                 --qos=debug \
-                --mem-per-cpu=12G \
+                --mem-per-cpu=10G \
                 s_hmc.cmd
         done
 done
