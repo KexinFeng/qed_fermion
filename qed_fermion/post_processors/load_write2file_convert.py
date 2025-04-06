@@ -76,10 +76,10 @@ def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_ste
 def convert(sizes, boson):
     # Transpose indices
     Lx, Ly, Ltau = sizes
-    boson = boson.view(2, Lx, Ly, Ltau)
+    device = boson.device
 
-    xs = torch.arange(0, Lx, 2, dtype=torch.int64).unsqueeze(0)
-    ys = torch.arange(0, Ly, 2, dtype=torch.int64).unsqueeze(1)
+    xs = torch.arange(0, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
+    ys = torch.arange(0, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
     d_i_list_1 = (xs + ys * Lx).view(-1)
     d_i_list_3 = ((xs - 1)%Lx + ys * Lx).view(-1)
     d_i_list_4 = (xs + (ys-1)%Ly * Lx).view(-1)
@@ -87,8 +87,8 @@ def convert(sizes, boson):
     d_i_list_3 = d_i_list_3.view(Ly // 2, Lx // 2).T
     d_i_list_4 = d_i_list_4.view(Ly // 2, Lx // 2).T
 
-    xs2 = torch.arange(1, Lx, 2, dtype=torch.int64).unsqueeze(0)
-    ys2 = torch.arange(1, Ly, 2, dtype=torch.int64).unsqueeze(1)
+    xs2 = torch.arange(1, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
+    ys2 = torch.arange(1, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
     dd_i_list_1 = (xs2 + ys2 * Lx).view(-1)
     dd_i_list_3 = ((xs2 - 1) % Lx + ys2 * Lx).view(-1)
     dd_i_list_4 = (xs2 + (ys2-1)%Ly * Lx).view(-1)
@@ -99,10 +99,6 @@ def convert(sizes, boson):
     intertwined_i_list_1 = torch.stack((d_i_list_1, dd_i_list_1), dim=0).transpose(0, 1).flatten()
     intertwined_i_list_3 = torch.stack((d_i_list_3, dd_i_list_3), dim=0).transpose(0, 1).flatten()
     intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).transpose(0, 1).flatten()
-
-    # intertwined_i_list_1 = torch.stack((d_i_list_1, dd_i_list_1), dim=0).T.flatten()
-    # intertwined_i_list_3 = torch.stack((d_i_list_3, dd_i_list_3), dim=0).T.flatten()
-    # intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).T.flatten()
 
     # [2, Lx, Ly, Ltau]
     result = []

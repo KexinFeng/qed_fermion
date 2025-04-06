@@ -23,10 +23,12 @@ from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"device: {device}")
 
-dtype = torch.float64
-cdtype = torch.complex128
+dtype = torch.float32
+cdtype = torch.complex64
+cg_dtype = torch.complex64
 print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
+print(f"cg_cdtype: {cg_dtype}")
 
 start_total_monitor = 0
 start_load = 2000
@@ -148,46 +150,7 @@ class HmcSampler(object):
         pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
         self.precon = self.get_precon_scipy(pi_flux_boson, output_scipy=False)
 
-    def convert(self, boson):
-        # Transpose indices
-        Lx, Ly = self.Lx, self.Ly
 
-        xs = torch.arange(0, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
-        ys = torch.arange(0, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
-        d_i_list_1 = (xs + ys * Lx).view(-1)
-        d_i_list_3 = ((xs - 1)%Lx + ys * Lx).view(-1)
-        d_i_list_4 = (xs + (ys-1)%Ly * Lx).view(-1)
-        d_i_list_1 = d_i_list_1.view(Ly // 2, Lx // 2).T
-        d_i_list_3 = d_i_list_3.view(Ly // 2, Lx // 2).T
-        d_i_list_4 = d_i_list_4.view(Ly // 2, Lx // 2).T
-
-        xs2 = torch.arange(1, Lx, 2, device=device, dtype=torch.int64).unsqueeze(0)
-        ys2 = torch.arange(1, Ly, 2, device=device, dtype=torch.int64).unsqueeze(1)
-        dd_i_list_1 = (xs2 + ys2 * Lx).view(-1)
-        dd_i_list_3 = ((xs2 - 1) % Lx + ys2 * Lx).view(-1)
-        dd_i_list_4 = (xs2 + (ys2-1)%Ly * Lx).view(-1)
-        dd_i_list_1 = dd_i_list_1.view(Ly // 2, Lx // 2).T
-        dd_i_list_3 = dd_i_list_3.view(Ly // 2, Lx // 2).T
-        dd_i_list_4 = dd_i_list_4.view(Ly // 2, Lx // 2).T
-        
-        intertwined_i_list_1 = torch.stack((d_i_list_1, dd_i_list_1), dim=0).transpose(0, 1).flatten()
-        intertwined_i_list_3 = torch.stack((d_i_list_3, dd_i_list_3), dim=0).transpose(0, 1).flatten()
-        intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).transpose(0, 1).flatten()
-
-        # [2, Lx, Ly, Ltau]
-        result = []
-        for tau in range(self.Ltau):
-            # [2, Lx, Ly]
-            boson_x = boson[0, :, :, tau].T.flatten()
-            boson_y = boson[1, :, :, tau].T.flatten()
-            
-            result.append(boson_x[intertwined_i_list_1])
-            result.append(boson_y[intertwined_i_list_1])
-            result.append(-boson_x[intertwined_i_list_3])
-            result.append(-boson_y[intertwined_i_list_4])
-            
-        return torch.cat(result, dim=0).view(-1)
-    
     def get_precon_scipy(self, pi_flux_boson, output_scipy=True):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
@@ -1128,7 +1091,7 @@ class HmcSampler(object):
         # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
         # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
 
-        Ot_inv_psi, cnt, _ = self.preconditioned_cg_bs1(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon)
+        Ot_inv_psi, cnt, _ = self.preconditioned_cg_bs1(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
         return Ot_inv_psi, cnt
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
