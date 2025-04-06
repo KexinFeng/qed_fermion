@@ -96,8 +96,10 @@ class HmcSampler(object):
         # self.m = 1/2
 
         self.delta_t = 0.05
+        # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
 
-        self.N_leapfrog = 6
+        # self.N_leapfrog = 6 # already oscilates back
+        self.N_leapfrog = 4
 
         # CG
         self.cg_rtol = 1e-7
@@ -1497,6 +1499,8 @@ class HmcSampler(object):
             # print(f"p**2={torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)}")
 
             b_idx = 0
+            if len(Sf0_u.shape) < 1:
+                Sf0_u = Sf0_u.view(-1)
 
             # Initialize plot
             fig, axs = plt.subplots(3, 2, figsize=(12, 7.5))  # Two rows, one column
@@ -1592,7 +1596,13 @@ class HmcSampler(object):
 
             cg_converge_iters.append(cg_converge_iter)
             if self.debug_pde:
-                Sf_u = torch.real(torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u))
+                # Sf_u = torch.real(torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u))
+                Sf_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1)).view(-1)
+                torch.testing.assert_close(torch.imag(Sf_u), torch.zeros_like(torch.real(Sf_u)), atol=5e-3, rtol=1e-4)
+                Sf_u = torch.real(Sf_u)
+                if len(Sf0_u.shape) < 1:
+                    Sf0_u = Sf0_u.view(-1)
+
                 Sb_t = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x)
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
                 H_t += Sf_u
@@ -1846,7 +1856,8 @@ class HmcSampler(object):
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
-def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, specifics='', plot_anal=True):
+def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, 
+                                       specifics='', plot_anal=True):
     """
     Visualize green functions with error bar
     """
@@ -1994,8 +2005,9 @@ if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
     Lx = int(os.getenv("Lx", '10'))
-    Ltau = int(os.getenv("Ltau", '400'))
-    print(f'J={J} \nNstep={Nstep}')
+    Ltau = int(os.getenv("Ltau", '40'))
+
+    print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
 
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
