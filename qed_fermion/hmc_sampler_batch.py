@@ -71,6 +71,7 @@ class HmcSampler(object):
         self.plt_cg = False
         self.verbose_cg = False
         self.stream_write_rate = Nstep
+        self.memory_check_rate = 100
 
         # Statistics
         self.N_step = Nstep
