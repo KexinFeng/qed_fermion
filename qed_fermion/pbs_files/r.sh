@@ -4,8 +4,8 @@ mkdir -p report
 J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
 L_array=$(echo '6 8 10 12')
 
-J_array=$(echo '1.0')
-L_array=$(echo '12 16')
+J_array=$(echo '1.0 3.5')
+L_array=$(echo '16')
 
 Nstep=6000
 for L in $L_array; do
@@ -19,7 +19,7 @@ for L in $L_array; do
                 sbatch --job-name=${config}_hmc \
                 --time=0-24:00:00 \
                 --qos=gpu \
-                --mem-per-cpu=12G \
+                --mem-per-cpu=50G \
                 s_hmc.cmd
         done
 done

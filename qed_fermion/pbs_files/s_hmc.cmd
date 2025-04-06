@@ -3,7 +3,7 @@
 #SBATCH --mail-user=fengx463@hku.hk     #    Email address to receive notification
 #SBATCH --partition=l40s
 #SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --output=./report/%x_%j.out            # 8. Standard output log as $job_name_$job_id.out
