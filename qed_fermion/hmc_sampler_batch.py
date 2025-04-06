@@ -1721,6 +1721,8 @@ class HmcSampler(object):
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
         self.reset_precon()
 
+        torch.cuda.reset_peak_memory_stats()
+
         # Measure
         # fig = plt.figure()
         cnt_stream_write = 0
@@ -1747,6 +1749,7 @@ class HmcSampler(object):
             self.cur_step += 1
             cnt_stream_write += 1
 
+            # ================ stats =============== #
             # stream writing
             # if cnt_stream_write % self.stream_write_rate == 0:
             #     data_folder = script_path + "/check_points/hmc_check_point/"
@@ -1754,7 +1757,14 @@ class HmcSampler(object):
             #     self.save_to_file(self.boson_seq[:cnt_stream_write].cpu(), data_folder, file_name)  
 
             #     cnt_stream_write = 0
-            
+
+            if i % self.memory_check_rate == 0 and i > 0:
+                # Check memory usage
+                mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
+                max_mem_usage = torch.cuda.max_memory_allocated() / (1024 ** 2)
+                print(f"Memory usage at step {i}: {mem_usage:.2f} MB")
+                print(f"Max memory usage: {max_mem_usage:.2f} MB")
+
             # plotting
             if i % self.plt_rate == 0 and i > 0:
                 plt.pause(0.1)
