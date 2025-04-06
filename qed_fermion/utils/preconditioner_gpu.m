@@ -22,10 +22,17 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
     dd = diag(diag(M_pc));
 
     % Check if a GPU is available
-    I = speye(Nx); % Use CPU otherwise
-    M_itr = sparse(I - M_pc / dd);
-    M_temp = I;
-    M_inv = I;
+    if gpuDeviceCount > 0
+        I = gpuArray(speye(Nx)); % Use GPU if available
+        M_itr = gpuArray(sparse(I - M_pc / dd));
+        M_temp = gpuArray(I);
+        M_inv = gpuArray(I);
+    else
+        I = speye(Nx); % Use CPU otherwise
+        M_itr = sparse(I - M_pc / dd);
+        M_temp = I;
+        M_inv = I;
+    end
 
     % Neumann series approximation for matrix inverse
     for i = 1:iter
@@ -56,6 +63,11 @@ function [O_inv_indices, O_inv_values] = preconditioner(O_indices, O_values, Nx,
 
     % % Assert that O_inv is equal to O_inv_ref
     % assert(isequal(O_inv, O_inv_ref), 'O_inv does not match O_inv_ref');
+
+    % Gather data from GPU if computed on GPU
+    % if gpuDeviceCount > 0
+    %     O_inv = gather(O_inv);
+    % end
 
     % Extract indices and values for COO sparse storage
     % [row, col, val] = find(O_inv);
