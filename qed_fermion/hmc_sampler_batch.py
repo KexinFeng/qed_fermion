@@ -30,7 +30,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 0
+start_total_monitor = 500
 start_load = 2000
 
 class HmcSampler(object):
@@ -66,8 +66,8 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 5
-        self.ckp_rate = 5000
+        self.plt_rate = 1000
+        self.ckp_rate = 2000
         self.plt_cg = False
         self.verbose_cg = False
         self.stream_write_rate = Nstep
@@ -2004,11 +2004,13 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("Lx", '10'))
-    Ltau = int(os.getenv("Ltau", '40'))
+    Lx = int(os.getenv("L", '10'))
+    # Ltau = int(os.getenv("Ltau", '400'))
+    # print(f'J={J} \nNstep={Nstep}')
+
+    Ltau = 4*Lx * 5 # dtau=0.2
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
-
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
     # Measure
