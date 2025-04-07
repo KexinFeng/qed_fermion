@@ -156,13 +156,14 @@ class HmcSampler(object):
         if os.path.exists(file_path):          
             # Load preconditioner from file
             precon_dict = torch.load(file_path)
-            self.precon = torch.sparse_coo_tensor(
-                precon_dict["indices"],
+            self.precon = torch.sparse_csr_tensor(
+                precon_dict["indices"][0],
+                precon_dict["indices"][1],
                 precon_dict["values"],
-                precon_dict["size"],
+                size=precon_dict["size"],
                 dtype=cdtype,
                 device=device
-            ).coalesce()
+            )
             print(f"Loaded preconditioner from {file_path}")
         else:
             print(f"Preconditioner file {file_path} does not exist. \nComputing the preconditioner.....")
