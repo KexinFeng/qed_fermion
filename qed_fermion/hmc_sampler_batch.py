@@ -26,10 +26,10 @@ print(f"device: {device}")
 
 dtype = torch.float64
 cdtype = torch.complex128
-# cg_dtype = torch.complex128
+cg_dtype = torch.complex128
 print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
-# print(f"cg_cdtype: {cg_dtype}")
+print(f"cg_cdtype: {cg_dtype}")
 
 start_total_monitor = 500
 start_load = 2000
@@ -48,7 +48,7 @@ class HmcSampler(object):
         # J = 0.5  # 0.5, 1, 3
         # self.dtau = 2/(J*self.Nf)
 
-        self.dtau = 0.2
+        self.dtau = 0.1
         scale = self.dtau  
         # Lagrangian * dtau
         self.J = J / scale * self.Nf / 4
@@ -162,7 +162,7 @@ class HmcSampler(object):
                 boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
                 boson = boson.repeat(1 * self.Ltau, 1)
                 pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-                self.precon = self.get_precon(pi_flux_boson, output_scipy=False)
+                self.precon = self.get_precon(pi_flux_boson)
 
                 # Save preconditioner to file
                 precon_dict = {
@@ -188,7 +188,7 @@ class HmcSampler(object):
             print(f"Loaded preconditioner from {file_path}")
 
 
-    def get_precon(self, pi_flux_boson, output_scipy=True):
+    def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
         retrieved_values = M.values()
