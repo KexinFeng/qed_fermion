@@ -175,7 +175,8 @@ class HmcSampler(object):
                 return precon_dict
             
             precon_dict = embedded_func()
-            # exit(0)
+            exit(0)
+            
         else:
             # Load preconditioner from file
             precon_dict = torch.load(file_path)

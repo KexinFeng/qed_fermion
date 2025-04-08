@@ -367,7 +367,6 @@ if __name__ == '__main__':
     # L = 10
 
     Ls = [4, 6, 8, 10, 12, 14, 16] + [18, 20, 22, 24]
-    Ls = [4]
 
     mean_conv_steps = []
     mean_condition_nums = []
