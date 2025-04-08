@@ -26,10 +26,10 @@ print(f"device: {device}")
 
 dtype = torch.float64
 cdtype = torch.complex128
-cg_dtype = torch.complex128
+# cg_dtype = torch.complex128
 print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
-print(f"cg_cdtype: {cg_dtype}")
+# print(f"cg_cdtype: {cg_dtype}")
 
 start_total_monitor = 500
 start_load = 2000

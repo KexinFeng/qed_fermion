@@ -19,10 +19,12 @@ import scipy.sparse.linalg as splinalg
 
 import matlab.engine
 
-cg_dtype = torch.complex128
+cg_dtype = torch.complex64
+print(f"cg_cdtype: {cg_dtype}")
+
 class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
-        super().__init__(J, Nstep, config)
+        super().__init__(J=J, Nstep=Nstep, config=config)
         self.plt_cg = True
         self.plt_pattern = False
     
@@ -255,8 +257,8 @@ class CgHmcSampler(HmcSampler):
         self.boson = torch.cat([self.boson, pi_flux_boson], dim=0)
 
         # Generate new bosons centered around pi_flux_boson with varying sigma
-        # sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
-        sigmas = torch.linspace(0.5 * 3.14, 1*3.14, bs-1, device=self.boson.device)
+        sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
+        # sigmas = torch.linspace(0.5 * 3.14, 1*3.14, bs-1, device=self.boson.device)
         new_bosons = torch.stack([
             pi_flux_boson.squeeze(0) + torch.randn_like(pi_flux_boson.squeeze(0)) * sigma
             for sigma in sigmas
@@ -269,7 +271,8 @@ class CgHmcSampler(HmcSampler):
         # Get preconditioner
         matL = None
         # matL, _ = self.get_ichol(pi_flux_boson)
-        precon = self.get_precon(pi_flux_boson)
+        # precon = self.get_precon(pi_flux_boson)
+        precon = self.precon
         # # Calculate and print the sparsity of the preconditioner
         # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
         # print(f"Sparsity of the preconditioner: {precon_sparsity:.6f}")
@@ -369,11 +372,113 @@ class CgHmcSampler(HmcSampler):
         mean_sig_min = sum(sig_min_values) / len(sig_min_values) if sig_min_values else None
 
         return mean_conv_steps, mean_sparsity, mean_condition_num, condition_numbers, mean_sig_max, mean_sig_min, sig_max_values, sig_min_values, residual_errors
+    
+
+    def benchmark_converge(self, bs=5):
+        """
+        Benchmark the preconditioned CG solver.
+
+        :param bs: Batch size
+        :param device: Device to run the benchmark on ('cpu' or 'cuda')
+        """
+        # Fix the random seed for reproducibility
+        torch.manual_seed(25)
+
+        # Generate random boson field with uniform randomness across all dimensions
+        self.boson = (torch.rand(bs, 2, self.Lx, self.Ly, self.Ltau, device=self.boson.device) - 0.5) * torch.linspace(0.5 * 3.14, 2 * 3.14, bs, device=self.boson.device).reshape(-1, 1, 1, 1, 1)
+
+        # Pi flux
+        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+        boson = boson.repeat(1 * self.Ltau, 1)
+        pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+        self.boson = torch.cat([self.boson, pi_flux_boson], dim=0)
+
+        # Generate new bosons centered around pi_flux_boson with varying sigma
+        sigmas = torch.linspace(0.1 * 3.14/2, 1*3.14/2, bs-1, device=self.boson.device)
+        # sigmas = torch.linspace(0.5 * 3.14, 1*3.14, bs-1, device=self.boson.device)
+        new_bosons = torch.stack([
+            pi_flux_boson.squeeze(0) + torch.randn_like(pi_flux_boson.squeeze(0)) * sigma
+            for sigma in sigmas
+        ])
+        self.boson = torch.cat([self.boson, new_bosons], dim=0)
+
+        # Initialize right-hand side vector b
+        b = self.draw_psudo_fermion().squeeze(0)
+
+        # Get preconditioner
+        precon = self.get_precon(pi_flux_boson)
+
+        # Benchmark preconditioned CG for each boson in the batch
+        convergence_steps = []
+        convergence_steps_precon = []
+        condition_numbers = []
+        sig_max_values = []
+        sig_min_values = []
+        blk_sparsities = []
+        residual_errors = []
+        residual_errors_precon = []
+        for i in range(bs*2):
+            if not i in list(range(bs, bs*2)): 
+                continue
+            print(f"L: {self.Lx}, Ltau: {self.Ltau}, index i: {i}")
+
+            boson = self.boson[i]
+            MhM, _, blk_sparsity, M = self.get_M_sparse(boson)
+            # self.visual(MhM)
+            # self.save_plot(f"MhM_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf")
+            MhM_sparsity = 1 - (MhM._nnz() / (MhM.size(0) * MhM.size(1)))
+            print(f"Sparsity of MhM: {MhM_sparsity:.6f}")
+
+            # Check if M'M is correct
+            if self.Ltau < 20:
+                M_ref, _ = self.get_M(boson.unsqueeze(0))
+                torch.testing.assert_close(M_ref.T.conj() @ M_ref, MhM.to_dense(), rtol=1e-5, atol=1e-5)
+            
+            if i == 1 and self.plt_pattern:
+                M_dense = M.to_dense().cpu().numpy()
+                plt.figure(figsize=(10, 10))
+                plt.spy(M_dense, markersize=0.5)
+                plt.title("Sparsity Pattern of M")
+                plt.xlabel("Columns")
+                plt.ylabel("Rows")
+                plt.show()
+
+            # # Compute condition number            
+            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-3)
+            print(f"Approximate condition number of M'@M: {cond_number_approx}")
+            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
+            condition_numbers.append(float(cond_number_approx))
+            sig_max_values.append(float(sig_max))
+            sig_min_values.append(float(sig_min))
+
+            blk_sparsities.append(blk_sparsity)
+
+            # Test cg and preconditioned_cg
+            fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
+
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg_bs1(MhM, b, rtol=1e-7, max_iter=2000, b_idx=i, matL=None, MhM_inv=precon, axs=axs)
+            _, conv_step, r_err = self.accp_listpreconditioned_cg_bs1(MhM, b, rtol=1e-7, max_iter=2000, b_idx=i, MhM_inv=None, axs=axs)            
+
+            convergence_steps.append(conv_step)
+            convergence_steps_precon.append(conv_step_precon)
+            residual_errors.append(r_err)
+            residual_errors_precon.append(r_err_precon)
+
+            self.save_plot(f"convergence_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf")
+
+        mean_conv_steps = sum(convergence_steps) / len(convergence_steps) if convergence_steps else None
+        mean_condition_num = sum(condition_numbers) / len(condition_numbers) if condition_numbers else None
+        mean_sparsity = sum(blk_sparsities) / len(blk_sparsities) if blk_sparsities else None
+        mean_sig_max = sum(sig_max_values) / len(sig_max_values) if sig_max_values else None
+        mean_sig_min = sum(sig_min_values) / len(sig_min_values) if sig_min_values else None
+
+        return mean_conv_steps, mean_sparsity, mean_condition_num, condition_numbers, mean_sig_max, mean_sig_min, sig_max_values, sig_min_values, residual_errors
 
     def save_plot(self, file_name):
         script_path = os.path.dirname(os.path.abspath(__file__))
         class_name = __file__.split('/')[-1].replace('.py', '')
-        save_dir = os.path.join(script_path, f"./figures/{class_name}")
+        save_dir = os.path.join(script_path, f"./figures_cg/{class_name}")
         os.makedirs(save_dir, exist_ok=True)
         file_path = os.path.join(save_dir, file_name)
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -390,25 +495,36 @@ class CgHmcSampler(HmcSampler):
         plt.show()  
 
 if __name__ == '__main__':
-    sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
-    sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
-    sampler.bs = 1
-    cg_bs = 4
+    # Ltau_values = [10, 20, 50, 100, 200, 400, 600]
+    # Ltau_values = [200]
+    # L = 10
 
-    Ltau_values = [10, 20, 50, 100, 200, 400, 600]
-    # Ltau_values = [200, 400, 600]
-    Ltau_values = [200]
+    Ls = [4, 6, 8, 10, 12, 14, 16]
+    Ls = [10]
+
     mean_conv_steps = []
     mean_condition_nums = []
     mean_sparsities = []
 
-    for Ltau in Ltau_values:
-        sampler.Ltau = Ltau
+    for L in Ls:
+        sampler = CgHmcSampler(J=0.5, Nstep=3000, config=None)
+        sampler.Lx, sampler.Ly = L, L    # initial test: Lx=Ly=6, Ltau=10
+        sampler.bs = 1
+        benchmark_bs = 4 
+        sampler.Ltau = L*4*5
+
+        sampler.Lx, sampler.Ly = 10, 10   # initial test: Lx=Ly=6, Ltau=10
+        sampler.bs = 1
+        benchmark_bs = 4 
+        sampler.Ltau = 200
+
+
         sampler.reset()
+        sampler.reset_precon()
         print(f"Start Ltau={sampler.Ltau}... ")
 
         start_time = time.time()
-        results = sampler.benchmark(bs=cg_bs)
+        results = sampler.benchmark(bs=benchmark_bs)
         end_time = time.time()
         execution_time = end_time - start_time
 
@@ -441,10 +557,10 @@ if __name__ == '__main__':
         # Save the results to a .py file
         script_path = os.path.dirname(os.path.abspath(__file__))
         class_name = __file__.split('/')[-1].replace('.py', '')
-        save_dir = os.path.join(script_path, f"./results/{class_name}")
+        save_dir = os.path.join(script_path, f"./results_cg/{class_name}")
         os.makedirs(save_dir, exist_ok=True)
 
-        torch_file_path = os.path.join(save_dir, f"Ltau_{sampler.Ltau}_results.pt")
+        torch_file_path = os.path.join(save_dir, f"L_{sampler.L}_results.pt")
         torch.save(results_dict, torch_file_path)
         print(f"Results saved to: {torch_file_path}")
 
@@ -461,7 +577,7 @@ if __name__ == '__main__':
 
         print('\n')
 
-    print("Ltau values:", Ltau_values)
+    print("L values:", L)
     print("Mean convergence steps:", mean_conv_steps)
     print("Mean condition numbers:", mean_condition_nums)
     print("Mean sparsities:", mean_sparsities)
