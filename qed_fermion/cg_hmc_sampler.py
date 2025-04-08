@@ -273,7 +273,8 @@ class CgHmcSampler(HmcSampler):
         blk_sparsities = []
         residual_errors = []
         residual_errors_precon = []
-        for i in range(bs*2):
+        # for i in range(bs*2):
+        for i in reversed(range(bs*2)):
             if not i in list(range(bs, 2*bs)): 
                 continue
 
@@ -322,8 +323,8 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
-            _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-14, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-14, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
 
             convergence_steps.append(conv_step)
             convergence_steps_precon.append(conv_step_precon)
@@ -366,6 +367,7 @@ if __name__ == '__main__':
     # L = 10
 
     Ls = [4, 6, 8, 10, 12, 14, 16] + [18, 20, 22, 24]
+    Ls = [4]
 
     mean_conv_steps = []
     mean_condition_nums = []

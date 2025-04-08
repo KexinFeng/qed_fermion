@@ -153,7 +153,7 @@ class HmcSampler(object):
         file_name = f"precon_ckpt_L_{self.Lx}_Ltau_{self.Ltau}_dtau_{self.dtau}_t_{self.t}"
         file_path = os.path.join(data_folder, file_name + ".pt")
 
-        precon_dict = {}
+        precon_dict = None
         if not os.path.exists(file_path): 
             @time_execution     
             def embedded_func():    
@@ -172,8 +172,9 @@ class HmcSampler(object):
                     "size": self.precon.size()
                 }
                 self.save_to_file(precon_dict, data_folder, file_name)
+                return precon_dict
             
-            embedded_func()
+            precon_dict = embedded_func()
             # exit(0)
         else:
             # Load preconditioner from file
