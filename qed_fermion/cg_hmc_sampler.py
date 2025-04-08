@@ -365,7 +365,7 @@ if __name__ == '__main__':
     # Ltau_values = [200]
     # L = 10
 
-    Ls = [4, 6, 8, 10, 12, 14, 16]
+    Ls = [4, 6, 8, 10, 12, 14, 16] + [18, 20, 22, 24]
 
     mean_conv_steps = []
     mean_condition_nums = []
@@ -380,7 +380,7 @@ if __name__ == '__main__':
 
         sampler.reset()
         sampler.reset_precon()
-        print(f"Start Ltau={sampler.Ltau}... ")
+        print(f"Start L={L}, Ltau={sampler.Ltau}... ")
 
         start_time = time.time()
         results = sampler.benchmark(bs=benchmark_bs)

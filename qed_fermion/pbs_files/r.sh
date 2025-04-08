@@ -5,24 +5,25 @@ J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
 L_array=$(echo '6 8 10 12')
 
 J_array=$(echo '1.0 3.5')
-L_array=$(echo '16')
+L_array=$(echo '12 16')
 
-Nstep=6000
-for L in $L_array; do
-        #
-        for J in $J_array; do
-                #
-                config=$(echo hmc_J_${J}_L_${L}_Nstep_${Nstep})
-                echo $config
-                export J Nstep L
-                #
-                sbatch --job-name=${config}_hmc \
-                --time=0-24:00:00 \
-                --qos=gpu \
-                --mem-per-cpu=50G \
-                s_hmc.cmd
-        done
-done
+# Nstep=6000
+# for L in $L_array; do
+#         #
+#         for J in $J_array; do
+#                 #
+#                 config=$(echo hmc_J_${J}_L_${L}_Nstep_${Nstep})
+#                 echo $config
+#                 export J Nstep L
+#                 #
+#                 sbatch --job-name=${config}_hmc \
+#                 --time=0-24:00:00 \
+#                 --qos=gpu \
+#                 --mem-per-cpu=50G \
+#                 s_hmc.cmd
+#         done
+# done
+
 # Nstep=100
 # bs=5
 # Ltau=200
@@ -41,8 +42,8 @@ done
 
 # qos=normal
 
-# sbatch --job-name=cond_num \
-#         --time=0-20:00:00 \
-#         --qos=gpu \
-#         --mem-per-cpu=10G \
-#         s_cg.cmd
+sbatch --job-name=cg_convergence \
+        --time=0-24:00:00 \
+        --qos=normal \
+        --mem=180G \
+        s_cg.cmd
