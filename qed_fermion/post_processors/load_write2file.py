@@ -1,5 +1,3 @@
-import json
-import math
 import re
 import matplotlib.pyplot as plt
 plt.ion()
@@ -9,14 +7,9 @@ from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
 import os
 script_path = os.path.dirname(os.path.abspath(__file__))
-
 import torch
 import sys
 sys.path.insert(0, script_path + '/../../')
-
-from qed_fermion.hmc_sampler_batch import HmcSampler
-from qed_fermion.local_sampler_batch import LocalUpdateSampler
-from qed_fermion.utils.stat import t_based_error, std_root_n, init_convex_seq_estimator, error_mean
 import time
 
 

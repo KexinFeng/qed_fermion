@@ -9,16 +9,16 @@ from tqdm import tqdm
 import sys
 import os
 import matlab.engine
-
 # matplotlib.use('MacOSX')
 plt.ion()
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
-
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.utils.coupling_mat3 import initialize_coupling_mat3, initialize_curl_mat
+from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
+from qed_fermion.post_processors.load_write2file_convert import time_execution
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cpu')
@@ -146,14 +146,35 @@ class HmcSampler(object):
         # print(f"-----> save to {csv_file_path}")
 
         # exit(0)
-
+    
     def reset_precon(self):
         # Check if preconditioner file exists
         data_folder = script_path + "/preconditioners/"
         file_name = f"precon_ckpt_L_{self.Lx}_Ltau_{self.Ltau}_dtau_{self.dtau}_t_{self.t}"
         file_path = os.path.join(data_folder, file_name + ".pt")
 
-        if os.path.exists(file_path):          
+        if not os.path.exists(file_path): 
+            @time_execution     
+            def embedded_func():    
+                print(f"Preconditioner file {file_path} does not exist. \nComputing the preconditioner.....")
+                # Compute preconditioner if not exists
+                curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+                boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+                boson = boson.repeat(1 * self.Ltau, 1)
+                pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+                self.precon = self.get_precon(pi_flux_boson, output_scipy=False)
+
+                # Save preconditioner to file
+                precon_dict = {
+                    "indices": self.precon.indices(),
+                    "values": self.precon.values(),
+                    "size": self.precon.size()
+                }
+                self.save_to_file(precon_dict, data_folder, file_name)
+            
+            embedded_func()
+            exit(0)
+        else:
             # Load preconditioner from file
             precon_dict = torch.load(file_path)
             self.precon = torch.sparse_csr_tensor(
@@ -165,24 +186,6 @@ class HmcSampler(object):
                 device=device
             )
             print(f"Loaded preconditioner from {file_path}")
-        else:
-            print(f"Preconditioner file {file_path} does not exist. \nComputing the preconditioner.....")
-            # Compute preconditioner if not exists
-            curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
-            boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-            boson = boson.repeat(1 * self.Ltau, 1)
-            pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-            self.precon = self.get_precon(pi_flux_boson, output_scipy=False)
-
-            # Save preconditioner to file
-            precon_dict = {
-                "indices": self.precon.indices(),
-                "values": self.precon.values(),
-                "size": self.precon.size()
-            }
-            self.save_to_file(precon_dict, data_folder, file_name)
-            
-            exit(0)
 
 
     def get_precon(self, pi_flux_boson, output_scipy=True):
@@ -1753,6 +1756,7 @@ class HmcSampler(object):
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
         self.reset_precon()
 
+
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
 
@@ -2047,7 +2051,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '4'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
