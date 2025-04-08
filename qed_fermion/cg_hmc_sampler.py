@@ -165,41 +165,6 @@ class CgHmcSampler(HmcSampler):
 
         return sigma_max / max(sigma_min, 1e-12), sigma_max, max(sigma_min, 1e-12)
 
-
-    # def get_precon(self, pi_flux_boson):
-    #     MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
-    #     retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
-    #     retrieved_values = M.values()
-
-    #     # Pass indices and values to MATLAB
-    #     matlab_function_path = '/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/utils/'
-    #     eng = matlab.engine.start_matlab()
-    #     eng.addpath(matlab_function_path)
-
-    #     # Convert indices and values directly to MATLAB format
-    #     matlab_indices = matlab.double(retrieved_indices.cpu().tolist())
-    #     matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
-
-    #     # Call MATLAB function
-    #     result_indices, result_values = eng.preconditioner(
-    #         matlab_indices, matlab_values, M.size(0), M.size(1), nargout=2
-    #     )
-    #     eng.quit()
-
-    #     # Convert MATLAB results directly to PyTorch tensors
-    #     result_indices = torch.tensor(result_indices, dtype=torch.long, device=M.device).T - 1
-    #     result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
-
-    #     # Create MhM_inv as a sparse_coo_tensor
-    #     MhM_inv = torch.sparse_coo_tensor(
-    #         result_indices,
-    #         result_values,
-    #         (M.size(0), M.size(1)),
-    #         dtype=M.dtype,
-    #         device=M.device
-    #     ).coalesce()
-
-    #     return MhM_inv
     
     def get_ichol(self, pi_flux_boson):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
@@ -269,9 +234,11 @@ class CgHmcSampler(HmcSampler):
         b = self.draw_psudo_fermion().squeeze(0)
 
         # Get preconditioner
-        matL = None
+        # matL = None
         # matL, _ = self.get_ichol(pi_flux_boson)
-        precon = self.get_precon(pi_flux_boson)
+        # precon = self.get_precon(pi_flux_boson)
+        precon = self.precon
+        # precon = None
         # precon = self.precon
         # # Calculate and print the sparsity of the preconditioner
         # precon_sparsity = 1 - (precon._nnz() / (precon.size(0) * precon.size(1)))
@@ -307,12 +274,12 @@ class CgHmcSampler(HmcSampler):
         residual_errors = []
         residual_errors_precon = []
         for i in range(bs*2):
-            if not i in [5]: 
+            if not i in list(range(bs, 2*bs)): 
                 continue
 
             boson = self.boson[i]
             # O ~ L*L' -> O_inv ~ L'^-1 * L^-1 
-            # matL = None
+            matL = None
             # matL, _ = self.get_ichol(boson)
             # self.visual(matL) 
             # self.save_plot(f"matL_{self.Lx}x{self.Ly}x{self.Ltau}_b_idx={i}.pdf") 
@@ -344,20 +311,19 @@ class CgHmcSampler(HmcSampler):
                 plt.show()
 
             # # Compute condition number            
-            cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-3)
-            print(f"Approximate condition number of M'@M: {cond_number_approx}")
-            print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
-
-            condition_numbers.append(float(cond_number_approx))
-            sig_max_values.append(float(sig_max))
-            sig_min_values.append(float(sig_min))
+            # cond_number_approx, sig_max, sig_min = self.estimate_condition_number(MhM, tol=1e-3)
+            # print(f"Approximate condition number of M'@M: {cond_number_approx}")
+            # print(f"Sigma max: {sig_max}, Sigma min: {sig_min}")
+            # condition_numbers.append(float(cond_number_approx))
+            # sig_max_values.append(float(sig_max))
+            # sig_min_values.append(float(sig_min))
 
             blk_sparsities.append(blk_sparsity)
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-3, max_iter=2000, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
-            _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-3, max_iter=2000, b_idx=i, MhM_inv=None, axs=axs)            
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
 
             convergence_steps.append(conv_step)
             convergence_steps_precon.append(conv_step_precon)
@@ -400,7 +366,6 @@ if __name__ == '__main__':
     # L = 10
 
     Ls = [4, 6, 8, 10, 12, 14, 16]
-    Ls = [10]
 
     mean_conv_steps = []
     mean_condition_nums = []
@@ -411,16 +376,10 @@ if __name__ == '__main__':
         sampler.Lx, sampler.Ly = L, L    # initial test: Lx=Ly=6, Ltau=10
         sampler.bs = 1
         benchmark_bs = 4 
-        sampler.Ltau = L*4*5
-
-        sampler.Lx, sampler.Ly = 10, 10   # initial test: Lx=Ly=6, Ltau=10
-        sampler.bs = 1
-        benchmark_bs = 4 
-        sampler.Ltau = 10
-
+        sampler.Ltau = L*4*10 # dtau=0.1
 
         sampler.reset()
-        # sampler.reset_precon()
+        sampler.reset_precon()
         print(f"Start Ltau={sampler.Ltau}... ")
 
         start_time = time.time()
@@ -457,10 +416,10 @@ if __name__ == '__main__':
         # Save the results to a .py file
         script_path = os.path.dirname(os.path.abspath(__file__))
         class_name = __file__.split('/')[-1].replace('.py', '')
-        save_dir = os.path.join(script_path, f"./results_cg/{class_name}")
+        save_dir = os.path.join(script_path, f"./results_cg")
         os.makedirs(save_dir, exist_ok=True)
 
-        torch_file_path = os.path.join(save_dir, f"Lx_{sampler.Lx}_Ltau_{sampler.Ltau}_results.pt")
+        torch_file_path = os.path.join(save_dir, f"cg_Lx_{sampler.Lx}_Ltau_{sampler.Ltau}_dtau_{sampler.dtau}.pt")
         torch.save(results_dict, torch_file_path)
         print(f"Results saved to: {torch_file_path}")
 

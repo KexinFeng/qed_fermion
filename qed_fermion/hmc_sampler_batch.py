@@ -153,6 +153,7 @@ class HmcSampler(object):
         file_name = f"precon_ckpt_L_{self.Lx}_Ltau_{self.Ltau}_dtau_{self.dtau}_t_{self.t}"
         file_path = os.path.join(data_folder, file_name + ".pt")
 
+        precon_dict = {}
         if not os.path.exists(file_path): 
             @time_execution     
             def embedded_func():    
@@ -173,20 +174,26 @@ class HmcSampler(object):
                 self.save_to_file(precon_dict, data_folder, file_name)
             
             embedded_func()
-            exit(0)
+            # exit(0)
         else:
             # Load preconditioner from file
             precon_dict = torch.load(file_path)
-            self.precon = torch.sparse_csr_tensor(
-                precon_dict["indices"][0],
-                precon_dict["indices"][1],
-                precon_dict["values"],
-                size=precon_dict["size"],
-                dtype=cdtype,
-                device=device
-            )
             print(f"Loaded preconditioner from {file_path}")
-
+            # self.precon = torch.sparse_csr_tensor(
+            #     precon_dict["indices"][0],
+            #     precon_dict["indices"][1],
+            #     precon_dict["values"],
+            #     size=precon_dict["size"],
+            #     dtype=cdtype,
+            #     device=device
+            # )
+        self.precon = torch.sparse_coo_tensor(
+            precon_dict["indices"],
+            precon_dict["values"],
+            size=precon_dict["size"],
+            dtype=cdtype,
+            device=device
+        ).coalesce().to_sparse_csr()
 
     def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
@@ -2055,7 +2062,7 @@ if __name__ == '__main__':
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
-    Ltau = 4*Lx * 5 # dtau=0.2
+    Ltau = 4*Lx * 10 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
