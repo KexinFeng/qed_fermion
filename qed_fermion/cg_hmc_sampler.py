@@ -249,15 +249,15 @@ class CgHmcSampler(HmcSampler):
         # self.visual(matL) 
 
 
-        # # Visualize the sparsity pattern of the preconditioner
-        # if precon is not None and self.plt_pattern:
-        #     precon_dense = precon.to_dense().cpu().numpy()
-        #     plt.figure(figsize=(10, 10))
-        #     plt.spy(precon_dense, markersize=0.5)
-        #     plt.title("Sparsity Pattern of Preconditioner")
-        #     plt.xlabel("Columns")
-        #     plt.ylabel("Rows")
-        #     plt.show()
+        # Visualize the sparsity pattern of the preconditioner
+        if precon is not None and self.plt_pattern:
+            precon_dense = precon.to_dense().cpu().numpy()
+            plt.figure(figsize=(8, 8))
+            plt.spy(precon_dense, markersize=0.5)
+            plt.title("Sparsity Pattern of Preconditioner")
+            plt.xlabel("Columns")
+            plt.ylabel("Rows")
+            plt.show()
 
         #     # condition number
         #     cond_number_approx, sig_max, sig_min = self.estimate_condition_number(precon, tol=1e-3)
@@ -323,10 +323,10 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-14, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
-            _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-14, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
 
-            convergence_steps.append(conv_step)
+            # convergence_steps.append(conv_step)
             convergence_steps_precon.append(conv_step_precon)
             residual_errors.append(r_err)
             residual_errors_precon.append(r_err_precon)
