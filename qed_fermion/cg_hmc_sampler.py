@@ -26,7 +26,7 @@ class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J=J, Nstep=Nstep, config=config)
         self.plt_cg = True
-        self.plt_pattern = False
+        self.plt_pattern = True
        
     # Approximate the condition number
     @staticmethod
