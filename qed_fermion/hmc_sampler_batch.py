@@ -169,9 +169,9 @@ class HmcSampler(object):
 
                 # Save preconditioner to file
                 precon_dict = {
-                    "indices": self.precon.indices(),
-                    "values": self.precon.values(),
-                    "size": self.precon.size()
+                    "indices": self.precon.indices().cpu(),
+                    "values": self.precon.values().cpu(),
+                    "size": self.precon.size().cpu()
                 }
                 self.save_to_file(precon_dict, data_folder, file_name)
                 return precon_dict
@@ -196,14 +196,14 @@ class HmcSampler(object):
         band_width1 = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
         band_width2 = (torch.tensor([-1, -2, -3, -4, -5], device=device, dtype=torch.int64) + self.Ltau) * self.Vs
         band_width = torch.cat([band_width1, band_width2])
-        dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs()
+        dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs().to(device)
         # Filter entries whose dist is in band_width
         mask = torch.isin(dist, band_width)
 
         print(f"mask_sum= {mask.sum().item()}, active precon entries: {len(precon_dict['values'])}")
 
-        filtered_indices = precon_dict['indices'][:, mask]
-        filtered_values = precon_dict['values'][mask]
+        filtered_indices = precon_dict['indices'].to(device)[:, mask]
+        filtered_values = precon_dict['values'].to(device)[mask]
 
         # Create a new sparse tensor with the filtered entries
         filtered_precon = torch.sparse_coo_tensor(
