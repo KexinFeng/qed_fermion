@@ -26,7 +26,7 @@ class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J=J, Nstep=Nstep, config=config)
         self.plt_cg = True
-        self.plt_pattern = True
+        self.plt_pattern = False
     
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
@@ -275,7 +275,7 @@ class CgHmcSampler(HmcSampler):
         residual_errors_precon = []
         # for i in range(bs*2):
         for i in reversed(range(bs*2)):
-            if not i in list(range(bs, 2*bs)): 
+            if not i in [4, 6]: 
                 continue
 
             boson = self.boson[i]
@@ -323,7 +323,7 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg_bs1(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
             _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
 
             # convergence_steps.append(conv_step)
@@ -367,7 +367,7 @@ if __name__ == '__main__':
     # L = 10
 
     Ls = [4, 6, 8, 10, 12, 14, 16] + [18, 20, 22, 24]
-    Ls = [4]
+    Ls = [10]
 
     mean_conv_steps = []
     mean_condition_nums = []
@@ -379,6 +379,11 @@ if __name__ == '__main__':
         sampler.bs = 1
         benchmark_bs = 4 
         sampler.Ltau = L*4*10 # dtau=0.1
+
+        # sampler.Lx, sampler.Ly = 10, 10    # initial test: Lx=Ly=6, Ltau=10
+        # sampler.bs = 1
+        # benchmark_bs = 4 
+        # sampler.Ltau = 20 # dtau=0.1
 
         sampler.reset()
         sampler.reset_precon()

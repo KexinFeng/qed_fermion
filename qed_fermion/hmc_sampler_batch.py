@@ -31,7 +31,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 500
+start_total_monitor = 0
 start_load = 2000
 
 class HmcSampler(object):
@@ -41,7 +41,7 @@ class HmcSampler(object):
         self.Ly = Lx
         self.Ltau = Ltau
         self.bs = 1
-        self.Vs = self.Lx * self.Ly * self.Ltau
+        self.Vs = self.Lx * self.Ly
 
         # Couplings
         self.Nf = 2
@@ -67,7 +67,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 1000
+        self.plt_rate = 1
         self.ckp_rate = 2000
         self.plt_cg = False
         self.verbose_cg = False
@@ -115,7 +115,7 @@ class HmcSampler(object):
         self.reset()
     
     def reset(self):
-        self.Vs = self.Lx * self.Ly * self.Ltau
+        self.Vs = self.Lx * self.Ly
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
@@ -190,32 +190,35 @@ class HmcSampler(object):
             #     device=device
             # )
             
-        # precon = torch.sparse_coo_tensor(
-        #     precon_dict["indices"],
-        #     precon_dict["values"],
-        #     size=precon_dict["size"],
-        #     dtype=cdtype,
-        #     device=device
-        # ).coalesce().to_sparse_csr()
-
-        # Filter precon
-        band_width = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
-        dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs()
-        # Filter entries whose dist is in band_width
-        mask = torch.isin(dist, band_width)
-        filtered_indices = precon_dict['indices'][:, mask]
-        filtered_values = precon_dict['values'][mask]
-
-        # Create a new sparse tensor with the filtered entries
-        filtered_precon = torch.sparse_coo_tensor(
-            filtered_indices,
-            filtered_values,
+        self.precon = torch.sparse_coo_tensor(
+            precon_dict["indices"],
+            precon_dict["values"],
             size=precon_dict["size"],
             dtype=cdtype,
             device=device
-        ).coalesce()
+        ).coalesce().to_sparse_csr()
 
-        self.precon = filtered_precon.to_sparse_csr()
+        # # Filter precon
+        # band_width = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
+        # dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs()
+        # # Filter entries whose dist is in band_width
+        # mask = torch.isin(dist, band_width)
+
+        # print(f"mask_sum= {mask.sum().item()}, active precon entries: {len(precon_dict['values'])}")
+
+        # filtered_indices = precon_dict['indices'][:, mask]
+        # filtered_values = precon_dict['values'][mask]
+
+        # # Create a new sparse tensor with the filtered entries
+        # filtered_precon = torch.sparse_coo_tensor(
+        #     filtered_indices,
+        #     filtered_values,
+        #     size=precon_dict["size"],
+        #     dtype=cdtype,
+        #     device=device
+        # ).coalesce()
+
+        # self.precon = filtered_precon.to_sparse_csr()
 
     def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
@@ -1916,8 +1919,8 @@ class HmcSampler(object):
         axes[1, 1].legend()
 
         # CG_converge_iter
-        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label='$CG_conv_iter$')
-        axes[2, 0].set_ylabel("$CG_converge_iter$")
+        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+        axes[2, 0].set_ylabel("CG_converge_iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
 
@@ -2080,7 +2083,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '10'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
