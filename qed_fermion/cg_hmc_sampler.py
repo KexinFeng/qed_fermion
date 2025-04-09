@@ -27,115 +27,7 @@ class CgHmcSampler(HmcSampler):
         super().__init__(J=J, Nstep=Nstep, config=config)
         self.plt_cg = True
         self.plt_pattern = False
-    
-    @staticmethod
-    def apply_preconditioner(r, MhM_inv=None, matL=None):
-        if MhM_inv is None and matL is None:
-            return r
-        if MhM_inv is not None:
-            MhM_inv = MhM_inv.to(r.dtype)
-            return torch.sparse.mm(MhM_inv, r)
-        
-        matL = matL.to(r.dtype)
-        # Apply incomplete Cholesky preconditioner via SpSV solver
-        # Convert sparse tensor to scipy sparse matrix
-        matL_scipy = sp.csr_matrix((matL.values().cpu().numpy(),
-                    (matL.indices()[0].cpu().numpy(),
-                        matL.indices()[1].cpu().numpy())),
-                    shape=matL.shape, dtype=matL.values().cpu().numpy().dtype)
-        r_numpy = r.cpu().numpy()
-
-        # Solve using scipy's sparse triangular solver
-        tmp = splinalg.spsolve_triangular(matL_scipy, r_numpy, lower=True)
-        output = splinalg.spsolve_triangular(matL_scipy.T.conj(), tmp, lower=False)
-        
-        # Convert back to torch tensor
-        return torch.tensor(output, dtype=r.dtype, device=r.device)  
-
-
-    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, rtol=1e-8, max_iter=100, b_idx=None, axs=None):
-        """
-        Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
-
-        :param M: Sparse matrix M from get_M_sparse()
-        :param b: Right-hand side vector
-        :param tol: Tolerance for convergence
-        :param max_iter: Maximum number of iterations
-        :return: Solution vector x
-        """
-        MhM = MhM.to(cg_dtype)
-        b = b.to(cg_dtype)
-
-        # Initialize variables
-        x = torch.zeros_like(b).view(-1, 1)
-        r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
-        # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
-        z = self.apply_preconditioner(r, MhM_inv, matL)
-        p = z
-        rz_old = torch.dot(r.conj().view(-1), z.view(-1)).real
-
-        errors = []
-        residuals = []
-
-        if self.plt_cg and axs is not None:
-            # Plot intermediate results
-            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
-            axs.set_ylabel('Residual Norm')
-            axs.set_yscale('log')
-            axs.legend()
-            axs.grid(True)
-            axs.set_title(f'{self.Lx}x{self.Ly}x{self.Ltau} Lattice b_idx={b_idx}')
-
-            plt.pause(0.01)  # Pause to update the plot
-
-        cnt = 0
-        for i in range(max_iter):
-            # Matrix-vector product with M'M
-            Op = torch.sparse.mm(MhM, p)
-            
-            alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
-            x += alpha * p
-            r -= alpha * Op
-
-            # Compute and store the error (norm of the residual)
-            error = torch.norm(r).item() / torch.norm(b).item()
-            errors.append(error)
-            residuals.append(error)
-
-            if self.plt_cg and axs is not None:
-                # Plot intermediate results
-                line_res[0].set_data(range(len(residuals)), residuals)
-                axs.relim()
-                axs.autoscale_view()
-                plt.pause(0.01)  # Pause to update the plot
-
-            # Check for convergence
-            if error < rtol:
-                print(f"Converged in {i+1} iterations.")
-                break
-
-            # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to r
-            z = self.apply_preconditioner(r, MhM_inv, matL)
-            rz_new = torch.dot(r.conj().view(-1), z.view(-1)).real
-            beta = rz_new / rz_old
-            p = z + beta * p
-            rz_old = rz_new
-
-            cnt += 1
-
-        # if self.plt_cg and axs is not None:
-        #     # Save the plot
-        #     script_path = os.path.dirname(os.path.abspath(__file__))
-        #     class_name = __file__.split('/')[-1].replace('.py', '')
-        #     method_name = "preconditioned_cg"
-        #     save_dir = os.path.join(script_path, f"./figures/{class_name}")
-        #     os.makedirs(save_dir, exist_ok=True)
-        #     file_path = os.path.join(save_dir, f"{method_name}_convergence.pdf")
-        #     plt.savefig(file_path, format="pdf", bbox_inches="tight")
-        #     print(f"Figure saved at: {file_path}")
-
-        return x, cnt, errors[-1]
-    
+       
     # Approximate the condition number
     @staticmethod
     def estimate_condition_number(A, tol=1e-6):
@@ -323,7 +215,7 @@ class CgHmcSampler(HmcSampler):
 
             # Test cg and preconditioned_cg
             fig, axs = plt.subplots(1, figsize=(12, 7.5))  # Two rows, one column
-            _, conv_step_precon, r_err_precon = self.preconditioned_cg_bs1(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
+            _, conv_step_precon, r_err_precon = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, matL=matL, MhM_inv=precon, axs=axs)
             _, conv_step, r_err = self.preconditioned_cg(MhM, b, rtol=1e-7, max_iter=200, b_idx=i, MhM_inv=None, axs=axs)            
 
             # convergence_steps.append(conv_step)

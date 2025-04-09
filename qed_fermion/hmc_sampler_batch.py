@@ -11,6 +11,8 @@ import os
 import matlab.engine
 # matplotlib.use('MacOSX')
 plt.ion()
+import scipy.sparse as sp
+import scipy.sparse.linalg as splinalg
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
 script_path = os.path.dirname(os.path.abspath(__file__))
@@ -264,7 +266,32 @@ class HmcSampler(object):
             ).coalesce()
             return MhM_inv
     
-    def preconditioned_cg_bs1(self, MhM, b, MhM_inv=None, matL=None, rtol=1e-8, max_iter=None, b_idx=None, axs=None, cg_dtype=torch.complex128):
+    @staticmethod
+    def apply_preconditioner(r, MhM_inv=None, matL=None):
+        if MhM_inv is None and matL is None:
+            return r
+        if MhM_inv is not None:
+            MhM_inv = MhM_inv.to(r.dtype)
+            return torch.sparse.mm(MhM_inv, r)
+        
+        matL = matL.to(r.dtype)
+        # Apply incomplete Cholesky preconditioner via SpSV solver
+        # Convert sparse tensor to scipy sparse matrix
+        matL_scipy = sp.csr_matrix((matL.values().cpu().numpy(),
+                    (matL.indices()[0].cpu().numpy(),
+                        matL.indices()[1].cpu().numpy())),
+                    shape=matL.shape, dtype=matL.values().cpu().numpy().dtype)
+        r_numpy = r.cpu().numpy()
+
+        # Solve using scipy's sparse triangular solver
+        tmp = splinalg.spsolve_triangular(matL_scipy, r_numpy, lower=True)
+        output = splinalg.spsolve_triangular(matL_scipy.T.conj(), tmp, lower=False)
+        
+        # Convert back to torch tensor
+        return torch.tensor(output, dtype=r.dtype, device=r.device)  
+
+
+    def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, rtol=1e-8, max_iter=100, b_idx=None, axs=None, cg_dtype=torch.complex64):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -283,7 +310,8 @@ class HmcSampler(object):
         # Initialize variables
         x = torch.zeros_like(b).view(-1, 1)
         r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
-        z = torch.sparse.mm(MhM_inv, r)
+        # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
+        z = self.apply_preconditioner(r, MhM_inv, matL)
         p = z
         rz_old = torch.dot(r.conj().view(-1), z.view(-1)).real
 
@@ -328,14 +356,25 @@ class HmcSampler(object):
                     print(f"Converged in {i+1} iterations.")
                 break
 
-            # Update the preconditioner
-            z = torch.sparse.mm(MhM_inv, r)
+            # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to r
+            z = self.apply_preconditioner(r, MhM_inv, matL)
             rz_new = torch.dot(r.conj().view(-1), z.view(-1)).real
             beta = rz_new / rz_old
             p = z + beta * p
             rz_old = rz_new
 
             cnt += 1
+
+        # if self.plt_cg and axs is not None:
+        #     # Save the plot
+        #     script_path = os.path.dirname(os.path.abspath(__file__))
+        #     class_name = __file__.split('/')[-1].replace('.py', '')
+        #     method_name = "preconditioned_cg"
+        #     save_dir = os.path.join(script_path, f"./figures/{class_name}")
+        #     os.makedirs(save_dir, exist_ok=True)
+        #     file_path = os.path.join(save_dir, f"{method_name}_convergence.pdf")
+        #     plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        #     print(f"Figure saved at: {file_path}")
 
         x = x.to(dtype_init)
         return x, cnt, errors[-1]
@@ -1160,7 +1199,7 @@ class HmcSampler(object):
         # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
         # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
 
-        Ot_inv_psi, cnt, _ = self.preconditioned_cg_bs1(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
+        Ot_inv_psi, cnt, _ = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
         return Ot_inv_psi, cnt
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
