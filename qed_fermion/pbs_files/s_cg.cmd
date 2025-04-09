@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --mail-type=END,FAIL    # 2. Send email upon events (Options: NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fengx463@hku.hk     #    Email address to receive notification
-#SBATCH --partition=intel
+#SBATCH --partition=amd
 ##SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=3
+#SBATCH --cpus-per-task=4
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --output=./report/%x_%j.out            # 8. Standard output log as $job_name_$job_id.out

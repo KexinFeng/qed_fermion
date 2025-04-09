@@ -43,7 +43,7 @@ L_array=$(echo '12 16')
 # qos=normal
 
 sbatch --job-name=cg_convergence \
-        --time=0-24:00:00 \
+        --time=2-00:00:00 \
         --qos=normal \
-        --mem-per-cpu=60G \
+        --mem-per-cpu=100G \
         s_cg.cmd
