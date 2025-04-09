@@ -26,7 +26,7 @@ class CgHmcSampler(HmcSampler):
     def __init__(self, J=0.5, Nstep=3000, config=None):
         super().__init__(J=J, Nstep=Nstep, config=config)
         self.plt_cg = True
-        self.plt_pattern = False
+        self.plt_pattern = True
     
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
@@ -367,6 +367,7 @@ if __name__ == '__main__':
     # L = 10
 
     Ls = [4, 6, 8, 10, 12, 14, 16] + [18, 20, 22, 24]
+    Ls = [4]
 
     mean_conv_steps = []
     mean_condition_nums = []

@@ -189,13 +189,19 @@ class HmcSampler(object):
             #     dtype=cdtype,
             #     device=device
             # )
-        self.precon = torch.sparse_coo_tensor(
+            
+        precon = torch.sparse_coo_tensor(
             precon_dict["indices"],
             precon_dict["values"],
             size=precon_dict["size"],
             dtype=cdtype,
             device=device
         ).coalesce().to_sparse_csr()
+
+        band_width = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
+        dist = (precon['indices'][0] - precon['indices'][1]).abs()
+
+
 
     def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
