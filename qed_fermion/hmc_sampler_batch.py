@@ -216,7 +216,6 @@ class HmcSampler(object):
 
         self.precon = filtered_precon.to_sparse_csr()
             
-        exit(0)
 
     def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
