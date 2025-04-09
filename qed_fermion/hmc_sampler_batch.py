@@ -190,18 +190,32 @@ class HmcSampler(object):
             #     device=device
             # )
             
-        precon = torch.sparse_coo_tensor(
-            precon_dict["indices"],
-            precon_dict["values"],
+        # precon = torch.sparse_coo_tensor(
+        #     precon_dict["indices"],
+        #     precon_dict["values"],
+        #     size=precon_dict["size"],
+        #     dtype=cdtype,
+        #     device=device
+        # ).coalesce().to_sparse_csr()
+
+        # Filter precon
+        band_width = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
+        dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs()
+        # Filter entries whose dist is in band_width
+        mask = torch.isin(dist, band_width)
+        filtered_indices = precon_dict['indices'][:, mask]
+        filtered_values = precon_dict['values'][mask]
+
+        # Create a new sparse tensor with the filtered entries
+        filtered_precon = torch.sparse_coo_tensor(
+            filtered_indices,
+            filtered_values,
             size=precon_dict["size"],
             dtype=cdtype,
             device=device
-        ).coalesce().to_sparse_csr()
+        ).coalesce()
 
-        band_width = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
-        dist = (precon['indices'][0] - precon['indices'][1]).abs()
-
-
+        self.precon = filtered_precon.to_sparse_csr()
 
     def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
