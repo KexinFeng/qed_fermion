@@ -171,7 +171,7 @@ class HmcSampler(object):
                 precon_dict = {
                     "indices": self.precon.indices().cpu(),
                     "values": self.precon.values().cpu(),
-                    "size": self.precon.size().cpu()
+                    "size": self.precon.size()
                 }
                 self.save_to_file(precon_dict, data_folder, file_name)
                 return precon_dict
