@@ -183,14 +183,6 @@ class HmcSampler(object):
             # Load preconditioner from file
             precon_dict = torch.load(file_path)
             print(f"Loaded preconditioner from {file_path}")
-            
-        # self.precon = torch.sparse_coo_tensor(
-        #     precon_dict["indices"],
-        #     precon_dict["values"],
-        #     size=precon_dict["size"],
-        #     dtype=cdtype,
-        #     device=device
-        # ).coalesce().to_sparse_csr()
 
         # Filter precon
         band_width1 = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
