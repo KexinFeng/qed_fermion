@@ -417,7 +417,7 @@ class HmcSampler(object):
 
         :return: None
         """
-        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
+        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs, device=device).view(-1, 1, 1, 1, 1)
 
 
     def initialize_boson(self):
