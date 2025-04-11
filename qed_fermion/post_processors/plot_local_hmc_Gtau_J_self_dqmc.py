@@ -72,7 +72,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
         # err1 = error_mean(init_convex_seq_estimator(G_list[seq_idx_init].numpy())/ np.sqrt(seq_idx_init.size), axis=0) * 1
         err1 = error_mean(std_root_n(G_list[seq_idx].numpy(), axis=0, lag_sum=50), axis=0)
         err2 = t_based_error(G_list[seq_idx].mean(axis=0).numpy())
-        print(err1, '\n', err2)
+        # print(err1, '\n', err2)
         err_hmc = np.sqrt(err1**2)
 
         plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=err_hmc, linestyle='-', marker='o', label='G_hmc', color='blue', lw=2)
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     for J in Js:
         Nstep = 10000
 
-        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted/"
+        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
         hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 

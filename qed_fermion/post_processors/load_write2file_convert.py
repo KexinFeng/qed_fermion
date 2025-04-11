@@ -95,6 +95,7 @@ def convert(sizes, boson):
     intertwined_i_list_4 = torch.stack((d_i_list_4, dd_i_list_4), dim=0).transpose(0, 1).flatten()
 
     # [2, Lx, Ly, Ltau]
+    boson = boson.view(2, Lx, Ly, Ltau)
     result = []
     for tau in range(Ltau):
         # [2, Lx, Ly]
@@ -112,8 +113,8 @@ def convert(sizes, boson):
 if __name__ == '__main__':
     Lx = 6
     Ltau = 10
-    Js = [0.5,1,3]
+    Js = [0.5, 1, 3]
     for J in Js:
-        hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
         load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=hmc_filename, starts=[2000], sample_steps=[1])
 

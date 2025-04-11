@@ -40,7 +40,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     Stau_list_dqmc = []
 
     for J in Js:
-        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted/"
+        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
         hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
