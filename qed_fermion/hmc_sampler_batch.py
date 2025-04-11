@@ -26,14 +26,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cpu')
 print(f"device: {device}")
 
-dtype = torch.float64
-cdtype = torch.complex128
-cg_dtype = torch.complex128
+dtype = torch.float32
+cdtype = torch.complex64
+cg_dtype = torch.complex64
 print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 0
+start_total_monitor = 1000
 start_load = 2000
 
 class HmcSampler(object):
@@ -69,7 +69,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 1
+        self.plt_rate = 1000
         self.ckp_rate = 2000
         self.plt_cg = False
         self.verbose_cg = False
