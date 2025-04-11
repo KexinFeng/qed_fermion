@@ -411,6 +411,15 @@ class HmcSampler(object):
         self.boson_idx_list_3 = self.i_list_3 * 2
         self.boson_idx_list_4 = self.i_list_4 * 2 + 1
 
+    def initialize_boson_test(self):
+        """
+        Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
+
+        :return: None
+        """
+        self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
+
+
     def initialize_boson(self):
         """
         Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
