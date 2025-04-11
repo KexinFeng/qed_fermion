@@ -81,13 +81,13 @@ class HmcSampler(object):
         self.step = 0
         self.cur_step = 0
 
-        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1, device=device)
-        self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool, device=device)
-        self.accp_rate = torch.zeros(self.N_step, self.bs, device=device)
-        self.S_plaq_list = torch.zeros(self.N_step, self.bs, device=device)
-        self.S_tau_list = torch.zeros(self.N_step, self.bs, device=device)
-        self.Sf_list = torch.zeros(self.N_step, self.bs, device=device)
-        self.H_list = torch.zeros(self.N_step, self.bs, device=device)
+        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1)
+        self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool)
+        self.accp_rate = torch.zeros(self.N_step, self.bs)
+        self.S_plaq_list = torch.zeros(self.N_step, self.bs)
+        self.S_tau_list = torch.zeros(self.N_step, self.bs)
+        # self.Sf_list = torch.zeros(self.N_step, self.bs)
+        # self.H_list = torch.zeros(self.N_step, self.bs)
 
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
 
@@ -368,7 +368,8 @@ class HmcSampler(object):
   
 
     def initialize_curl_mat(self):
-        self.curl_mat = initialize_curl_mat(self.Lx, self.Ly).to(device=device, dtype=dtype)
+        self.curl_mat_cpu = initialize_curl_mat(self.Lx, self.Ly).to(dtype)
+        self.curl_mat = self.curl_mat_cpu.to(device=device)
 
     def initialize_specifics(self):      
         self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}"
@@ -560,7 +561,7 @@ class HmcSampler(object):
         S: [bs,]
         """
         boson = boson.permute([3, 2, 1, 4, 0]).reshape(-1, self.Ltau, self.bs)
-        curl = torch.einsum('ij,jkl->ikl', self.curl_mat, boson)  # [Vs, Ltau, bs]
+        curl = torch.einsum('ij,jkl->ikl', self.curl_mat_cpu if boson.device.type == 'cpu' else self.curl_mat, boson)  # [Vs, Ltau, bs]
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S  
     
@@ -1821,24 +1822,37 @@ class HmcSampler(object):
         # Measure
         # fig = plt.figure()
         cnt_stream_write = 0
+        async_fence = torch.jit.Future()  # Initialize a fence to track the last computation
         for i in tqdm(range(self.N_step)):
             boson, accp, cg_converge_iter = self.metropolis_update()
-            self.accp_list[i] = accp
-            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
-            self.G_list[i] = \
-                accp.view(-1, 1) * self.sin_curl_greens_function_batch(boson) \
-              + (1 - accp.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-            self.S_plaq_list[i] = \
-                accp.view(-1) * self.action_boson_plaq(boson) \
-              + (1 - accp.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
-            self.S_tau_list[i] = \
-                accp.view(-1) * self.action_boson_tau_cmp(boson) \
-              + (1 - accp.view(-1).to(torch.float)) * self.S_tau_list[i-1]
-            # self.Sf_list[i] = torch.where(accp, Sf_fin, Sf0)
 
-            self.cg_iter_list[i] = cg_converge_iter
+            # Perform computations on CPU asynchronously
+            def async_cpu_computations():
+                boson_cpu = boson.cpu()
+                accp_cpu = accp.cpu()
+                self.accp_list[i] = accp_cpu
+                self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
+                self.G_list[i] = \
+                    accp_cpu.view(-1, 1) * self.sin_curl_greens_function_batch(boson_cpu) \
+                    + (1 - accp_cpu.view(-1, 1).to(torch.float)) * self.G_list[i-1]
+                self.S_plaq_list[i] = \
+                    accp_cpu.view(-1) * self.action_boson_plaq(boson_cpu) \
+                    + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
+                self.S_tau_list[i] = \
+                    accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
+                    + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
+                # self.Sf_list[i] = torch.where(accp_cpu, Sf_fin, Sf0)
 
-            self.boson_seq_buffer[cnt_stream_write] = boson.squeeze(0).flatten()
+                self.cg_iter_list[i] = cg_converge_iter
+
+                self.boson_seq_buffer[cnt_stream_write] = boson_cpu.squeeze(0).flatten()
+
+            # Wait for the previous computation to finish before starting a new one
+            if async_fence.done():
+                async_fence = torch.jit.fork(async_cpu_computations)
+            else:
+                async_fence.wait()  # Wait for the previous computation to finish
+                async_fence = torch.jit.fork(async_cpu_computations)
 
             self.step += 1
             self.cur_step += 1
@@ -2109,7 +2123,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '12'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
