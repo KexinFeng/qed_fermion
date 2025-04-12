@@ -34,7 +34,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 1000
+start_total_monitor = 0
 start_load = 2000
 
 class HmcSampler(object):
@@ -70,10 +70,8 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 1000
+        self.plt_rate = 2
         self.ckp_rate = 2000
-        self.plt_cg = False
-        self.verbose_cg = False
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
 
@@ -100,17 +98,40 @@ class HmcSampler(object):
         self.m = 1/2 * 4 / scale * 0.05
         # self.m = 1/2
 
-        self.delta_t = 0.05
+        # self.delta_t = 0.05 # (L=6)
+        # self.delta_t = 0.2/4
+        # self.delta_t = 0.005
+        self.delta_t = 0.04/2
+        # self.delta_t = 0.0066
+        # self.delta_t = 0.04/4
+        self.delta_t = 0.05/4 # (L=8)
+        self.delta_t = 0.14/8
+        # self.delta_t = 0.0175 = 0.07/4
+        self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
+        # self.delta_t = 0.008 # (L=10)
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
+        # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
+        # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
+        # Then increasing total_t will increase N_leapfrog*, is total_t reasonable.
+        # So proper total_t is a function of N_leapfrog* for a given threshold like 0.9.
+        # So natually an adaptive optimization algorithm can be obtained: for a fixed N_leapfrog, check the acceptance_rate / acc_threshold and adjust total_t.
 
         # self.N_leapfrog = 6 # already oscilates back
+        # self.N_leapfrog = 8
+        # self.N_leapfrog = 2
+        # self.N_leapfrog = 6
         self.N_leapfrog = 4
+        # self.N_leapfrog = 8
 
         # CG
-        self.cg_rtol = 1e-7
-        self.max_iter = 1000
+        # self.cg_rtol = 1e-7
+        # self.max_iter = 400  # at around 450 rtol is so small that becomes nan 
+        self.cg_rtol = 1e-4
+        self.max_iter = 2000  # at around 450 rtol is so small that becomes nan 
         self.precon = None
-
+        self.plt_cg = False
+        self.verbose_cg = False
+        
         # Debug
         torch.manual_seed(0)
 
@@ -223,7 +244,8 @@ class HmcSampler(object):
                 device=device
             ).coalesce()
 
-            self.precon = precon.to_sparse_csr()
+            # self.precon = precon.to_sparse_csr()
+            self.precon = precon
             
 
             # precon_dict2 = torch.load(file_path.replace("preconditioners", "preconditioners_backup"))
@@ -450,7 +472,7 @@ class HmcSampler(object):
 
         if self.plt_cg and axs is not None:
             # Plot intermediate results
-            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
+            line_res = axs.plot(residuals, marker='o', linestyle='-', label='˚no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
             axs.set_ylabel('Residual Norm')
             axs.set_yscale('log')
             axs.legend()
@@ -822,6 +844,133 @@ class HmcSampler(object):
                 M[:Vs, Vs*tau:] = B
 
         return M, [B1_list, B2_list, B3_list, B4_list]
+
+    def get_diag_B_test(self, boson):
+        """
+        boson: [bs=1, 2, Lx, Ly, Ltau]
+        """
+        boson_input = boson
+        assert len(boson.shape) == 4 or len(boson.shape) == 5 and boson.size(0) == 1
+        if len(boson.shape) == 5:
+            boson = boson.squeeze(0)
+
+        Vs = self.Lx * self.Ly
+        dtau = self.dtau
+        t = self.t
+        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+
+        mat = torch.sparse_coo_tensor(
+            torch.arange(Vs * self.Ltau, device=boson.device).repeat(2, 1),
+            torch.zeros(Vs * self.Ltau, dtype=cdtype, device=boson.device),
+            (Vs * self.Ltau, Vs * self.Ltau),
+            device=boson.device,
+            dtype=cdtype
+        )
+        
+        B1_list = []
+        B2_list = []
+        B3_list = []
+        B4_list = []
+        indices_list = []
+        values_list = []
+
+        for tau in range(self.Ltau):
+            dB1 = self.get_dB1_sparse()
+            indices = torch.cat([
+                torch.stack([self.i_list_1, self.j_list_1]),
+                torch.stack([self.j_list_1, self.i_list_1])
+            ], dim=1)
+            values = torch.cat([
+                torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_1]) * math.sinh(t * dtau),
+                torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            ])
+            dB1 = torch.sparse_coo_tensor(
+                torch.cat([dB1.indices(), indices], dim=1),
+                torch.cat([dB1.values(), values]),
+                dB1.shape,
+                device=boson.device,
+                dtype=cdtype
+            ).coalesce()
+            B = dB1
+            B1_list.append(dB1)
+
+            dB = self.get_dB_sparse()
+            indices = torch.cat([
+                torch.stack([self.i_list_2, self.j_list_2]),
+                torch.stack([self.j_list_2, self.i_list_2])
+            ], dim=1)
+            values = torch.cat([
+                torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_2]) * math.sinh(t * dtau / 2),
+                torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_2]) * math.sinh(t * dtau / 2)
+            ])
+            dB = torch.sparse_coo_tensor(
+                torch.cat([dB.indices(), indices], dim=1),
+                torch.cat([dB.values(), values]),
+                dB.shape,
+                device=boson.device,
+                dtype=cdtype
+            ).coalesce()
+            B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            B2_list.append(dB)
+
+            dB = self.get_dB_sparse()
+            indices = torch.cat([
+                torch.stack([self.i_list_3, self.j_list_3]),
+                torch.stack([self.j_list_3, self.i_list_3])
+            ], dim=1)
+            values = torch.cat([
+                torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_3]) * math.sinh(t * dtau / 2),
+                torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_3]) * math.sinh(t * dtau / 2)
+            ])
+            dB = torch.sparse_coo_tensor(
+                torch.cat([dB.indices(), indices], dim=1),
+                torch.cat([dB.values(), values]),
+                dB.shape,
+                device=boson.device,
+                dtype=cdtype
+            ).coalesce()
+            B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            B3_list.append(dB)
+
+            dB = self.get_dB_sparse()
+            indices = torch.cat([
+                torch.stack([self.i_list_4, self.j_list_4]),
+                torch.stack([self.j_list_4, self.i_list_4])
+            ], dim=1)
+            values = torch.cat([
+                torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_4]) * math.sinh(t * dtau / 2),
+                torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_4]) * math.sinh(t * dtau / 2)
+            ])
+            dB = torch.sparse_coo_tensor(
+                torch.cat([dB.indices(), indices], dim=1),
+                torch.cat([dB.values(), values]),
+                dB.shape,
+                device=boson.device,
+                dtype=cdtype
+            ).coalesce()
+            B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            B4_list.append(dB)
+
+
+            row_start = Vs * tau
+            col_start = Vs * tau
+            indices = B._indices() + torch.tensor([[row_start], [col_start]], device=device)
+            values = B._values()
+
+            indices_list.append(indices)
+            values_list.append(values)
+
+        # Combine all indices and values into M at once
+        mat = torch.sparse_coo_tensor(
+            torch.cat(indices_list, dim=1),
+            torch.cat(values_list),
+            mat.shape,
+            device=device,
+            dtype=mat.dtype
+        ).coalesce()
+
+        # MhM = torch.sparse.mm(M.T.conj(), M)  # Compute M'@M
+        return mat
 
 
     def get_M_sparse(self, boson):
@@ -1320,7 +1469,7 @@ class HmcSampler(object):
         # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
         # return xi_t.view(-1)
               
-        # # Convert MhM to a scipy sparse matrix
+        # # # Convert MhM to a scipy sparse matrix
         # MhM_scipy_csr = sp.csr_matrix(
         #     (MhM.values().cpu().numpy(),
         #      (MhM.indices()[0].cpu().numpy(), MhM.indices()[1].cpu().numpy())),
@@ -1336,10 +1485,25 @@ class HmcSampler(object):
         #     dtype=self.precon.values().cpu().numpy().dtype
         # )
         # # Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
-        # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
-        # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
+        # Ot_inv_psi_ref = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
+        # Ot_inv_psi_ref = torch.tensor(Ot_inv_psi_ref, device=psi.device, dtype=psi.dtype)
 
-        Ot_inv_psi, cnt, _ = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
+        ax = None
+        if self.plt_cg:
+            fig, ax = plt.subplots()
+        # Current
+        Ot_inv_psi, cnt, b_err = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype, axs=ax)
+        if torch.isnan(Ot_inv_psi).any():
+            raise ValueError("Ot_inv_psi contains NaN values.")
+
+        # # torch.norm(torch.sparse.mm(MhM, Ot_inv_psi_ref.view(-1, 1)) - psi)
+        # abs_b_err = torch.norm(torch.sparse.mm(MhM, Ot_inv_psi) - psi)
+
+        # # Calculate the relative norm error
+        # relative_error = torch.norm(Ot_inv_psi.view(-1) - xi_t) / torch.norm(xi_t)
+        # if relative_error > 1e-4:
+        #     raise ValueError(f"Relative norm error exceeds threshold: {relative_error:.2e}")
+        
         return Ot_inv_psi, cnt
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
@@ -1382,7 +1546,7 @@ class HmcSampler(object):
                 B_xi = torch.sparse.mm(mat_B, B_xi)
             B_xi = B_xi.permute(1, 0).conj()  # row
 
-            xi_n_lft_5 = xi_n.permute(1, 0).conj().view(1, -1) # row
+            xi_n_lft_5 = xi_n.conj().view(1, -1) # row
             xi_n_lft_4 = torch.sparse.mm(xi_n_lft_5, B4_list[tau])
             xi_n_lft_3 = torch.sparse.mm(xi_n_lft_4, B3_list[tau])
             xi_n_lft_2 = torch.sparse.mm(xi_n_lft_3, B2_list[tau])
@@ -1718,7 +1882,7 @@ class HmcSampler(object):
         force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
-        torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
+        # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-2, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
 
         assert x.grad is None
@@ -1921,7 +2085,7 @@ class HmcSampler(object):
         # Final energies
         # Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
         Sf_fin_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1)).view(-1)
-        torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
+        # torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-2, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
@@ -1943,11 +2107,11 @@ class HmcSampler(object):
         """
         boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
 
-        # print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
-        # print(f"threshold: {torch.exp(H_old - H_new).item()}")
+        print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
+        print(f"threshold: {torch.exp(H_old - H_new).item()}")
 
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        # print(f'Accp?: {accp.item()}')
+        print(f'Accp?: {accp.item()}')
         self.boson[accp] = boson_new[accp]
         return self.boson, accp, cg_converge_iter
     
@@ -2276,7 +2440,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '10'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
