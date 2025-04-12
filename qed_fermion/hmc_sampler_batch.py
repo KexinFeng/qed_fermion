@@ -823,6 +823,134 @@ class HmcSampler(object):
 
         return M, [B1_list, B2_list, B3_list, B4_list]
 
+    def get_diag_B_test(self, boson):
+        """
+        boson: [bs=1, 2, Lx, Ly, Ltau]
+        """
+        boson_input = boson
+        assert len(boson.shape) == 4 or len(boson.shape) == 5 and boson.size(0) == 1
+        if len(boson.shape) == 5:
+            boson = boson.squeeze(0)
+
+        Vs = self.Lx * self.Ly
+        dtau = self.dtau
+        t = self.t
+        boson = boson.permute([3, 2, 1, 0]).reshape(-1)
+
+        M = torch.sparse_coo_tensor(
+            torch.arange(Vs * self.Ltau, device=boson.device).repeat(2, 1),
+            torch.zeros(Vs * self.Ltau, dtype=cdtype, device=boson.device),
+            (Vs * self.Ltau, Vs * self.Ltau),
+            device=boson.device,
+            dtype=cdtype
+        )
+        
+        B1_list = []
+        B2_list = []
+        B3_list = []
+        B4_list = []
+        indices_list = []
+        values_list = []
+
+        for tau in range(self.Ltau):
+            dB1 = self.get_dB1_sparse()
+            indices = torch.cat([
+                torch.stack([self.i_list_1, self.j_list_1]),
+                torch.stack([self.j_list_1, self.i_list_1])
+            ], dim=1)
+            values = torch.cat([
+                torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_1]) * math.sinh(t * dtau),
+                torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_1]) * math.sinh(t * dtau)
+            ])
+            dB1 = torch.sparse_coo_tensor(
+                torch.cat([dB1.indices(), indices], dim=1),
+                torch.cat([dB1.values(), values]),
+                dB1.shape,
+                device=boson.device,
+                dtype=cdtype
+            ).coalesce()
+            B = dB1
+            B1_list.append(dB1)
+
+            # dB = self.get_dB_sparse()
+            # indices = torch.cat([
+            #     torch.stack([self.i_list_2, self.j_list_2]),
+            #     torch.stack([self.j_list_2, self.i_list_2])
+            # ], dim=1)
+            # values = torch.cat([
+            #     torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_2]) * math.sinh(t * dtau / 2),
+            #     torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_2]) * math.sinh(t * dtau / 2)
+            # ])
+            # dB = torch.sparse_coo_tensor(
+            #     torch.cat([dB.indices(), indices], dim=1),
+            #     torch.cat([dB.values(), values]),
+            #     dB.shape,
+            #     device=boson.device,
+            #     dtype=cdtype
+            # ).coalesce()
+            # B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            # B2_list.append(dB)
+
+            # dB = self.get_dB_sparse()
+            # indices = torch.cat([
+            #     torch.stack([self.i_list_3, self.j_list_3]),
+            #     torch.stack([self.j_list_3, self.i_list_3])
+            # ], dim=1)
+            # values = torch.cat([
+            #     torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_3]) * math.sinh(t * dtau / 2),
+            #     torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_3]) * math.sinh(t * dtau / 2)
+            # ])
+            # dB = torch.sparse_coo_tensor(
+            #     torch.cat([dB.indices(), indices], dim=1),
+            #     torch.cat([dB.values(), values]),
+            #     dB.shape,
+            #     device=boson.device,
+            #     dtype=cdtype
+            # ).coalesce()
+            # B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            # B3_list.append(dB)
+
+
+            # dB = self.get_dB_sparse()
+            # indices = torch.cat([
+            #     torch.stack([self.i_list_4, self.j_list_4]),
+            #     torch.stack([self.j_list_4, self.i_list_4])
+            # ], dim=1)
+            # values = torch.cat([
+            #     torch.exp(1j * boson[2 * Vs * tau + self.boson_idx_list_4]) * math.sinh(t * dtau / 2),
+            #     torch.exp(-1j * boson[2 * Vs * tau + self.boson_idx_list_4]) * math.sinh(t * dtau / 2)
+            # ])
+            # dB = torch.sparse_coo_tensor(
+            #     torch.cat([dB.indices(), indices], dim=1),
+            #     torch.cat([dB.values(), values]),
+            #     dB.shape,
+            #     device=boson.device,
+            #     dtype=cdtype
+            # ).coalesce()
+            # B = torch.sparse.mm(dB, torch.sparse.mm(B, dB))
+            # B4_list.append(dB)
+
+
+            row_start = Vs * tau
+            col_start = Vs * tau
+            indices = B._indices() + torch.tensor([[row_start], [col_start]], device=device)
+            values = B._values()
+
+            indices_list.append(indices)
+            values_list.append(values)
+
+        # Combine all indices and values into M at once
+        M = torch.sparse_coo_tensor(
+            torch.cat(indices_list, dim=1),
+            torch.cat(values_list),
+            M.shape,
+            device=device,
+            dtype=M.dtype
+        ).coalesce()
+
+        # MhM = torch.sparse.mm(M.T.conj(), M)  # Compute M'@M
+        return M
+
 
     def get_M_sparse(self, boson):
         """
