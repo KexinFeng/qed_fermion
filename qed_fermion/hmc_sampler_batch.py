@@ -74,8 +74,6 @@ class HmcSampler(object):
         self.polar = 0  # 0: x, 1: y
         self.plt_rate = 1000
         self.ckp_rate = 2000
-        self.plt_cg = False
-        self.verbose_cg = False
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
 
@@ -102,19 +100,40 @@ class HmcSampler(object):
         self.m = 1/2 * 4 / scale * 0.05
         # self.m = 1/2
 
-        # self.delta_t = 0.05
-        self.delta_t = 0.1/4
+        # self.delta_t = 0.05 # (L=6)
+        # self.delta_t = 0.2/4
+        # self.delta_t = 0.005
+        self.delta_t = 0.04/2
+        # self.delta_t = 0.0066
+        # self.delta_t = 0.04/4
+        self.delta_t = 0.05/4 # (L=8)
+        self.delta_t = 0.14/8
+        # self.delta_t = 0.0175 = 0.07/4
+        self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
+        # self.delta_t = 0.008 # (L=10)
+        self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
+        # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
+        # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
+        # Then increasing total_t will increase N_leapfrog*, is total_t reasonable.
+        # So proper total_t is a function of N_leapfrog* for a given threshold like 0.9.
+        # So natually an adaptive optimization algorithm can be obtained: for a fixed N_leapfrog, check the acceptance_rate / acc_threshold and adjust total_t.
 
         # self.N_leapfrog = 6 # already oscilates back
+        # self.N_leapfrog = 8
+        # self.N_leapfrog = 2
+        # self.N_leapfrog = 6
         self.N_leapfrog = 4
+        # self.N_leapfrog = 8
 
         # CG
-        self.cg_rtol = 1e-7
-        # self.cg_rtol = 1e-4
+        # self.cg_rtol = 1e-7
+        # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
+        self.cg_rtol = 1e-5
         self.max_iter = 1000
-        # self.max_iter = 300
         self.precon = None
+        self.plt_cg = False
+        self.verbose_cg = False
 
         # Debug
         torch.manual_seed(0)
@@ -373,6 +392,22 @@ class HmcSampler(object):
         del M_temp
         del M_itr
 
+        # Filter small elements right after Neumann series
+        print("# Filter small elements right after Neumann series")
+        abs_values = torch.abs(M_inv.values())
+        filter_mask = abs_values >= 1e-4
+        M_inv_indices = M_inv.indices()[:, filter_mask]
+        M_inv_values = M_inv.values()[filter_mask]
+        del M_inv
+        gc.collect()
+        M_inv = torch.sparse_coo_tensor(
+            M_inv_indices,
+            M_inv_values,
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
+
         # Scale by the inverse diagonal
         print('# Scale by the inverse diagonal')
         M_inv = torch.sparse.mm(dd_inv, M_inv)
@@ -485,7 +520,7 @@ class HmcSampler(object):
 
                 method_name = "pcg_fast2"
                 save_dir = os.path.join(script_path, f"./figures_pcg/")
-                os.makedirs(save_dir, exist_ok=True) 
+                os.makedirs(save_dir, exist_ok=True)
                 file_path = os.path.join(save_dir, f"{method_name}.pdf")
                 plt.savefig(file_path, format="pdf", bbox_inches="tight")
                 print(f"Figure saved at: {file_path}")
@@ -541,7 +576,7 @@ class HmcSampler(object):
         # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
         # z = self.apply_preconditioner(r, MhM_inv, matL)
         # vec = R_u.to(torch.complex64).view(1, -1).repeat(bs, 1)
-        # out = _C.precon_vec(vec, 
+        # out = _C.precon_vec(vec,
         #                     precon,
         #                     Lx).T
         z = _C.precon_vec(r, self.precon_csr, self.Lx)
@@ -567,7 +602,7 @@ class HmcSampler(object):
             # Matrix-vector product with M'M
             # Op = torch.sparse.mm(MhM, p)
             Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
-            
+
             # alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
             alpha = rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real
             x += alpha.unsqueeze(-1) * p
@@ -587,7 +622,7 @@ class HmcSampler(object):
 
                 method_name = "pcg_fast"
                 save_dir = os.path.join(script_path, f"./figures_pcg/")
-                os.makedirs(save_dir, exist_ok=True) 
+                os.makedirs(save_dir, exist_ok=True)
                 file_path = os.path.join(save_dir, f"{method_name}.pdf")
                 plt.savefig(file_path, format="pdf", bbox_inches="tight")
                 print(f"Figure saved at: {file_path}")
@@ -612,7 +647,7 @@ class HmcSampler(object):
             cnt += 1
 
         return x, cnt, residuals[-1]
-  
+
     def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, rtol=1e-8, max_iter=100, b_idx=None, axs=None, cg_dtype=torch.complex64):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
@@ -642,7 +677,7 @@ class HmcSampler(object):
 
         if self.plt_cg and axs is not None:
             # Plot intermediate results
-            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
+            line_res = axs.plot(residuals, marker='o', linestyle='-', label='˚no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
             axs.set_ylabel('Residual Norm')
             axs.set_yscale('log')
             axs.legend()
@@ -671,18 +706,16 @@ class HmcSampler(object):
                 axs.relim()
                 axs.autoscale_view()
                 plt.pause(0.01)  # Pause to update the plot
-                
+
                 method_name = "pcg"
                 save_dir = os.path.join(script_path, f"./figures_pcg/")
-                os.makedirs(save_dir, exist_ok=True) 
+                os.makedirs(save_dir, exist_ok=True)
                 file_path = os.path.join(save_dir, f"{method_name}.pdf")
                 plt.savefig(file_path, format="pdf", bbox_inches="tight")
                 print(f"Figure saved at: {file_path}")
 
             # Check for convergence
             if error < rtol:
-                b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
-                abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
                 if self.verbose_cg:
                     print(f"Converged in {i+1} iterations.")
                 break
@@ -776,10 +809,10 @@ class HmcSampler(object):
                 axs.relim()
                 axs.autoscale_view()
                 plt.pause(0.01)  # Pause to update the plot
-                
+
                 method_name = "pcg_fast"
                 save_dir = os.path.join(script_path, f"./figures_pcg/")
-                os.makedirs(save_dir, exist_ok=True) 
+                os.makedirs(save_dir, exist_ok=True)
                 file_path = os.path.join(save_dir, f"{method_name}.pdf")
                 plt.savefig(file_path, format="pdf", bbox_inches="tight")
                 print(f"Figure saved at: {file_path}")
@@ -806,7 +839,7 @@ class HmcSampler(object):
 
         # x = x.to(dtype_init)
         return x, cnt, residuals[-1]
-  
+
 
     def initialize_curl_mat(self):
         self.curl_mat_cpu = initialize_curl_mat(self.Lx, self.Ly).to(dtype)
@@ -1142,7 +1175,7 @@ class HmcSampler(object):
             device=boson.device,
             dtype=cdtype
         )
-        
+
         B1_list = []
         B2_list = []
         B3_list = []
@@ -1744,7 +1777,7 @@ class HmcSampler(object):
         # Ot_inv = torch.cholesky_inverse(L)
         # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
         # # # return xi_t.view(-1)
-        
+
         axs = None
         if self.plt_cg:
             fg, axs = plt.subplots()
@@ -1756,7 +1789,7 @@ class HmcSampler(object):
 
         # # Assert that b_err is smaller than b_err_ref
         # assert abs_b_err < abs_b_err_ref, "b_err is not smaller than b_err_ref"
-        
+
         # print(f'convergence iter: {cnt}, r_err: {r_err}')
         # assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
 
@@ -1771,7 +1804,7 @@ class HmcSampler(object):
         # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
         # # return xi_t.view(-1)
               
-        # # Convert MhM to a scipy sparse matrix
+        # # # Convert MhM to a scipy sparse matrix
         # MhM_scipy_csr = sp.csr_matrix(
         #     (MhM.values().cpu().numpy(),
         #      (MhM.indices()[0].cpu().numpy(), MhM.indices()[1].cpu().numpy())),
@@ -1805,10 +1838,10 @@ class HmcSampler(object):
 
         # print(f'convergence iter: {cnt}, r_err: {r_err}')
         # assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
-        
+
         return Ot_inv_psi, cnt
 
- 
+
     def force_f_fast(self, psi, boson, MhM):
         """
         Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
@@ -1841,7 +1874,7 @@ class HmcSampler(object):
 
                 xi_c = xi_t[b, tau].view(-1) # col
                 xi_n = xi_t[b, (tau + 1) % Ltau].view(-1) # col
-                
+
                 # B_xi = xi_c  # column
                 # mat_Bs = [B4_list[tau], B3_list[tau], B2_list[tau], B1_list[tau], B2_list[tau], B3_list[tau], B4_list[tau]]
                 # for mat_B in mat_Bs:
@@ -1919,7 +1952,7 @@ class HmcSampler(object):
 
         return Ft, xi_t.view(self.bs, -1), cg_converge_iter
 
-     
+
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
         """
@@ -2394,7 +2427,7 @@ class HmcSampler(object):
         cg_converge_iters = [cg_converge_iter]
         for leap in range(self.N_leapfrog):
 
-            p = p + dt/2 * (force_f_u)
+            p = p + dt/2 * (force_f_u.unsqueeze(0))
 
             # Update (p, x)
             x_last = x
@@ -2420,7 +2453,7 @@ class HmcSampler(object):
 
             result = self.get_M_sparse(x)
             MhM = result[0]
-            B_list = result[1]            
+            B_list = result[1]
             # force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
             force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
             # torch.testing.assert_close(force_f_u, force_f_u_q, atol=1e-3, rtol=1e-3)
@@ -2508,7 +2541,7 @@ class HmcSampler(object):
         # Final energies
         # Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
         Sf_fin_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1)).view(-1)
-        # torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
+        # torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-2, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
