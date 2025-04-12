@@ -1831,7 +1831,8 @@ class HmcSampler(object):
         # Measure
         # fig = plt.figure()
         cnt_stream_write = 0
-        async_fence = torch.jit.Future()  # Initialize a fence to track the last computation
+        async_fence = torch.jit.Future()
+        async_fence.set_result(None)  # Initialize a fence and set it to completed state
         for i in tqdm(range(self.N_step)):
             boson, accp, cg_converge_iter = self.metropolis_update()
 
