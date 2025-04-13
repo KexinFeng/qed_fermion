@@ -365,7 +365,7 @@ class HmcSampler(object):
             M_inv = M_inv + M_temp
         gc.collect() 
         del M_temp
-        del M_iter
+        del M_itr
 
         # Scale by the inverse diagonal
         print('# Scale by the inverse diagonal')
