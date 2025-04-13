@@ -1,3 +1,4 @@
+import gc
 import json
 import math
 import numpy as np
@@ -166,8 +167,10 @@ class HmcSampler(object):
                 boson = boson.repeat(1 * self.Ltau, 1)
                 pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
                 precon_dict = self.get_precon2(pi_flux_boson)
+                gc.collect()
 
                 # Filter precon
+                print("# Filter precon")
                 band_width1 = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
                 band_width2 = (torch.tensor([-1, -2, -3, -4, -5], device=device, dtype=torch.int64) + self.Ltau) * self.Vs
                 band_width = torch.cat([band_width1, band_width2])
@@ -331,6 +334,7 @@ class HmcSampler(object):
         # Diagonal matrix from M_pc
         diag_values = M_pc.values()[M_pc.indices()[0] == M_pc.indices()[1]]
         dd_inv = 1.0 / diag_values
+        del diag_values
         I = torch.sparse_coo_tensor(
             torch.arange(M.size(0), device=M.device).repeat(2, 1),
             torch.ones(M.size(0), device=M.device, dtype=M.dtype),
@@ -347,23 +351,35 @@ class HmcSampler(object):
             dtype=M.dtype,
             device=M.device
         ).coalesce()
+        gc.collect() 
 
         M_diag_scaled = torch.sparse.mm(M_pc, dd_inv)
+        del M_pc
+        gc.collect() 
 
         M_itr = I - M_diag_scaled
-        M_temp = I.clone().to_sparse()
-        M_inv = I.clone().to_sparse()
+        M_temp = I.clone()
+        M_inv = I
         for i in tqdm(range(iter), desc="Neumann Series Iteration"):
             M_temp = torch.sparse.mm(M_temp, M_itr)
             M_inv = M_inv + M_temp
+        gc.collect() 
+        del M_temp
+        del M_iter
 
         # Scale by the inverse diagonal
+        print('# Scale by the inverse diagonal')
         M_inv = torch.sparse.mm(dd_inv, M_inv)
+        del dd_inv
+        gc.collect()
 
         # Compute O_inv1 = M_inv' * M_inv
+        print("# Compute O_inv1 = M_inv' * M_inv")
         O_inv1 = torch.sparse.mm(M_inv.T.conj(), M_inv)
+        del M_inv
 
         # Filter small elements to maintain sparsity
+        print("# Filter small elements to maintain sparsity")
         abs_values = torch.abs(O_inv1.values())
         filter_mask = abs_values >= thrhld
 
@@ -371,13 +387,11 @@ class HmcSampler(object):
         O_inv_indices = O_inv1.indices()[:, filter_mask]
         O_inv_values = O_inv1.values()[filter_mask]
 
-
         precon_dict = {
                     "indices": O_inv_indices,
                     "values": O_inv_values,
                     "size": O_inv1.shape
                 }
-        
         return precon_dict
 
        
