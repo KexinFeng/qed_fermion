@@ -194,9 +194,9 @@ class HmcSampler(object):
 
                 # Save preconditioner to file
                 precon_dict = {
-                    "indices": self.filtered_precon.indices().cpu(),
-                    "values": self.filtered_precon.values().cpu(),
-                    "size": self.filtered_precon.size()
+                    "indices": filtered_precon.indices().cpu(),
+                    "values": filtered_precon.values().cpu(),
+                    "size": filtered_precon.size()
                 }
                 self.save_to_file(precon_dict, data_folder, file_name)
 
