@@ -165,7 +165,35 @@ class HmcSampler(object):
                 boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
                 boson = boson.repeat(1 * self.Ltau, 1)
                 pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-                self.precon = self.get_precon(pi_flux_boson)
+                self.precon = self.get_precon2(pi_flux_boson)
+                precon_dict = {
+                    "indices": self.precon.indices().cpu(),
+                    "values": self.precon.values().cpu(),
+                    "size": self.precon.size()
+                }
+
+                # Filter precon
+                band_width1 = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
+                band_width2 = (torch.tensor([-1, -2, -3, -4, -5], device=device, dtype=torch.int64) + self.Ltau) * self.Vs
+                band_width = torch.cat([band_width1, band_width2])
+                dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs().to(device)
+                # Filter entries whose dist is in band_width
+                mask = torch.isin(dist, band_width)
+
+                print(f"mask_sum= {mask.sum().item()}, active precon entries: {len(precon_dict['values'])}")
+
+                filtered_indices = precon_dict['indices'].to(device)[:, mask]
+                filtered_values = precon_dict['values'].to(device)[mask]
+
+                # Create a new sparse tensor with the filtered entries
+                filtered_precon = torch.sparse_coo_tensor(
+                    filtered_indices,
+                    filtered_values,
+                    size=precon_dict["size"],
+                    dtype=cdtype,
+                    device=device
+                ).coalesce()
+                self.precon = filtered_precon.to_sparse_csr()
 
                 # Save preconditioner to file
                 precon_dict = {
@@ -184,31 +212,45 @@ class HmcSampler(object):
             precon_dict = torch.load(file_path)
             print(f"Loaded preconditioner from {file_path}")
 
-        # Filter precon
-        band_width1 = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
-        band_width2 = (torch.tensor([-1, -2, -3, -4, -5], device=device, dtype=torch.int64) + self.Ltau) * self.Vs
-        band_width = torch.cat([band_width1, band_width2])
-        dist = (precon_dict['indices'][0] - precon_dict['indices'][1]).abs().to(device)
-        # Filter entries whose dist is in band_width
-        mask = torch.isin(dist, band_width)
+            filtered_indices = precon_dict["indices"].to(device)
+            filtered_values = precon_dict["values"].to(device)
+            
+            # Create a new sparse tensor with the filtered entries
+            filtered_precon = torch.sparse_coo_tensor(
+                filtered_indices,
+                filtered_values,
+                size=precon_dict["size"],
+                dtype=cdtype,
+                device=device
+            ).coalesce()
 
-        print(f"mask_sum= {mask.sum().item()}, active precon entries: {len(precon_dict['values'])}")
-
-        filtered_indices = precon_dict['indices'].to(device)[:, mask]
-        filtered_values = precon_dict['values'].to(device)[mask]
-
-        # Create a new sparse tensor with the filtered entries
-        filtered_precon = torch.sparse_coo_tensor(
-            filtered_indices,
-            filtered_values,
-            size=precon_dict["size"],
-            dtype=cdtype,
-            device=device
-        ).coalesce()
-
-        self.precon = filtered_precon.to_sparse_csr()
+            self.precon = filtered_precon.to_sparse_csr()
             
 
+            # precon_dict2 = torch.load(file_path.replace("preconditioners", "preconditioners_backup"))
+
+            # precon_sparse = torch.sparse_coo_tensor(
+            #     precon_dict["indices"].to(device),
+            #     precon_dict["values"].to(device),
+            #     size=precon_dict["size"],
+            #     dtype=cdtype,
+            #     device=device
+            # ).coalesce()
+
+            # precon_sparse2 = torch.sparse_coo_tensor(
+            #     precon_dict2["indices"].to(device),
+            #     precon_dict2["values"].to(device),
+            #     size=precon_dict2["size"],
+            #     dtype=cdtype,
+            #     device=.coalesce()
+
+            # # Check if the loaded preconditioner matches the computed one
+            # torch.testing.assert_close(precon_sparse.indices(), precon_sparse2.indices(), rtol=1e-5, atol=1e-8)
+            # torch.testing.assert_close(precon_sparse.values(), precon_sparse2.values(), rtol=1e-5, atol=1e-8)
+
+            # exit(0)
+
+            
     def get_precon(self, pi_flux_boson, output_scipy=False):
         MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
@@ -253,6 +295,99 @@ class HmcSampler(object):
             ).coalesce()
             return MhM_inv
     
+    def get_precon2(self, pi_flux_boson, output_scipy=False):
+        iter = 20
+        thrhld = 0.1 
+        diagcomp = 0.05  
+
+        MhM, _, _, M = self.get_M_sparse(pi_flux_boson)
+        retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
+        retrieved_values = M.values()
+
+        # Pass indices and values to MATLAB
+        matlab_function_path = script_path + '/utils/'
+        eng = matlab.engine.start_matlab()
+        eng.addpath(matlab_function_path)
+
+        # Convert indices and values directly to MATLAB format
+        matlab_indices = matlab.double(retrieved_indices.cpu().tolist())
+        matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
+
+        # Call MATLAB function
+        result_indices_i, result_indices_j, result_values = eng.ichol_m(
+            matlab_indices, matlab_values, M.size(0), M.size(1), nargout=3
+        )
+        eng.quit()
+
+        # Convert MATLAB results directly to PyTorch tensors
+        result_indices_i = torch.tensor(result_indices_i, dtype=torch.long, device=M.device).view(-1) - 1
+        result_indices_j = torch.tensor(result_indices_j, dtype=torch.long, device=M.device).view(-1) - 1
+        result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
+
+        # Create MhM_inv as a sparse_coo_tensor
+        M_pc = torch.sparse_coo_tensor(
+            torch.stack([result_indices_i, result_indices_j]),
+            result_values,
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
+
+        # Diagonal matrix from M_pc
+        diag_values = M_pc.values()[M_pc.indices()[0] == M_pc.indices()[1]]
+        dd_inv = 1.0 / diag_values
+        I = torch.sparse_coo_tensor(
+            torch.arange(M.size(0), device=M.device).repeat(2, 1),
+            torch.ones(M.size(0), device=M.device, dtype=M.dtype),
+            (M.size(0), M.size(0)),
+            device=M.device,
+            dtype=M.dtype
+        ).coalesce()
+
+        # Neumann series approximation for matrix inverse
+        dd_inv = torch.sparse_coo_tensor(
+            torch.arange(M.size(0), device=M.device).repeat(2, 1),
+            dd_inv,
+            (M.size(0), M.size(0)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
+
+        M_diag_scaled = torch.sparse.mm(M_pc, dd_inv)
+
+        M_itr = I - M_diag_scaled
+        M_temp = I.clone().to_sparse()
+        M_inv = I.clone().to_sparse()
+        for i in tqdm(range(iter), desc="Neumann Series Iteration"):
+            M_temp = torch.sparse.mm(M_temp, M_itr)
+            M_inv = M_inv + M_temp
+
+        # Scale by the inverse diagonal
+        M_inv = torch.sparse.mm(dd_inv, M_inv)
+
+        # Compute O_inv1 = M_inv' * M_inv
+        O_inv1 = torch.sparse.mm(M_inv.T.conj(), M_inv)
+
+        # Filter small elements to maintain sparsity
+        abs_values = torch.abs(O_inv1.values())
+        filter_mask = abs_values >= thrhld
+
+        # Gather filtered indices and values
+        O_inv_indices = O_inv1.indices()[:, filter_mask]
+        O_inv_values = O_inv1.values()[filter_mask]
+
+        # Create the final sparse tensor
+        O_inv = torch.sparse_coo_tensor(
+            O_inv_indices,
+            O_inv_values,
+            O_inv1.shape,
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
+
+        return O_inv
+
+       
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
         if MhM_inv is None and matL is None:
