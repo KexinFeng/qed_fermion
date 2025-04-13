@@ -191,15 +191,16 @@ class HmcSampler(object):
                     dtype=cdtype,
                     device=device
                 ).coalesce()
-                self.precon = filtered_precon.to_sparse_csr()
 
                 # Save preconditioner to file
                 precon_dict = {
-                    "indices": self.precon.indices().cpu(),
-                    "values": self.precon.values().cpu(),
-                    "size": self.precon.size()
+                    "indices": self.filtered_precon.indices().cpu(),
+                    "values": self.filtered_precon.values().cpu(),
+                    "size": self.filtered_precon.size()
                 }
                 self.save_to_file(precon_dict, data_folder, file_name)
+
+                self.precon = filtered_precon.to_sparse_csr()
                 return precon_dict
             
             precon_dict = embedded_func()
