@@ -165,12 +165,7 @@ class HmcSampler(object):
                 boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
                 boson = boson.repeat(1 * self.Ltau, 1)
                 pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-                self.precon = self.get_precon2(pi_flux_boson)
-                precon_dict = {
-                    "indices": self.precon.indices().cpu(),
-                    "values": self.precon.values().cpu(),
-                    "size": self.precon.size()
-                }
+                precon_dict = self.get_precon2(pi_flux_boson)
 
                 # Filter precon
                 band_width1 = torch.tensor([0, 1, 2, 3, 4, 5, 6], device=device, dtype=torch.int64) * self.Vs
@@ -212,19 +207,19 @@ class HmcSampler(object):
             precon_dict = torch.load(file_path)
             print(f"Loaded preconditioner from {file_path}")
 
-            filtered_indices = precon_dict["indices"].to(device)
-            filtered_values = precon_dict["values"].to(device)
+            indices = precon_dict["indices"].to(device)
+            values = precon_dict["values"].to(device)
             
             # Create a new sparse tensor with the filtered entries
-            filtered_precon = torch.sparse_coo_tensor(
-                filtered_indices,
-                filtered_values,
+            precon = torch.sparse_coo_tensor(
+                indices,
+                values,
                 size=precon_dict["size"],
                 dtype=cdtype,
                 device=device
             ).coalesce()
 
-            self.precon = filtered_precon.to_sparse_csr()
+            self.precon = precon.to_sparse_csr()
             
 
             # precon_dict2 = torch.load(file_path.replace("preconditioners", "preconditioners_backup"))
@@ -376,16 +371,14 @@ class HmcSampler(object):
         O_inv_indices = O_inv1.indices()[:, filter_mask]
         O_inv_values = O_inv1.values()[filter_mask]
 
-        # Create the final sparse tensor
-        O_inv = torch.sparse_coo_tensor(
-            O_inv_indices,
-            O_inv_values,
-            O_inv1.shape,
-            dtype=M.dtype,
-            device=M.device
-        ).coalesce()
 
-        return O_inv
+        precon_dict = {
+                    "indices": O_inv_indices,
+                    "values": O_inv_values,
+                    "size": O_inv1.shape
+                }
+        
+        return precon_dict
 
        
     @staticmethod
