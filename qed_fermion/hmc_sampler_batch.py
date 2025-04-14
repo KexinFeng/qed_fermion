@@ -1509,7 +1509,7 @@ class HmcSampler(object):
                 B_xi = torch.sparse.mm(mat_B, B_xi)
             B_xi = B_xi.permute(1, 0).conj()  # row
 
-            xi_n_lft_5 = xi_n.permute(1, 0).conj().view(1, -1) # row
+            xi_n_lft_5 = xi_n.conj().view(1, -1) # row
             xi_n_lft_4 = torch.sparse.mm(xi_n_lft_5, B4_list[tau])
             xi_n_lft_3 = torch.sparse.mm(xi_n_lft_4, B3_list[tau])
             xi_n_lft_2 = torch.sparse.mm(xi_n_lft_3, B2_list[tau])
