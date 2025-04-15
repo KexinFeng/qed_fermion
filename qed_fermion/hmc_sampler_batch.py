@@ -422,7 +422,88 @@ class HmcSampler(object):
         return torch.tensor(output, dtype=r.dtype, device=r.device)  
 
 
-    def preconditioned_cg_fast(self, boson, b, MhM_inv=None, matL=None, rtol=1e-7, max_iter=400, b_idx=None, axs=None, cg_dtype=torch.complex64):
+    def preconditioned_cg_fast(self, boson, b, MhM_inv=None, matL=None, rtol=1e-7, max_iter=400, b_idx=None, axs=None, MhM=None):
+        """
+        Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
+
+        :param M: Sparse matrix M from get_M_sparse()
+        :param b: Right-hand side vector
+        :param tol: Tolerance for convergence
+        :param max_iter: Maximum number of iterations
+        :return: Solution vector x
+        """
+        assert b.dtype == torch.complex64, "Expected b to have dtype torch.complex64"
+        assert len(b.shape) == 2
+        assert len(boson.shape) == 3
+        boson = boson.view(self.bs, -1)
+        b = b.view(self.bs, -1)
+        norm_b = torch.norm(b, dim=1)
+
+        # Initialize variables
+        x = torch.zeros_like(b).view(-1, 1)
+        r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
+        # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
+        z = self.apply_preconditioner(r, MhM_inv, matL)
+        p = z
+        rz_old = torch.dot(r.conj().view(-1), z.view(-1)).real
+
+        errors = []
+        residuals = []
+
+        if self.plt_cg and axs is not None:
+            # Plot intermediate results
+            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
+            axs.set_ylabel('Residual Norm')
+            axs.set_yscale('log')
+            axs.legend()
+            axs.grid(True)
+            axs.set_title(f'{self.Lx}x{self.Ly}x{self.Ltau} Lattice b_idx={b_idx}')
+
+            plt.pause(0.01)  # Pause to update the plot
+
+        cnt = 0
+        for i in range(max_iter):
+            # Matrix-vector product with M'M
+            Op = torch.sparse.mm(MhM, p)
+            
+            alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
+            x += alpha * p
+            r -= alpha * Op
+
+            # Compute and store the error (norm of the residual)
+            error = torch.norm(r).item() / torch.norm(b).item()
+            errors.append(error)
+            residuals.append(error)
+
+            if self.plt_cg and axs is not None:
+                # Plot intermediate results
+                line_res[0].set_data(range(len(residuals)), residuals)
+                axs.relim()
+                axs.autoscale_view()
+                plt.pause(0.01)  # Pause to update the plot
+
+            # Check for convergence
+            if error < rtol:
+                b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
+                abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
+                if self.verbose_cg:
+                    print(f"Converged in {i+1} iterations.")
+                break
+
+            # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to r
+            z = self.apply_preconditioner(r, MhM_inv, matL)
+            rz_new = torch.dot(r.conj().view(-1), z.view(-1)).real
+            beta = rz_new / rz_old
+            p = z + beta * p
+            rz_old = rz_new
+
+            cnt += 1
+
+        return x, cnt, errors[-1]       
+
+
+
+    def preconditioned_cg_fast2(self, boson, b, MhM_inv=None, matL=None, rtol=1e-7, max_iter=400, b_idx=None, axs=None, cg_dtype=torch.complex64, MhM=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -501,10 +582,12 @@ class HmcSampler(object):
                 plt.pause(0.01)  # Pause to update the plot
 
             # Check for convergence
-            # if error < rtol:
-            #     if self.verbose_cg:
-            #         print(f"Converged in {i+1} iterations.")
-            #     break
+            if error.item() < rtol:
+                b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
+                abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
+                if self.verbose_cg:
+                    print(f"Converged in {i+1} iterations.")
+                break
 
             # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to r
             # z = self.apply_preconditioner(r, MhM_inv, matL)
@@ -516,17 +599,6 @@ class HmcSampler(object):
             rz_old = rz_new
 
             cnt += 1
-
-        # if self.plt_cg and axs is not None:
-        #     # Save the plot
-        #     script_path = os.path.dirname(os.path.abspath(__file__))
-        #     class_name = __file__.split('/')[-1].replace('.py', '')
-        #     method_name = "preconditioned_cg"
-        #     save_dir = os.path.join(script_path, f"./figures/{class_name}")
-        #     os.makedirs(save_dir, exist_ok=True)
-        #     file_path = os.path.join(save_dir, f"{method_name}_convergence.pdf")
-        #     plt.savefig(file_path, format="pdf", bbox_inches="tight")
-        #     print(f"Figure saved at: {file_path}")
 
         return x, cnt, residuals[-1]
   
@@ -591,6 +663,8 @@ class HmcSampler(object):
 
             # Check for convergence
             if error < rtol:
+                b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
+                abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
                 if self.verbose_cg:
                     print(f"Converged in {i+1} iterations.")
                 break
@@ -1548,17 +1622,38 @@ class HmcSampler(object):
         return Ft, xi_t
     
 
-    def Ot_inv_psi_fast(self, psi, boson):
-        Ot_inv_psi, cnt, _ = self.preconditioned_cg_fast(boson, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
+    def Ot_inv_psi_fast(self, psi, boson, MhM):
+        # # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
+        Ot = MhM.to_dense()
+        L = torch.linalg.cholesky(Ot)
+        Ot_inv = torch.cholesky_inverse(L)
+        xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
+        # # return xi_t.view(-1)
+              
+        Ot_inv_psi, cnt, r_err = self.preconditioned_cg_fast(boson, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM)
+
+        # torch.norm(torch.sparse.mm(MhM, Ot_inv_psi_ref.view(-1, 1)) - psi)
+        psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
+        abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
+        abs_b_err_ref = torch.norm(torch.sparse.mm(MhM, xi_t.view(-1, 1)) - psi.view(-1, 1))
+        
+        # Print the absolute errors
+        print("abs_b_err:", abs_b_err)
+        print("abs_b_err_ref:", abs_b_err_ref)
+
+        # Assert that b_err is smaller than b_err_ref
+        assert abs_b_err < abs_b_err_ref, "b_err is not smaller than b_err_ref"
+
         return Ot_inv_psi, cnt
 
+
     def Ot_inv_psi(self, psi, MhM):
-        # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
+        # # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
         # Ot = MhM.to_dense()
         # L = torch.linalg.cholesky(Ot)
         # Ot_inv = torch.cholesky_inverse(L)
         # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
-        # return xi_t.view(-1)
+        # # return xi_t.view(-1)
               
         # # Convert MhM to a scipy sparse matrix
         # MhM_scipy_csr = sp.csr_matrix(
@@ -1579,11 +1674,24 @@ class HmcSampler(object):
         # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
         # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
 
-        Ot_inv_psi, cnt, _ = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
+        Ot_inv_psi, cnt, r_err = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
+
+        # torch.norm(torch.sparse.mm(MhM, Ot_inv_psi_ref.view(-1, 1)) - psi)
+        psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
+        abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
+        # abs_b_err_ref = torch.norm(torch.sparse.mm(MhM, xi_t.view(-1, 1)) - psi.view(-1, 1))
+        
+        # Print the absolute errors
+        print("abs_b_err:", abs_b_err)
+        # print("abs_b_err_ref:", abs_b_err_ref)
+
+        # # Assert that b_err is smaller than b_err_ref
+        # assert abs_b_err < abs_b_err_ref, "b_err is not smaller than b_err_ref"
+        
         return Ot_inv_psi, cnt
 
 
-    def force_f_fast(self, psi, boson):
+    def force_f_fast(self, psi, boson, MhM):
         """
         Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
 
@@ -1599,11 +1707,11 @@ class HmcSampler(object):
         # assert len(boson.shape) == 4 or boson.size(0) == 1
         # if len(boson.shape) == 5:
         #     boson = boson.squeeze(0)
-        boson = boson.permute([0, 4, 3, 2, 1]).view(self.bs, self.Ltau, -1)
+        boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, self.Ltau, -1)
 
         # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
         # xi_t, cg_converge_iter = self.Ot_inv_psi(psi, MhM)
-        xi_t, cg_converge_iter = self.Ot_inv_psi_fast(psi, boson)  # [bs, Lx*Ly*Ltau]
+        xi_t, cg_converge_iter = self.Ot_inv_psi_fast(psi, boson, MhM)  # [bs, Lx*Ly*Ltau]
 
         Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
         xi_t = xi_t.view(self.bs, Ltau, Ly * Lx)
@@ -2066,6 +2174,7 @@ class HmcSampler(object):
         psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
 
         force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
+        force_f_u_q, xi_t_u_q, cg_converge_iter_q = self.force_f_fast(psi_u, x, MhM0)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
         torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
@@ -2188,6 +2297,7 @@ class HmcSampler(object):
             MhM = result[0]
             B_list = result[1]
             force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+            force_f_u_q, xi_t_u_q, cg_converge_iter_q = self.force_f_fast(psi_u, x, MhM)
             p = p + dt/2 * (force_f_u.unsqueeze(0))
 
             cg_converge_iters.append(cg_converge_iter)
@@ -2626,7 +2736,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '2'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
