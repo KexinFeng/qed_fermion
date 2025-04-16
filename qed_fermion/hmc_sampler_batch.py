@@ -100,14 +100,14 @@ class HmcSampler(object):
         self.m = 1/2 * 4 / scale * 0.05
         # self.m = 1/2
 
-        self.delta_t = 0.05
+        self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
 
         # self.N_leapfrog = 6 # already oscilates back
         self.N_leapfrog = 4
 
         # CG
-        self.cg_rtol = 1e-7
+        self.cg_rtol = 1e-5
         self.max_iter = 1000
         self.precon = None
 
@@ -367,6 +367,22 @@ class HmcSampler(object):
         gc.collect() 
         del M_temp
         del M_itr
+
+        # Filter small elements right after Neumann series
+        print("# Filter small elements right after Neumann series")
+        abs_values = torch.abs(M_inv.values())
+        filter_mask = abs_values >= 1e-4
+        M_inv_indices = M_inv.indices()[:, filter_mask]
+        M_inv_values = M_inv.values()[filter_mask]
+        del M_inv
+        gc.collect()
+        M_inv = torch.sparse_coo_tensor(
+            M_inv_indices,
+            M_inv_values,
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
 
         # Scale by the inverse diagonal
         print('# Scale by the inverse diagonal')
@@ -1338,8 +1354,9 @@ class HmcSampler(object):
         # # Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
         # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
         # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
-
-        Ot_inv_psi, cnt, _ = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype)
+        if self.plt_cg:
+            fg, ax = plt.subplots(1, 1, figsize=(8, 6))
+        Ot_inv_psi, cnt, _ = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype, axs=ax)
         return Ot_inv_psi, cnt
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
