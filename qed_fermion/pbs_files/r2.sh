@@ -1,27 +1,19 @@
 mkdir -p report
 
+J_array=$(echo '1.0')
+L_array=$(echo '18 20 22 24')
 
-J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
-L_array=$(echo '6 8 10')
 
-J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
-L_array=$(echo '8 10')
-
-Nstep=6000
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo hmc_J_${J}_L_${L}_Nstep_${Nstep})
+		config=$(echo L_${L})
                 echo $config
-                export J Nstep L
+                export L
                 #
-                sbatch --job-name=${config}_hmc \
-                --time=0-30:00:00 \
-                --qos=gpu \
-                --mem-per-cpu=8G \
-                s_hmc.cmd
-        done
+        	sbatch --job-name=${config}_hmc --time=0-10:00:00 --qos=normal --mem=500G s_hmc.cmd
+	done
 done
 
 # Nstep=100

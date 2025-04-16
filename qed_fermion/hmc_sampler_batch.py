@@ -34,7 +34,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 0
+start_total_monitor = 1000
 start_load = 2000
 
 class HmcSampler(object):
@@ -70,7 +70,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 2
+        self.plt_rate = 1000
         self.ckp_rate = 2000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
@@ -109,6 +109,7 @@ class HmcSampler(object):
         # self.delta_t = 0.0175 = 0.07/4
         self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
         # self.delta_t = 0.008 # (L=10)
+        self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
@@ -125,13 +126,13 @@ class HmcSampler(object):
 
         # CG
         # self.cg_rtol = 1e-7
-        # self.max_iter = 400  # at around 450 rtol is so small that becomes nan 
-        self.cg_rtol = 1e-4
-        self.max_iter = 2000  # at around 450 rtol is so small that becomes nan 
+        # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
+        self.cg_rtol = 1e-5
+        self.max_iter = 1000
         self.precon = None
         self.plt_cg = False
         self.verbose_cg = False
-        
+
         # Debug
         torch.manual_seed(0)
 
@@ -244,9 +245,8 @@ class HmcSampler(object):
                 device=device
             ).coalesce()
 
-            # self.precon = precon.to_sparse_csr()
-            self.precon = precon
-            
+            self.precon = precon.to_sparse_csr()
+
 
             # precon_dict2 = torch.load(file_path.replace("preconditioners", "preconditioners_backup"))
 
@@ -389,6 +389,22 @@ class HmcSampler(object):
         gc.collect() 
         del M_temp
         del M_itr
+
+        # Filter small elements right after Neumann series
+        print("# Filter small elements right after Neumann series")
+        abs_values = torch.abs(M_inv.values())
+        filter_mask = abs_values >= 1e-4
+        M_inv_indices = M_inv.indices()[:, filter_mask]
+        M_inv_values = M_inv.values()[filter_mask]
+        del M_inv
+        gc.collect()
+        M_inv = torch.sparse_coo_tensor(
+            M_inv_indices,
+            M_inv_values,
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce()
 
         # Scale by the inverse diagonal
         print('# Scale by the inverse diagonal')
@@ -866,7 +882,7 @@ class HmcSampler(object):
             device=boson.device,
             dtype=cdtype
         )
-        
+
         B1_list = []
         B2_list = []
         B3_list = []
@@ -1503,7 +1519,7 @@ class HmcSampler(object):
         # relative_error = torch.norm(Ot_inv_psi.view(-1) - xi_t) / torch.norm(xi_t)
         # if relative_error > 1e-4:
         #     raise ValueError(f"Relative norm error exceeds threshold: {relative_error:.2e}")
-        
+
         return Ot_inv_psi, cnt
 
     def force_f_sparse(self, psi, MhM, boson, B_list):
@@ -2107,11 +2123,11 @@ class HmcSampler(object):
         """
         boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
 
-        print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
-        print(f"threshold: {torch.exp(H_old - H_new).item()}")
+        # print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
+        # print(f"threshold: {torch.exp(H_old - H_new).item()}")
 
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        print(f'Accp?: {accp.item()}')
+        # print(f'Accp?: {accp.item()}')
         self.boson[accp] = boson_new[accp]
         return self.boson, accp, cg_converge_iter
     
@@ -2440,7 +2456,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '10'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
