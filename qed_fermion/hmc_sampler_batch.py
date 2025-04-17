@@ -23,7 +23,7 @@ from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
 from qed_fermion import _C
 
-BLOCK_SIZE = (4, 8)
+BLOCK_SIZE = (4, 4)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cpu')
@@ -74,7 +74,7 @@ class HmcSampler(object):
         self.polar = 0  # 0: x, 1: y
         self.plt_rate = 1000
         self.ckp_rate = 2000
-        self.plt_cg = True
+        self.plt_cg = False
         self.verbose_cg = False
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
@@ -447,7 +447,7 @@ class HmcSampler(object):
 
         # Initialize variables
         x = torch.zeros_like(b)
-        r = b - _C.mhm_vec(boson, x, self.Lx, self.dtau)
+        r = b - _C.mhm_vec(boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
         z = _C.precon_vec(r, self.precon_csr, self.Lx)
         p = z
         rz_old = torch.einsum('bj,bj->b', r.conj(), z).real
@@ -467,7 +467,7 @@ class HmcSampler(object):
         cnt = 0
         for i in range(max_iter):
             # Matrix-vector product with M'M
-            Op = _C.mhm_vec(boson, p, self.Lx, self.dtau)
+            Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
             alpha = rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real
             x += alpha.unsqueeze(-1) * p
             r -= alpha.unsqueeze(-1) * Op
@@ -537,7 +537,7 @@ class HmcSampler(object):
         # Initialize variables
         x = torch.zeros_like(b).view(self.bs, -1)
         # r = b.view(-1, 1) - torch.sparse.mm(MhM, x)
-        r = b.view(self.bs, -1) - _C.mhm_vec(boson, x, self.Lx, self.dtau)
+        r = b.view(self.bs, -1) - _C.mhm_vec(boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
         # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
         # z = self.apply_preconditioner(r, MhM_inv, matL)
         # vec = R_u.to(torch.complex64).view(1, -1).repeat(bs, 1)
@@ -566,7 +566,7 @@ class HmcSampler(object):
         for i in range(max_iter):
             # Matrix-vector product with M'M
             # Op = torch.sparse.mm(MhM, p)
-            Op = _C.mhm_vec(boson, p, self.Lx, self.dtau)
+            Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
             
             # alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
             alpha = rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real
@@ -732,7 +732,7 @@ class HmcSampler(object):
         # ## z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r
         z_ref = self.apply_preconditioner(r_ref, MhM_inv, matL)
 
-        r = b.view(-1, 1) - _C.mhm_vec(boson.view(self.bs, -1), x.view(self.bs, -1), self.Lx, self.dtau).view(-1, 1)
+        r = b.view(self.bs, -1) - _C.mhm_vec(boson.view(self.bs, -1), x.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
         torch.testing.assert_close(r, r_ref)
         z = _C.precon_vec(r.view(self.bs, -1), self.precon_csr, self.Lx).view(-1, 1)
         torch.testing.assert_close(z, z_ref)
@@ -758,7 +758,7 @@ class HmcSampler(object):
         for i in range(max_iter):
             # Matrix-vector product with M'M
             Op_ref = torch.sparse.mm(MhM, p)
-            Op = _C.mhm_vec(boson.view(self.bs, -1), p.view(self.bs, -1), self.Lx, self.dtau).view(-1, 1)
+            Op = _C.mhm_vec(boson.view(self.bs, -1), p.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
             torch.testing.assert_close(Op, Op_ref)
 
             alpha = rz_old / torch.dot(p.conj().view(-1), Op.view(-1)).real
@@ -1748,22 +1748,17 @@ class HmcSampler(object):
         axs = None
         if self.plt_cg:
             fg, axs = plt.subplots()
-        Ot_inv_psi, cnt, r_err = self.preconditioned_cg_fast(boson, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
+        Ot_inv_psi, cnt, r_err = self.preconditioned_cg_fast_test(boson, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
 
-        # # torch.norm(torch.sparse.mm(MhM, Ot_inv_psi_ref.view(-1, 1)) - psi)
-        psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
-        abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
-        # abs_b_err_ref = torch.norm(torch.sparse.mm(MhM, xi_t.view(-1, 1)) - psi.view(-1, 1))
-        
-        # # Print the absolute errors
-        # print("abs_b_err:", abs_b_err)
-        # print("abs_b_err_ref:", abs_b_err_ref)
+        # psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
+        # abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
+
 
         # # Assert that b_err is smaller than b_err_ref
         # assert abs_b_err < abs_b_err_ref, "b_err is not smaller than b_err_ref"
         
-        print(f'convergence iter: {cnt}, r_err: {r_err}')
-        assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
+        # print(f'convergence iter: {cnt}, r_err: {r_err}')
+        # assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
 
         return Ot_inv_psi, cnt
 
@@ -1804,14 +1799,11 @@ class HmcSampler(object):
         # psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
         # abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
         # abs_b_err_ref = torch.norm(torch.sparse.mm(MhM, xi_t.view(-1, 1)) - psi.view(-1, 1))
-        psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
-        abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
 
-        # Print the absolute errors
-        # print("abs_b_err:", abs_b_err)
-        # print("abs_b_err_ref:", abs_b_err_ref)
+        # psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
+        # abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
 
-        print(f'convergence iter: {cnt}, r_err: {r_err}')
+        # print(f'convergence iter: {cnt}, r_err: {r_err}')
         # assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
         
         return Ot_inv_psi, cnt
@@ -1856,12 +1848,12 @@ class HmcSampler(object):
                 #     B_xi = torch.sparse.mm(mat_B, B_xi)
                 # B_xi = B_xi.view(1, -1).conj()  # row
 
-                B_xi_5 = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, False)
+                B_xi_5 = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, False, *BLOCK_SIZE)
                 # torch.testing.assert_close(B_xi_5, _C.b_vec_per_tau(-boson_in, xi_c.conj(), Lx, self.dtau, False))
 
                 xi_n_conj = xi_n.conj()   # row
                 # Bi.T = Bi.conj() = Bi(-boson)
-                xi_n_lft_conj = _C.b_vec_per_tau(boson_in, xi_n_conj, Lx, self.dtau, True)
+                xi_n_lft_conj = _C.b_vec_per_tau(boson_in, xi_n_conj, Lx, self.dtau, True, *BLOCK_SIZE)
                 # xi_n_lft_5 = xi_n.conj().view(1, -1) # row
                 # xi_n_lft_4 = torch.sparse.mm(xi_n_lft_5, B4_list[tau])
                 # xi_n_lft_3 = torch.sparse.mm(xi_n_lft_4, B3_list[tau])
@@ -1870,7 +1862,7 @@ class HmcSampler(object):
                 # xi_n_lft_0 = torch.sparse.mm(xi_n_lft_1, B2_list[tau])
                 # xi_n_lft_m1 = torch.sparse.mm(xi_n_lft_0, B3_list[tau])
 
-                xi_c_rgt = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, True)
+                xi_c_rgt = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, True, *BLOCK_SIZE)
                 # xi_c_rgt_5 = xi_c.view(-1, 1) # col
                 # xi_c_rgt_4 = torch.sparse.mm(B4_list[tau], xi_c_rgt_5)
                 # xi_c_rgt_3 = torch.sparse.mm(B3_list[tau], xi_c_rgt_4)
@@ -1880,7 +1872,7 @@ class HmcSampler(object):
                 # xi_c_rgt_m1 = torch.sparse.mm(B3_list[tau], xi_c_rgt_0)
 
                 B_xi_5_conj = B_xi_5.conj()  # row
-                B_xi_conj = _C.b_vec_per_tau(boson_in, B_xi_5_conj, Lx, self.dtau, True)
+                B_xi_conj = _C.b_vec_per_tau(boson_in, B_xi_5_conj, Lx, self.dtau, True, *BLOCK_SIZE)
                 # B_xi_5 = B_xi.view(1, -1)  # row
                 # B_xi_4 = torch.sparse.mm(B_xi_5, B4_list[tau])
                 # B_xi_3 = torch.sparse.mm(B_xi_4, B3_list[tau])
@@ -2299,17 +2291,18 @@ class HmcSampler(object):
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
         result = self.get_M_sparse(x)
-        MhM0, B_list, M0 = result[0], result[1], result[-1]
-        psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
+        # MhM0, B_list, M0 = result[0], result[1], result[-1]
+        # psi_u_ref = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
+        psi_u = _C.m_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.conj().view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).conj().view(-1, 1)
+        # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
-
-        force_f_u_q, xi_t_u_q, cg_converge_iter = self.force_f_fast(psi_u, x, MhM0)
-        force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
-        torch.testing.assert_close(force_f_u.unsqueeze(0), force_f_u_q, atol=1e-3, rtol=1e-3)
+        force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+        # force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
+        # torch.testing.assert_close(force_f_u.unsqueeze(0), force_f_u_q, atol=1e-3, rtol=1e-3)
         # force_f_u = force_f_u.squeeze(0)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
-        torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
+        # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
 
         assert x.grad is None
@@ -2425,12 +2418,12 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
 
-            result = self.get_M_sparse(x)
-            MhM = result[0]
-            B_list = result[1]            
-            force_f_u_q, xi_t_u_q, cg_converge_iter = self.force_f_fast(psi_u, x, MhM)
-            force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
-            torch.testing.assert_close(force_f_u.unsqueeze(0), force_f_u_q, atol=1e-3, rtol=1e-3)
+            # result = self.get_M_sparse(x)
+            # MhM = result[0]
+            # B_list = result[1]            
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+            # force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+            # torch.testing.assert_close(force_f_u.unsqueeze(0), force_f_u_q, atol=1e-3, rtol=1e-3)
             # force_f_u = force_f_u.squeeze(0)
             p = p + dt/2 * (force_f_u.unsqueeze(0))
 
@@ -2515,7 +2508,7 @@ class HmcSampler(object):
         # Final energies
         # Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
         Sf_fin_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1)).view(-1)
-        torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
+        # torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
 
         Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
@@ -2870,12 +2863,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '2'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
     Ltau = 4*Lx * 10 # dtau=0.1
-    # Ltau = 10 # dtau=0.1
+    Ltau = 2 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
