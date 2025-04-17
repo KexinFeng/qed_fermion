@@ -148,31 +148,6 @@ class HmcSampler(object):
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform()
 
-        # self.initialize_boson()
-        # # self.initialize_boson_staggered_pi()   
-        # self.boson[:] = 0
-        # self.boson[0, 0, 0, 0, 1] = 1.0
-
-        # self.boson_seq_buffer[0] = self.convert(self.boson.squeeze(0))
-        # data_folder = script_path + "/check_points/hmc_check_point/"
-        # file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
-        # self.save_to_file(self.boson_seq_buffer[:1].cpu(), data_folder, file_name) 
-
-        # # debug
-        # Stau = self.action_boson_tau_cmp(self.boson)/36 
-        # Splaq = self.action_boson_plaq(self.boson)/36
-        # data_folder = script_path + "/check_points/hmc_check_point/"
-        # file_name = "ener"
-        # results_dict = {"Stau": Stau.tolist(), "Splaq": Splaq.tolist()}
-        # self.save_to_file(results_dict, data_folder, file_name)
-
-        # # Save the results to a .csv file
-        # df = pd.DataFrame([results_dict])
-        # csv_file_path = data_folder + file_name + '.csv'
-        # df.to_csv(csv_file_path, index=False)
-        # print(f"-----> save to {csv_file_path}")
-
-        # exit(0)
     
     def reset_precon(self):
         # Check if preconditioner file exists
@@ -1388,16 +1363,6 @@ class HmcSampler(object):
             fg, axs = plt.subplots()
         Ot_inv_psi, cnt, r_err = self.preconditioned_cg_fast_test(boson, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
 
-        # psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
-        # abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
-
-
-        # # Assert that b_err is smaller than b_err_ref
-        # assert abs_b_err < abs_b_err_ref, "b_err is not smaller than b_err_ref"
-
-        # print(f'convergence iter: {cnt}, r_err: {r_err}')
-        # assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
-
         return Ot_inv_psi, cnt
 
 
@@ -1408,41 +1373,11 @@ class HmcSampler(object):
         # Ot_inv = torch.cholesky_inverse(L)
         # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
         # # return xi_t.view(-1)
-              
-        # # # Convert MhM to a scipy sparse matrix
-        # MhM_scipy_csr = sp.csr_matrix(
-        #     (MhM.values().cpu().numpy(),
-        #      (MhM.indices()[0].cpu().numpy(), MhM.indices()[1].cpu().numpy())),
-        #     shape=MhM.shape,
-        #     dtype=MhM.values().cpu().numpy().dtype
-        # )
-        # psi_scipy = psi.cpu().numpy()
-
-        # precon = sp.csr_matrix(
-        #     (self.precon.values().cpu().numpy(),
-        #      (self.precon.indices()[0].cpu().numpy(), self.precon.indices()[1].cpu().numpy())),
-        #     shape=self.precon.shape,
-        #     dtype=self.precon.values().cpu().numpy().dtype
-        # )
-        # # Ot_inv_psi = sp.linalg.spsolve(MhM_scipy_csr, psi_scipy)
-        # Ot_inv_psi = sp.linalg.cg(MhM_scipy_csr, psi_scipy, rtol=self.cg_rtol, M=precon, maxiter=24)[0]
-        # Ot_inv_psi = torch.tensor(Ot_inv_psi, device=psi.device, dtype=psi.dtype)
 
         axs = None
         if self.plt_cg:
             fg, axs = plt.subplots()
         Ot_inv_psi, cnt, r_err = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype, axs=axs)
-
-        # torch.norm(torch.sparse.mm(MhM, Ot_inv_psi_ref.view(-1, 1)) - psi)
-        # psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
-        # abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
-        # abs_b_err_ref = torch.norm(torch.sparse.mm(MhM, xi_t.view(-1, 1)) - psi.view(-1, 1))
-
-        # psi_ref_reverted = torch.sparse.mm(MhM, Ot_inv_psi.view(-1, 1))
-        # abs_b_err = torch.norm(psi_ref_reverted - psi.view(-1, 1))
-
-        # print(f'convergence iter: {cnt}, r_err: {r_err}')
-        # assert abs_b_err < 1e-3, f"b_err is not small enough: {abs_b_err}"
 
         return Ot_inv_psi, cnt
 
@@ -1465,8 +1400,6 @@ class HmcSampler(object):
         #     boson = boson.squeeze(0)
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, self.Ltau, -1)
 
-        # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
-        # xi_t, cg_converge_iter = self.Ot_inv_psi(psi, MhM)
         xi_t, cg_converge_iter = self.Ot_inv_psi_fast(psi, boson, MhM)  # [bs, Lx*Ly*Ltau]
 
         Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
@@ -1480,44 +1413,15 @@ class HmcSampler(object):
                 xi_c = xi_t[b, tau].view(-1) # col
                 xi_n = xi_t[b, (tau + 1) % Ltau].view(-1) # col
 
-                # B_xi = xi_c  # column
-                # mat_Bs = [B4_list[tau], B3_list[tau], B2_list[tau], B1_list[tau], B2_list[tau], B3_list[tau], B4_list[tau]]
-                # for mat_B in mat_Bs:
-                #     B_xi = torch.sparse.mm(mat_B, B_xi)
-                # B_xi = B_xi.view(1, -1).conj()  # row
-
                 B_xi_5 = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, False, *BLOCK_SIZE)
-                # torch.testing.assert_close(B_xi_5, _C.b_vec_per_tau(-boson_in, xi_c.conj(), Lx, self.dtau, False))
 
                 xi_n_conj = xi_n.conj()   # row
-                # Bi.T = Bi.conj() = Bi(-boson)
                 xi_n_lft_conj = _C.b_vec_per_tau(boson_in, xi_n_conj, Lx, self.dtau, True, *BLOCK_SIZE)
-                # xi_n_lft_5 = xi_n.conj().view(1, -1) # row
-                # xi_n_lft_4 = torch.sparse.mm(xi_n_lft_5, B4_list[tau])
-                # xi_n_lft_3 = torch.sparse.mm(xi_n_lft_4, B3_list[tau])
-                # xi_n_lft_2 = torch.sparse.mm(xi_n_lft_3, B2_list[tau])
-                # xi_n_lft_1 = torch.sparse.mm(xi_n_lft_2, B1_list[tau])
-                # xi_n_lft_0 = torch.sparse.mm(xi_n_lft_1, B2_list[tau])
-                # xi_n_lft_m1 = torch.sparse.mm(xi_n_lft_0, B3_list[tau])
 
                 xi_c_rgt = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, True, *BLOCK_SIZE)
-                # xi_c_rgt_5 = xi_c.view(-1, 1) # col
-                # xi_c_rgt_4 = torch.sparse.mm(B4_list[tau], xi_c_rgt_5)
-                # xi_c_rgt_3 = torch.sparse.mm(B3_list[tau], xi_c_rgt_4)
-                # xi_c_rgt_2 = torch.sparse.mm(B2_list[tau], xi_c_rgt_3)
-                # xi_c_rgt_1 = torch.sparse.mm(B1_list[tau], xi_c_rgt_2)
-                # xi_c_rgt_0 = torch.sparse.mm(B2_list[tau], xi_c_rgt_1)
-                # xi_c_rgt_m1 = torch.sparse.mm(B3_list[tau], xi_c_rgt_0)
 
                 B_xi_5_conj = B_xi_5.conj()  # row
                 B_xi_conj = _C.b_vec_per_tau(boson_in, B_xi_5_conj, Lx, self.dtau, True, *BLOCK_SIZE)
-                # B_xi_5 = B_xi.view(1, -1)  # row
-                # B_xi_4 = torch.sparse.mm(B_xi_5, B4_list[tau])
-                # B_xi_3 = torch.sparse.mm(B_xi_4, B3_list[tau])
-                # B_xi_2 = torch.sparse.mm(B_xi_3, B2_list[tau])
-                # B_xi_1 = torch.sparse.mm(B_xi_2, B1_list[tau])
-                # B_xi_0 = torch.sparse.mm(B_xi_1, B2_list[tau])
-                # B_xi_m1 = torch.sparse.mm(B_xi_0, B3_list[tau])
 
 
                 sign_B = -1 if tau < Ltau - 1 else 1
@@ -2263,7 +2167,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '10'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
