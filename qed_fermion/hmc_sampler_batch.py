@@ -1594,15 +1594,15 @@ class HmcSampler(object):
         x = x0
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
-        # result = self.get_M_sparse(x)
-        # MhM0, B_list, M0 = result[0], result[1], result[-1]
-        # psi_u_ref = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
+        result = self.get_M_sparse(x)
+        MhM0, B_list, M0 = result[0], result[1], result[-1]
+        psi_u_ref = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
         psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
-        # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
+        torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
         force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
-        # force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
-        # torch.testing.assert_close(force_f_u.unsqueeze(0), force_f_u_q, atol=1e-3, rtol=1e-3)
+        force_f_u_ref, xi_t_u_ref, cg_converge_iter_ref = self.force_f_sparse(psi_u, MhM0, x, B_list)
+        torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
         # force_f_u = force_f_u.squeeze(0)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
@@ -1725,9 +1725,9 @@ class HmcSampler(object):
             result = self.get_M_sparse(x)
             MhM = result[0]
             B_list = result[1]
-            # force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
-            force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
-            # torch.testing.assert_close(force_f_u, force_f_u_q, atol=1e-3, rtol=1e-3)
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+            force_f_u_ref, xi_t_u_ref, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+            torch.testing.assert_close(force_f_u_ref, force_f_u, atol=1e-3, rtol=1e-3)
             # force_f_u = force_f_u.squeeze(0)
             p = p + dt/2 * (force_f_u)
 
