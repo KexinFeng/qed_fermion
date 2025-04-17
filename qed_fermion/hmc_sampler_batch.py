@@ -1835,12 +1835,11 @@ class HmcSampler(object):
         :return: None
         """
         boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
-
-        # print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
-        # print(f"threshold: {torch.exp(H_old - H_new).item()}")
-
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        # print(f'Accp?: {accp.item()}')
+        print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
+        print(f"threshold: {torch.exp(H_old - H_new).item()}")
+        print(f'Accp?: {accp.item()}')
+        
         self.boson[accp] = boson_new[accp]
         return self.boson, accp, cg_converge_iter
     
