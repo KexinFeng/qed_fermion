@@ -594,8 +594,8 @@ class HmcSampler(object):
 
             # Check for convergence
             if error.item() < rtol:
-                b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
-                abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
+                # b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
+                # abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
                 if self.verbose_cg:
                     print(f"Converged in {i+1} iterations.")
                 break
@@ -2290,10 +2290,10 @@ class HmcSampler(object):
         x = x0
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
-        result = self.get_M_sparse(x)
+        # result = self.get_M_sparse(x)
         # MhM0, B_list, M0 = result[0], result[1], result[-1]
         # psi_u_ref = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
-        psi_u = _C.m_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.conj().view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).conj().view(-1, 1)
+        psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
         # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
         force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
@@ -2394,7 +2394,7 @@ class HmcSampler(object):
         cg_converge_iters = [cg_converge_iter]
         for leap in range(self.N_leapfrog):
 
-            p = p + dt/2 * (force_f_u.unsqueeze(0))
+            p = p + dt/2 * (force_f_u)
 
             # Update (p, x)
             x_last = x
@@ -2418,14 +2418,14 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
 
-            # result = self.get_M_sparse(x)
-            # MhM = result[0]
-            # B_list = result[1]            
-            force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
-            # force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
-            # torch.testing.assert_close(force_f_u.unsqueeze(0), force_f_u_q, atol=1e-3, rtol=1e-3)
+            result = self.get_M_sparse(x)
+            MhM = result[0]
+            B_list = result[1]            
+            # force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+            # torch.testing.assert_close(force_f_u, force_f_u_q, atol=1e-3, rtol=1e-3)
             # force_f_u = force_f_u.squeeze(0)
-            p = p + dt/2 * (force_f_u.unsqueeze(0))
+            p = p + dt/2 * (force_f_u)
 
             cg_converge_iters.append(cg_converge_iter)
             if self.debug_pde:
@@ -2863,12 +2863,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '2'))
+    Lx = int(os.getenv("L", '10'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
     Ltau = 4*Lx * 10 # dtau=0.1
-    Ltau = 2 # dtau=0.1
+    # Ltau = 2 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
