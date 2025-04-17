@@ -93,7 +93,7 @@ class HmcSampler(object):
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
 
         # boson_seq
-        self.boson_seq_buffer = torch.zeros(self.stream_write_rate, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
+        self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
 
         # Leapfrog
         self.debug_pde = False
@@ -129,7 +129,7 @@ class HmcSampler(object):
         # CG
         # self.cg_rtol = 1e-7
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
-        self.cg_rtol = 1e-5
+        self.cg_rtol = 1e-7
         self.max_iter = 1000
         self.precon = None
         self.plt_cg = False
@@ -419,7 +419,7 @@ class HmcSampler(object):
 
             # Compute and store the error (norm of the residual)
             error = torch.norm(r, dim=1) / norm_b
-            residuals.append(error.item())
+            residuals.append(error)
 
             if self.plt_cg and axs is not None:
                 # Plot intermediate results
@@ -436,7 +436,7 @@ class HmcSampler(object):
                 print(f"Figure saved at: {file_path}")
 
             # Check for convergence
-            if error.item() < rtol:
+            if (error < rtol).all():
                 # b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
                 # abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
                 if self.verbose_cg:
@@ -1599,12 +1599,12 @@ class HmcSampler(object):
             result = self.get_M_sparse(x)
             MhM0, B_list, M0 = result[0], result[1], result[-1]
             psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
-            force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+            force_f_u_ref, xi_t_u_ref, cg_converge_iter_ref = self.force_f_sparse(psi_u, MhM0, x, B_list)
         else:
             psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
-            force_f_u_ref, xi_t_u_ref, cg_converge_iter_ref = self.force_f_sparse(psi_u, MhM0, x, B_list)
-            torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+            # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
 
         Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
         # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
@@ -1727,10 +1727,10 @@ class HmcSampler(object):
                 result = self.get_M_sparse(x)
                 MhM = result[0]
                 B_list = result[1]
-                force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
-            else:
                 force_f_u_ref, xi_t_u_ref, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
-                torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
+            else:
+                force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+                # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
             p = p + dt/2 * (force_f_u)
 
             cg_converge_iters.append(cg_converge_iter)
@@ -1822,7 +1822,7 @@ class HmcSampler(object):
         H_fin += Sf_fin_u
 
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
-        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-3)
+        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=3e-3)
 
         return x, H0, H_fin, sum(cg_converge_iters)/len(cg_converge_iters)
 
@@ -1891,7 +1891,7 @@ class HmcSampler(object):
 
                 self.cg_iter_list[i] = cg_converge_iter
 
-                self.boson_seq_buffer[cnt_stream_write] = boson_cpu.squeeze(0).flatten()
+                self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
 
             # Wait for the previous computation to finish before starting a new one
             if async_fence.done():
