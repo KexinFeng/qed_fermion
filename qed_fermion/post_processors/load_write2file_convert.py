@@ -39,33 +39,68 @@ def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_ste
     jtau_index = parts.index('Jtau')  # Find position of 'Jtau'
     jtau_value = float(parts[jtau_index + 1])   # Get the next element
     
-    if len(hmc_filename):
-        # [seq, Ltau * Ly * Lx * 2]
-        boson_seq = torch.load(hmc_filename)
-        # boson_seq = boson_seq.to(device='mps', dtype=torch.float32)
-        print(f'Loaded: {hmc_filename}')        
-        
-        # Extract Nstep and Nstep_local from filenames
-        hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
-        end = int(hmc_match.group(1))
+    # Load and write
+    # [seq, Ltau * Ly * Lx * 2]
+    boson_seq = torch.load(hmc_filename)
+    # boson_seq = boson_seq.to(device='mps', dtype=torch.float32)
+    print(f'Loaded: {hmc_filename}')        
+    
+    # Extract Nstep and Nstep_local from filenames
+    hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+    end = int(hmc_match.group(1))
 
-        start = starts.pop(0)
-        sample_step = sample_steps.pop(0)
-        seq_idx = set(list(range(start, end, sample_step)))
+    start = starts.pop(0)
+    sample_step = sample_steps.pop(0)
+    seq_idx = set(list(range(start, end, sample_step)))
 
-        # Write result to file
-        # output_file_name = f'confin_all_confs_J_{jtau_value:.1g}_Lx_{Lx}_Ltau_{Ltau}'
-        # output_path = os.path.join(script_path + '/check_points/hmc_check_point/', output_file_name)
+    # Write result to file
+    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{jtau_value:.1g}_L_{Lx}/"
+    os.makedirs(output_folder, exist_ok=True)
 
-        output_path = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{jtau_value:.1g}/confin_all_confs"
-        with open(output_path, 'w') as f:
-            for i, boson in enumerate(boson_seq):
-                if i not in seq_idx: continue
-                boson = convert((Lx, Ly, Ltau), boson).cpu().numpy()
-                f.write("           1                     0  1.667169721062853E-002\n") 
-                np.savetxt(f, boson, fmt="%.16E")
+    output_file = "/confin_all_confs"
+    output_path = os.path.join(output_folder, output_file)
+    with open(output_path, 'w') as f:
+        for i, boson in enumerate(boson_seq):
+            if i not in seq_idx: continue
+            boson = convert((Lx, Ly, Ltau), boson).cpu().numpy()
+            f.write("           1                     0  1.667169721062853E-002\n") 
+            np.savetxt(f, boson, fmt="%.16E")
 
-        print(f"Results saved to {output_path}")
+    print(f"Results saved to {output_path}")
+
+    # Create or overwrite the ftdqmc.in file
+    ftdqmc_file_path = os.path.join(output_folder, "ftdqmc.in")
+    with open(ftdqmc_file_path, 'w') as f:
+        f.write(f"L : {Lx} # <-\n")
+        f.write("Nflavor : 2\n")
+        f.write("rt : 0.0\n")
+        f.write("init_xmag : 0\n")
+        f.write("mu : 0.0\n")
+        f.write("muA : 0.0\n")
+        f.write("muB : 0.0\n")
+        f.write("rj : 1.0\n")
+        f.write("rhub : 0.0\n")
+        f.write("jpi : 1.0\n")
+        f.write(f"beta : {Ltau * 0.1:.1f} #  Ntau * dtau, 12.0 for confin_all_confs_demo # <-\n")
+        f.write("dtau : 0.1\n")
+        f.write(f"js : {jtau_value:.1f}\n")
+        f.write("phi_box : 3.141592654\n")
+        f.write("llocal : T\n")
+        f.write("nsw_stglobal : 0\n")
+        f.write("nsw_stglobal_slice : 0\n")
+        f.write("ncumulate_bare : 0\n")
+        f.write("nsweep : 1\n")
+        f.write(f"nbin : {len(seq_idx)} # count of config samples, 10 # <-\n")
+        f.write("lsstau : T\n")
+        f.write("ltau : F\n")
+        f.write("nwrap : 10\n")
+        f.write("nuse : 0\n")
+        f.write("rstep0 : 0.01\n")
+
+    print(f"ftdqmc.in file created at {ftdqmc_file_path}")
+
+
+
 
 def convert(sizes, boson):
     # Transpose indices
@@ -111,10 +146,14 @@ def convert(sizes, boson):
 
 
 if __name__ == '__main__':
+    # Create configs file
     Lx = 6
-    Ltau = 10
-    Js = [0.5, 1, 3]
+    Ltau = Lx*40
+    Js = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
+    folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6/"
     for J in Js:
-        hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=hmc_filename, starts=[2000], sample_steps=[1])
+        hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=folder + hmc_filename, starts=[2000], sample_steps=[1])
+    
+    # Run 
 
