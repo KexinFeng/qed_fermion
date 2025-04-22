@@ -13,19 +13,19 @@ import torch
 import sys
 sys.path.insert(0, script_path + '/../../')
 import time
-
+import subprocess
 
 def time_execution(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds")
+        print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds\n")
         return result
     return wrapper
 
 @time_execution
-def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_steps=[1]):
+def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_steps=[1]):
     Lx, Ly, Ltau = Lsize
 
     # Parse to get specifics
@@ -54,10 +54,7 @@ def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_ste
     seq_idx = set(list(range(start, end, sample_step)))
 
     # Write result to file
-    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{jtau_value:.1g}_L_{Lx}/"
-    os.makedirs(output_folder, exist_ok=True)
-
-    output_file = "/confin_all_confs"
+    output_file = "confin_all_confs"
     output_path = os.path.join(output_folder, output_file)
     with open(output_path, 'w') as f:
         for i, boson in enumerate(boson_seq):
@@ -98,8 +95,6 @@ def load_write2file2(Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_ste
         f.write("rstep0 : 0.01\n")
 
     print(f"ftdqmc.in file created at {ftdqmc_file_path}")
-
-
 
 
 def convert(sizes, boson):
@@ -145,15 +140,52 @@ def convert(sizes, boson):
     return torch.cat(result, dim=0).view(-1)
 
 
+@time_execution
+def execute_bash_scripts(directory):
+    """
+    Implements the functionality of the bash scripts `run_all_J.sh` and `clear.sh` in Python.
+    """
+
+    # Clear previous builds (equivalent to `clear.sh`)
+    if os.path.exists(directory):
+        for file_pattern in ["*.bin", "*out", "klist"]:
+            for file in [f for f in os.listdir(directory) if f.endswith(tuple(file_pattern.split("*")))]:
+                os.remove(os.path.join(directory, file))
+        print(f"Cleared files in {directory}")
+
+    # Build the project (equivalent to `make`)
+    src_folder = os.path.join(directory, "../../src")
+    if os.path.exists(src_folder):
+        subprocess.run(["make"], cwd=src_folder, check=True)
+        print("Project built successfully.")
+
+    # Execute the commands in each directory
+    if os.path.exists(directory):
+        ftdqmc_executable = os.path.join(directory, "../../src/ftdqmc")
+        if os.path.exists(ftdqmc_executable):
+            subprocess.run([ftdqmc_executable], cwd=directory, check=True)
+            print(f"Executed ftdqmc in {directory}")
+        else:
+            print(f"Executable not found: {ftdqmc_executable}")
+    else:
+        print(f"Directory not found: {directory}")
+
+
 if __name__ == '__main__':
     # Create configs file
     Lx = 6
     Ltau = Lx*40
-    Js = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]
-    folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6/"
+    Js = [1.0, 1.5, 2.0, 2.5, 3.0]
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6/"
     for J in Js:
+        output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.1g}_L_{Lx}/"
+        os.makedirs(output_folder, exist_ok=True)
+
         hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        load_write2file2(Lsize=(Lx, Lx, Ltau), hmc_filename=folder + hmc_filename, starts=[2000], sample_steps=[1])
+        load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, starts=[2000], sample_steps=[1000])
     
-    # Run 
+    # Run
+    for J in Js:
+        output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.1g}_L_{Lx}/"
+        execute_bash_scripts(output_folder)
 
