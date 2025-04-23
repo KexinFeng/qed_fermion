@@ -178,8 +178,6 @@ if __name__ == '__main__':
     Lx = 6
     Ltau = Lx*40
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    Js = [1.0, 1.5, 2.0, 2.5]
-    # Js = [1.0]
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6/"
     for J in Js:
         output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}/"

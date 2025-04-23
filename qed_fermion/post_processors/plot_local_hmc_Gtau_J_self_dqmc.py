@@ -51,7 +51,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
     # ======== Plot ======== #
     plt.figure()
     if len(hmc_filename):
-        res = torch.load(hmc_filename)
+        res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')        
         
         # Extract Nstep and Nstep_local from filenames
@@ -137,21 +137,24 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
     print(f"Figure saved at: {file_path}")
 
 if __name__ == '__main__':
-    Js = [0.5, 1, 3]
+    Js = [1.0, 1.5, 2.0, 2.5, 3.0]
 
     for J in Js:
         Nstep = 10000
 
-        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
-        hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        # hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
+        # hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
-        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{J:.1g}/"
+        # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{J:.1g}/"
+        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_6/"
         name = f"thetacorrtau_sin_splaq.bin"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
         # Measure
-        Lx, Ly, Ltau = 6, 6, 10
+        Lx, Ly, Ltau = 6, 6, 240
         load_visualize_final_greens_loglog(
             (Lx, Ly, Ltau), 
             hmc_filename, dqmc_filename, 
