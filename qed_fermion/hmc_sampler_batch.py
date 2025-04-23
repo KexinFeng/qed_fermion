@@ -10,6 +10,8 @@ from tqdm import tqdm
 import sys
 import os
 import matlab.engine
+import concurrent.futures
+
 # matplotlib.use('MacOSX')
 plt.ion()
 import scipy.sparse as sp
@@ -21,7 +23,6 @@ sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
-from qed_fermion import _C
 
 BLOCK_SIZE = (4, 4)
 
@@ -39,13 +40,21 @@ print(f"cg_cdtype: {cg_dtype}")
 start_total_monitor = 1000
 start_load = 2000
 
+executor = None
+
+def initialize_executor():
+    global executor
+    if executor is None:
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    return executor
+
 class HmcSampler(object):
     def __init__(self, Lx=6, Ltau=10, J=0.5, Nstep=3000, config=None):
         # Dims
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2
+        self.bs = 1
         self.Vs = self.Lx * self.Ly
 
         # Couplings
@@ -134,7 +143,10 @@ class HmcSampler(object):
         self.precon = None
         self.plt_cg = False
         self.verbose_cg = False
-        self.use_gpu = True
+        self.use_gpu = False
+        if self.use_gpu:
+            from qed_fermion import _C
+            assert self.bs < 2
 
         # Debug
         torch.manual_seed(0)
@@ -1599,7 +1611,7 @@ class HmcSampler(object):
             result = self.get_M_sparse(x)
             MhM0, B_list, M0 = result[0], result[1], result[-1]
             psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
-            force_f_u_ref, xi_t_u_ref, cg_converge_iter_ref = self.force_f_sparse(psi_u, MhM0, x, B_list)
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
         else:
             psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
@@ -1727,7 +1739,7 @@ class HmcSampler(object):
                 result = self.get_M_sparse(x)
                 MhM = result[0]
                 B_list = result[1]
-                force_f_u_ref, xi_t_u_ref, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+                force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
             else:
                 force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
@@ -1866,15 +1878,20 @@ class HmcSampler(object):
         # Measure
         # fig = plt.figure()
         cnt_stream_write = 0
-        async_fence = torch.jit.Future()
-        async_fence.set_result(None)  # Initialize a fence and set it to completed state
+        executor = initialize_executor()
+    
+        # Use a dictionary to keep track of futures
+        futures = {}
+
         for i in tqdm(range(self.N_step)):
             boson, accp, cg_converge_iter = self.metropolis_update()
-
-            # Perform computations on CPU asynchronously
-            def async_cpu_computations():
-                boson_cpu = boson.cpu()
-                accp_cpu = accp.cpu()
+            dbstop = 1
+            # Define CPU computations to run asynchronously
+            def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter, cnt_stream_write):
+                # boson_cpu = boson.cpu()
+                # accp_cpu = accp.cpu()
+                
+                # Update metrics
                 self.accp_list[i] = accp_cpu
                 self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
                 self.G_list[i] = \
@@ -1886,18 +1903,43 @@ class HmcSampler(object):
                 self.S_tau_list[i] = \
                     accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
                     + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
-                # self.Sf_list[i] = torch.where(accp_cpu, Sf_fin, Sf0)
-
+                    
                 self.cg_iter_list[i] = cg_converge_iter
-
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
+                
+                return i  # Return the step index for identification
 
-            # Wait for the previous computation to finish before starting a new one
-            if async_fence.done():
-                async_fence = torch.jit.fork(async_cpu_computations)
-            else:
-                async_fence.wait()  # Wait for the previous computation to finish
-                async_fence = torch.jit.fork(async_cpu_computations)
+            # Submit new task to the executor
+            future = executor.submit(
+                async_cpu_computations, 
+                i, 
+                boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
+                accp.cpu() if accp.is_cuda else accp.clone(), 
+                cg_converge_iter, 
+                cnt_stream_write
+            )
+            futures[i] = future
+            
+            # Clean up completed futures to maintain memory efficiency
+            # Only keep the most recent futures to avoid memory buildup
+            completed_futures = [idx for idx, fut in list(futures.items()) if fut.done()]
+            for idx in completed_futures:
+                # Get the result to raise exceptions if there were any
+                try:
+                    futures[idx].result()
+                except Exception as e:
+                    print(f"Error in async computation at step {idx}: {e}")
+                del futures[idx]
+                
+            # If there are too many pending futures, wait for some to complete
+            if len(futures) > 5:  # Adjust this number based on your system resources
+                # Wait for the oldest future to complete
+                oldest_idx = min(futures.keys())
+                try:
+                    futures[oldest_idx].result()
+                except Exception as e:
+                    print(f"Error in async computation at step {oldest_idx}: {e}")
+                del futures[oldest_idx]
 
             self.step += 1
             self.cur_step += 1
