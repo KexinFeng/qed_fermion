@@ -178,18 +178,19 @@ if __name__ == '__main__':
     Lx = 6
     Ltau = Lx*40
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
+    Js = [1.0, 1.5, 2.0, 2.5]
     # Js = [1.0]
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6/"
     for J in Js:
-        output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.1g}_L_{Lx}/"
+        output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}/"
         os.makedirs(output_folder, exist_ok=True)
 
-        hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
         load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, starts=[2000], sample_steps=[1], ends=[6000])
     
     # Run
     for J in Js:
-        output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.1g}_L_{Lx}/"
+        output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}/"
         clear(output_folder)
         execute_bash_scripts(output_folder)
 

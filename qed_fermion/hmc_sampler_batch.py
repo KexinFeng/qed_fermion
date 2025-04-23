@@ -45,7 +45,7 @@ executor = None
 def initialize_executor():
     global executor
     if executor is None:
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
     return executor
 
 class HmcSampler(object):
@@ -1932,7 +1932,7 @@ class HmcSampler(object):
                 del futures[idx]
                 
             # If there are too many pending futures, wait for some to complete
-            if len(futures) > 5:  # Adjust this number based on your system resources
+            if len(futures) > 2:  # Adjust this number based on your system resources
                 # Wait for the oldest future to complete
                 oldest_idx = min(futures.keys())
                 try:
