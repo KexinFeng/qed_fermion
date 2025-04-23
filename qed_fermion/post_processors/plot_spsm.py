@@ -41,9 +41,12 @@ def plot_spsm(Lsize=(6, 6, 10)):
         data = np.genfromtxt(dqmc_filename)
         data = data.reshape(-1, vs, 4)
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
+        # [num_sample]
+        r_afm = 1 - data[:, 1, 2] / data[:, 0, 2]
+        rtol = data[:, :, 3] / data[:, :, 2]
+        r_afm_err = abs(rtol[:, 0] - rtol[:, 1]) * (1 - r_afm)
 
-        # n_sample = data.shape[0] / vs
-        dbstop = 1
+
 
 
 if __name__ == '__main__':
