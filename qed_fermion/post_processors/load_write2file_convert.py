@@ -27,7 +27,7 @@ def time_execution(func):
     return wrapper
 
 @time_execution
-def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_steps=[1]):
+def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_steps=[1], ends=[6000]):
     Lx, Ly, Ltau = Lsize
 
     # Parse to get specifics
@@ -48,8 +48,9 @@ def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', starts=[5
     print(f'Loaded: {hmc_filename}')        
     
     # Extract Nstep and Nstep_local from filenames
-    hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
-    end = int(hmc_match.group(1))
+    # hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+    # end = int(hmc_match.group(1))
+    end = ends.pop(0)
 
     start = starts.pop(0)
     sample_step = sample_steps.pop(0)
@@ -184,7 +185,7 @@ if __name__ == '__main__':
         os.makedirs(output_folder, exist_ok=True)
 
         hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, starts=[2000], sample_steps=[1])
+        load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, starts=[2000], sample_steps=[1], ends=[6000])
     
     # Run
     for J in Js:
