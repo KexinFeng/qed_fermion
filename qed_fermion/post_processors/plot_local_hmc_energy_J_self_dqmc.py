@@ -31,6 +31,7 @@ def time_execution(func):
 @time_execution
 def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
+    Js = [0.5, 1.0, 3.0]
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -40,10 +41,10 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     Stau_list_dqmc = []
 
     for J in Js:
-        # hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
-        # hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-        hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
+        hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        # hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
         res = torch.load(hmc_filename, map_location='cpu')
@@ -52,8 +53,7 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         Stau_list_hmc.append(res['S_tau_list'])
 
 
-        # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{J:.1g}/"
-        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}/"
+        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.1g}_L_{Lx}_Ltau_{Ltau}/"
         name = f"ener1.bin"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
@@ -62,12 +62,10 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         # dqmc_filename_tau = os.path.join(dqmc_folder_tau, name)
 
         # dqmc
-        factor = {0.5: 16, 1: 8, 3: 8/3}
-        factor = {0.5: 1, 1: 1, 3: 1}
-        vs = Lx * Lx
+        N = Lx * Lx 
         data = np.genfromtxt(dqmc_filename).reshape(-1, 15)
-        Sb_plaq_list_dqmc.append(data[:, 3] * vs)
-        Stau_list_dqmc.append(data[:, 2] * vs)
+        Sb_plaq_list_dqmc.append(data[:, 3] * N)
+        Stau_list_dqmc.append(data[:, 2] * N)
 
 
     # ====== Index ====== #
@@ -167,9 +165,10 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
 
 if __name__ == '__main__':
     Lx, Ly, Ltau = 6, 6, 240
+    Lx, Ly, Ltau = 6, 6, 10
     Vs = Lx * Ly * Ltau
 
-    plot_energy_J(Lx, Ltau, starts=[2000], sample_steps=[1])
+    plot_energy_J(Lx, Ltau, starts=[2000], sample_steps=[5])
 
     dbstop = 1
 

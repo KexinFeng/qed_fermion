@@ -40,7 +40,7 @@ def plot_spsm(Lsize=(6, 6, 10)):
     plt.figure(figsize=(8, 6))
     
     for J in Js:
-        input_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}/"
+        input_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}/"
         name = f"spsm.bin"
         dqmc_filename = os.path.join(input_folder, name)
         data = np.genfromtxt(dqmc_filename)
