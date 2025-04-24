@@ -143,7 +143,7 @@ class HmcSampler(object):
         self.precon = None
         self.plt_cg = False
         self.verbose_cg = False
-        self.use_gpu = False
+        self.use_gpu = torch.cuda.is_available()
         if self.use_gpu:
             from qed_fermion import _C
             assert self.bs < 2
@@ -449,8 +449,6 @@ class HmcSampler(object):
 
             # Check for convergence
             if (error < rtol).all():
-                # b_recover = torch.sparse.mm(MhM, x.view(-1, 1))
-                # abs_err = torch.norm(b_recover.view(-1, 1) - b.view(-1, 1))
                 if self.verbose_cg:
                     print(f"Converged in {i+1} iterations.")
                 break

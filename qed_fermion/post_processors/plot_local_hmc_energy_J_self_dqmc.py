@@ -62,7 +62,8 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         # dqmc_filename_tau = os.path.join(dqmc_folder_tau, name)
 
         # dqmc
-        N = Lx * Lx 
+        beta = Ltau * 0.1
+        N = Lx * Lx * beta
         data = np.genfromtxt(dqmc_filename).reshape(-1, 15)
         Sb_plaq_list_dqmc.append(data[:, 3] * N)
         Stau_list_dqmc.append(data[:, 2] * N)
