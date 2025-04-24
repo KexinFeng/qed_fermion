@@ -1,6 +1,7 @@
 import gc
 import json
 import math
+from math import floor
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -315,6 +316,23 @@ class HmcSampler(object):
                 device=M.device
             ).coalesce()
             return MhM_inv
+
+    @staticmethod
+    def filter_mat(mat, M):
+        abs_values = torch.abs(mat.values())
+        filter_mask = abs_values >= 1e-4
+        mat_indices = mat.indices()[:, filter_mask]
+        mat_values = mat.values()[filter_mask]
+        del mat
+        # gc.collect()
+        mat = torch.sparse_coo_tensor(
+            mat_indices,
+            mat_values,
+            (M.size(0), M.size(1)),
+            dtype=M.dtype,
+            device=M.device
+        ).coalesce() 
+        return mat    
     
     def get_precon2(self, pi_flux_boson, output_scipy=False):
         iter = 20
@@ -378,7 +396,7 @@ class HmcSampler(object):
 
         M_diag_scaled = torch.sparse.mm(M_pc, dd_inv)
         del M_pc
-        gc.collect() 
+        gc.collect()    
 
         M_itr = I - M_diag_scaled
         M_temp = I.clone()
@@ -386,25 +404,19 @@ class HmcSampler(object):
         for i in tqdm(range(iter), desc="Neumann Series Iteration"):
             M_temp = torch.sparse.mm(M_temp, M_itr)
             M_inv = M_inv + M_temp
+            if i % floor(iter * 0.34) == 0:
+                M_temp = self.filter_mat(M_temp, M)
+                M_inv = self.filter_mat(M_inv, M)
+                gc.collect()
+                
         gc.collect() 
         del M_temp
         del M_itr
 
         # Filter small elements right after Neumann series
         print("# Filter small elements right after Neumann series")
-        abs_values = torch.abs(M_inv.values())
-        filter_mask = abs_values >= 1e-4
-        M_inv_indices = M_inv.indices()[:, filter_mask]
-        M_inv_values = M_inv.values()[filter_mask]
-        del M_inv
-        gc.collect()
-        M_inv = torch.sparse_coo_tensor(
-            M_inv_indices,
-            M_inv_values,
-            (M.size(0), M.size(1)),
-            dtype=M.dtype,
-            device=M.device
-        ).coalesce()
+        M_inv = self.filter_mat(M_inv, M) 
+        gc.collect()     
 
         # Scale by the inverse diagonal
         print('# Scale by the inverse diagonal')
