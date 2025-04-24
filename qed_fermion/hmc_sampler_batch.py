@@ -1,3 +1,4 @@
+import collections
 import gc
 import json
 import math
@@ -100,6 +101,7 @@ class HmcSampler(object):
         # self.H_list = torch.zeros(self.N_step, self.bs)
 
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
+        self.delta_t_list = torch.zeros(self.N_step, 1)
 
         # boson_seq
         self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
@@ -121,10 +123,12 @@ class HmcSampler(object):
         self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
         # self.delta_t = 0.008 # (L=10)
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
+        self.delta_t = 0.005
+        self.delta_t = 0.02
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
-        # Then increasing total_t will increase N_leapfrog*, is total_t reasonable.
+        # Then increasing total_t will increase N_leapfrog*, if total_t reasonable.
         # So proper total_t is a function of N_leapfrog* for a given threshold like 0.9.
         # So natually an adaptive optimization algorithm can be obtained: for a fixed N_leapfrog, check the acceptance_rate / acc_threshold and adjust total_t.
 
@@ -134,6 +138,8 @@ class HmcSampler(object):
         # self.N_leapfrog = 6
         self.N_leapfrog = 4
         # self.N_leapfrog = 8
+
+        self.threshold_queue = collections.deque(maxlen=5)
 
         # CG
         # self.cg_rtol = 1e-7
@@ -356,7 +362,32 @@ class HmcSampler(object):
                 }
         return precon_dict
 
-       
+    def adjust_delta_t(self):
+        """
+        Adjust delta_t based on the acceptance rate.
+        """
+        if len(self.threshold_queue) < self.threshold_queue.maxlen:
+            return
+        avg_accp_rate = sum(self.threshold_queue) / len(self.threshold_queue)
+
+        lower_limit = 0.95
+        upper_limit = 0.98
+
+        if 0 < avg_accp_rate < 0.1:
+            self.delta_t *= 0.1
+        elif 0 < avg_accp_rate < 0.5:
+            self.delta_t *= 0.7
+        elif 0.5 < avg_accp_rate < 0.9:
+            self.delta_t *= 0.9
+        elif 0.9 < avg_accp_rate < lower_limit:
+            self.delta_t *= 0.95
+        elif upper_limit < avg_accp_rate < 0.99:
+            self.delta_t *= 1.05
+        elif 0.99 < avg_accp_rate < 0.995:
+            self.delta_t *= 1.1
+            
+        self.threshold_queue.clear()
+        
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
         if MhM_inv is None and matL is None:
@@ -1851,7 +1882,7 @@ class HmcSampler(object):
         print(f'Accp?: {accp.item()}')
         
         self.boson[accp] = boson_new[accp]
-        return self.boson, accp, cg_converge_iter
+        return self.boson, accp, cg_converge_iter, min(torch.exp(H_old - H_new).mean().item(), 1)
     
     # @torch.inference_mode()
     @torch.no_grad()
@@ -1882,8 +1913,11 @@ class HmcSampler(object):
         futures = {}
 
         for i in tqdm(range(self.N_step)):
-            boson, accp, cg_converge_iter = self.metropolis_update()
-            dbstop = 1
+            boson, accp, cg_converge_iter, threshold = self.metropolis_update()
+            
+            self.threshold_queue.append(threshold)
+            self.adjust_delta_t()
+
             # Define CPU computations to run asynchronously
             def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter, cnt_stream_write):
                 # boson_cpu = boson.cpu()
@@ -1903,6 +1937,7 @@ class HmcSampler(object):
                     + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
                     
                 self.cg_iter_list[i] = cg_converge_iter
+                self.delta_t_list[i] = self.delta_t
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
                 
                 return i  # Return the step index for identification
@@ -1974,7 +2009,8 @@ class HmcSampler(object):
                         'G_list': self.G_list.cpu(),
                         'S_plaq_list': self.S_plaq_list.cpu(),
                         'S_tau_list': self.S_tau_list.cpu(),
-                        'cg_iter_list': self.cg_iter_list}
+                        'cg_iter_list': self.cg_iter_list,
+                        'delta_t_list': self.delta_t_list}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
@@ -1987,7 +2023,8 @@ class HmcSampler(object):
                'G_list': self.G_list.cpu(),
                'S_plaq_list': self.S_plaq_list.cpu(),
                'S_tau_list': self.S_tau_list.cpu(),
-               'cg_iter_list': self.cg_iter_list}
+               'cg_iter_list': self.cg_iter_list,
+               'delta_t_list': self.delta_t_list}
 
         # Save to file
         data_folder = script_path + "/check_points/hmc_check_point/"
@@ -2046,6 +2083,12 @@ class HmcSampler(object):
         # CG_converge_iter
         axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
         axes[2, 0].set_ylabel("CG_converge_iter")
+        axes[2, 0].set_xlabel("Steps")
+        axes[2, 0].legend()
+
+        # delta_t_iter
+        axes[2, 0].plot(self.delta_t_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+        axes[2, 0].set_ylabel("delta_t_iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
 
@@ -2208,7 +2251,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '4'))
+    Lx = int(os.getenv("L", '8'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
