@@ -1,7 +1,7 @@
 mkdir -p report
 
 J_array=$(echo '1.0')
-L_array=$(echo '18 20 22 24')
+L_array=$(echo '26 28 30')
 
 
 for L in $L_array; do
@@ -12,7 +12,7 @@ for L in $L_array; do
                 echo $config
                 export L
                 #
-        	sbatch --job-name=${config}_hmc --time=0-10:00:00 --qos=normal --mem=500G s_hmc.cmd
+        	sbatch --job-name=${config}_hmc --time=0-10:00:00 --qos=normal --mem=510G s_hmc2.cmd
 	done
 done
 
