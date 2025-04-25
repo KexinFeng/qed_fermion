@@ -102,8 +102,8 @@ class HmcSampler(object):
         # self.Sf_list = torch.zeros(self.N_step, self.bs)
         # self.H_list = torch.zeros(self.N_step, self.bs)
 
-        self.cg_iter_list = torch.zeros(self.N_step, self.bs)
-        self.delta_t_list = torch.zeros(self.N_step, 1)
+        self.cg_iter_list = torch.zeros(self.N_step)
+        self.delta_t_list = torch.zeros(self.N_step)
 
         # boson_seq
         self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
@@ -2094,7 +2094,7 @@ class HmcSampler(object):
         axes[1, 1].legend()
 
         # CG_converge_iter
-        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy().mean(axis=1), '*', label=f'rtol_{self.cg_rtol}')
+        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
         axes[2, 0].set_ylabel("CG converge iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
