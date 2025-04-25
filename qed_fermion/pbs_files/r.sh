@@ -47,3 +47,7 @@ done
 #         --qos=normal \
 #         --mem-per-cpu=100G \
 #         s_cg.cmd
+
+
+# srun --pty --partition=interactive --qos=ood --mem=1G --cpus-per-task=1 --time=01:00:00 bash -i
+

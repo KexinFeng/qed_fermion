@@ -12,7 +12,11 @@ for L in $L_array; do
                 echo $config
                 export L
                 #
-        	sbatch --job-name=${config}_hmc --time=0-10:00:00 --qos=normal --mem=510G s_hmc2.cmd
+        	sbatch --job-name=${config}_hmc \
+                --time=0-10:00:00 \
+                --qos=normal \
+                --mem=510G \
+                s_hmc2.cmd
 	done
 done
 
