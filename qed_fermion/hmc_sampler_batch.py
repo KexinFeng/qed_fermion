@@ -40,7 +40,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 3
+start_total_monitor = 500
 start_load = 2000
 
 executor = None
@@ -57,7 +57,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2
+        self.bs = 1
         self.Vs = self.Lx * self.Ly
 
         # Couplings
@@ -84,7 +84,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 5
+        self.plt_rate = 1000
         self.ckp_rate = 2000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
