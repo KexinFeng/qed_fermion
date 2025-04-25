@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 import numpy as np
+import math
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
@@ -18,15 +19,13 @@ sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
-def time_execution(func):
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds")
-        return result
-    return wrapper
+from load_write2file_convert import time_execution
 
+# Add partition parameters
+part_size = 500
+start_dqmc = 2000
+end_dqmc = 6000
+root_folder = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/"
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10)):
@@ -40,10 +39,27 @@ def plot_spsm(Lsize=(6, 6, 10)):
     plt.figure(figsize=(8, 6))
     
     for J in Js:
-        input_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}/"
-        name = f"spsm.bin"
-        dqmc_filename = os.path.join(input_folder, name)
-        data = np.genfromtxt(dqmc_filename)
+        # Initialize data collection arrays for this J value
+        all_data = []
+        
+        # Calculate the number of parts
+        num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
+        
+        # Loop through all parts
+        for part_id in range(num_parts):
+            input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+            name = f"spsm.bin"
+            dqmc_filename = os.path.join(input_folder, name)
+            
+            try:
+                part_data = np.genfromtxt(dqmc_filename)
+                all_data.append(part_data)
+                print(f'Loaded DQMC data: {dqmc_filename}')
+            except (FileNotFoundError, ValueError) as e:
+                raise RuntimeError(f'Error loading {dqmc_filename}: {str(e)}') from e
+        
+        # Combine all parts' data
+        data = np.concatenate(all_data)
         data = data.reshape(-1, vs, 4)
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
         # [num_sample]
@@ -57,11 +73,7 @@ def plot_spsm(Lsize=(6, 6, 10)):
         
         r_afm_values.append(r_afm_mean)
         r_afm_errors.append(r_afm_error)
-        
-        # # Plot individual samples with lower alpha
-        # plt.scatter([J] * len(r_afm), r_afm, alpha=0.3, color=f"C{Js.index(J)}")
-    
-    # plt.show(block=True)
+
     # Plot the errorbar for the means
     plt.errorbar(Js, r_afm_values, yerr=r_afm_errors, 
                 linestyle='-', marker='o', lw=2, color='blue', label='r_afm')
