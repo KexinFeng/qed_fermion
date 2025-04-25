@@ -393,9 +393,9 @@ class HmcSampler(object):
         elif 0.9 < avg_accp_rate < lower_limit:
             self.delta_t *= 0.95
         elif upper_limit < avg_accp_rate < 0.99:
-            self.delta_t *= 1.1
+            self.delta_t *= 1.05
         elif 0.99 < avg_accp_rate < 0.995:
-            self.delta_t *= 1.5
+            self.delta_t *= 1.2
             
         self.threshold_queue.clear()
         
