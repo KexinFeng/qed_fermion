@@ -1,3 +1,4 @@
+import math
 import re
 import time
 import matplotlib.pyplot as plt
@@ -18,15 +19,10 @@ sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
-def time_execution(func):
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds")
-        return result
-    return wrapper
+from load_write2file_convert import time_execution
 
+part_size = 4000
+num_parts = math.ceil((6000 - 2000 )/ part_size)
 
 @time_execution
 def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
@@ -52,21 +48,36 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         Sb_plaq_list_hmc.append(res['S_plaq_list'])
         Stau_list_hmc.append(res['S_tau_list'])
 
-
-        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.1g}_L_{Lx}_Ltau_{Ltau}/"
-        name = f"ener1.bin"
-        dqmc_filename = os.path.join(dqmc_folder, name)
-
-        # dqmc_folder_tau = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejs/"
-        # name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        # dqmc_filename_tau = os.path.join(dqmc_folder_tau, name)
-
-        # dqmc
+        # Aggregate DQMC data from all parts
+        all_Sb_plaq_data = []
+        all_Stau_data = []
         beta = Ltau * 0.1
         N = Lx * Lx * beta
-        data = np.genfromtxt(dqmc_filename).reshape(-1, 15)
-        Sb_plaq_list_dqmc.append(data[:, 3] * N)
-        Stau_list_dqmc.append(data[:, 2] * N)
+        
+        for part_id in range(num_parts):
+            dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.1g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}/"
+            name = f"ener1.bin"
+            dqmc_filename = os.path.join(dqmc_folder, name)
+            
+            try:
+                data = np.genfromtxt(dqmc_filename).reshape(-1, 15) # 15 is the item number in ener1.bin
+                all_Sb_plaq_data.append(data[:, 3] * N)
+                all_Stau_data.append(data[:, 2] * N)
+                print(f'Loaded DQMC data: {dqmc_filename}')
+            except (FileNotFoundError, ValueError) as e:
+                print(f'Warning: Could not load {dqmc_filename}: {str(e)}')
+                continue
+        
+        # Concatenate data from all parts
+        if all_Sb_plaq_data:
+            combined_Sb_plaq = np.concatenate(all_Sb_plaq_data)
+            combined_Stau = np.concatenate(all_Stau_data)
+            Sb_plaq_list_dqmc.append(combined_Sb_plaq)
+            Stau_list_dqmc.append(combined_Stau)
+        else:
+            print(f'Warning: No DQMC data found for J = {J}')
+            Sb_plaq_list_dqmc.append(np.array([]))
+            Stau_list_dqmc.append(np.array([]))
 
 
     # ====== Index ====== #
