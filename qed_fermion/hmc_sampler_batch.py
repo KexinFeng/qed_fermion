@@ -21,6 +21,8 @@ from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
+if torch.cuda.is_available():
+    from qed_fermion import _C 
 
 from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
@@ -151,8 +153,8 @@ class HmcSampler(object):
         self.verbose_cg = False
         self.use_gpu = torch.cuda.is_available()
         if self.use_gpu:
-            from qed_fermion import _C
-            assert self.bs < 2
+            pass
+            # assert self.bs < 2
 
         # Debug
         torch.manual_seed(0)
