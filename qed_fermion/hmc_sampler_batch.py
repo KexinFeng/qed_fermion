@@ -126,7 +126,6 @@ class HmcSampler(object):
         # self.delta_t = 0.008 # (L=10)
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
         self.delta_t = 0.005
-        self.delta_t = 0.02
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
