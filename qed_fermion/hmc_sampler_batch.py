@@ -40,7 +40,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 1000
+start_total_monitor = 3
 start_load = 2000
 
 executor = None
@@ -57,7 +57,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 1
+        self.bs = 2
         self.Vs = self.Lx * self.Ly
 
         # Couplings
@@ -84,7 +84,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 1000
+        self.plt_rate = 5
         self.ckp_rate = 2000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
@@ -384,7 +384,7 @@ class HmcSampler(object):
         avg_accp_rate = sum(self.threshold_queue) / len(self.threshold_queue)
 
         lower_limit = 0.91
-        upper_limit = 0.97
+        upper_limit = 0.95
 
         if 0 < avg_accp_rate < 0.1:
             self.delta_t *= 0.1
@@ -397,7 +397,7 @@ class HmcSampler(object):
         elif upper_limit < avg_accp_rate < 0.99:
             self.delta_t *= 1.1
         elif 0.99 < avg_accp_rate < 0.995:
-            self.delta_t *= 1.2
+            self.delta_t *= 1.5
             
         self.threshold_queue.clear()
         
@@ -2095,15 +2095,15 @@ class HmcSampler(object):
 
         # CG_converge_iter
         axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
-        axes[2, 0].set_ylabel("CG_converge_iter")
+        axes[2, 0].set_ylabel("CG converge iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
 
         # delta_t_iter
-        axes[2, 0].plot(self.delta_t_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
-        axes[2, 0].set_ylabel("delta_t_iter")
-        axes[2, 0].set_xlabel("Steps")
-        axes[2, 0].legend()
+        axes[2, 1].plot(self.delta_t_list[seq_idx].cpu().numpy(), '*', label=f'$\delta t$')
+        axes[2, 1].set_ylabel("$\delta t$")
+        axes[2, 1].set_xlabel("Steps")
+        axes[2, 1].legend()
 
         plt.tight_layout()
         # plt.show(block=False)

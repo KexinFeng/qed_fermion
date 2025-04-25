@@ -4,9 +4,6 @@ mkdir -p report
 J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
 L_array=$(echo '6 8 10')
 
-J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
-L_array=$(echo '8 10')
-
 Nstep=6000
 for L in $L_array; do
         #
