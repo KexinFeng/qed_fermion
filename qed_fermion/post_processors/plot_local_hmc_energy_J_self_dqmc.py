@@ -21,13 +21,14 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 
 from load_write2file_convert import time_execution
 
-part_size = 4000
-num_parts = math.ceil((6000 - 2000 )/ part_size)
+part_size = 500
+start_dqmc = 2000
+end_dqmc = 6000
 
 @time_execution
 def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    Js = [0.5, 1.0, 3.0]
+    # Js = [0.5, 1.0, 3.0]
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -39,8 +40,8 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     for J in Js:
         hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
         hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-        # hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
         res = torch.load(hmc_filename, map_location='cpu')
@@ -54,8 +55,9 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         beta = Ltau * 0.1
         N = Lx * Lx * beta
         
+        num_parts = math.ceil((end_dqmc - start_dqmc )/ part_size)
         for part_id in range(num_parts):
-            dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.1g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}/"
+            dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
             name = f"ener1.bin"
             dqmc_filename = os.path.join(dqmc_folder, name)
             
@@ -65,8 +67,8 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
                 all_Stau_data.append(data[:, 2] * N)
                 print(f'Loaded DQMC data: {dqmc_filename}')
             except (FileNotFoundError, ValueError) as e:
-                print(f'Warning: Could not load {dqmc_filename}: {str(e)}')
-                continue
+                raise RuntimeError(f'Error loading {dqmc_filename}: {str(e)}') from e
+                
         
         # Concatenate data from all parts
         if all_Sb_plaq_data:
@@ -177,10 +179,10 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
 
 if __name__ == '__main__':
     Lx, Ly, Ltau = 6, 6, 240
-    Lx, Ly, Ltau = 6, 6, 10
+    # Lx, Ly, Ltau = 6, 6, 10s
     Vs = Lx * Ly * Ltau
 
-    plot_energy_J(Lx, Ltau, starts=[2000], sample_steps=[5])
+    plot_energy_J(Lx, Ltau, starts=[2000], sample_steps=[1])
 
     dbstop = 1
 
