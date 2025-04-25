@@ -45,3 +45,4 @@ report*/
 *.pt
 
 *.so
+_C.*
