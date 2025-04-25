@@ -13,10 +13,10 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config}_hmc \
-                --time=0-0:10:00 \
+                --time=0-0:20:00 \
                 --qos=debug \
-                --mem-per-cpu=4G \
-                s_hmc.cmd
+                --mem-per-cpu=8G \
+                s_build_cuda.cmd
                 # {L: size_gb} = {12: 20, 16: 30}
         done
 done

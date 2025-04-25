@@ -40,7 +40,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 500
+start_total_monitor = 0
 start_load = 2000
 
 executor = None
@@ -84,7 +84,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 1000
+        self.plt_rate = 10
         self.ckp_rate = 2000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
@@ -382,9 +382,11 @@ class HmcSampler(object):
             return
         avg_accp_rate = sum(self.threshold_queue) / len(self.threshold_queue)
 
-        lower_limit = 0.91
-        upper_limit = 0.95
+        lower_limit = 0.92
+        upper_limit = 0.98
 
+        print('avg_accp_rate:', avg_accp_rate)
+        delta_t = self.delta_t
         if 0 < avg_accp_rate < 0.1:
             self.delta_t *= 0.1
         elif 0 < avg_accp_rate < 0.5:
@@ -395,9 +397,12 @@ class HmcSampler(object):
             self.delta_t *= 0.95
         elif upper_limit < avg_accp_rate < 0.99:
             self.delta_t *= 1.1
-        elif 0.99 < avg_accp_rate < 0.995:
+        elif 0.99 < avg_accp_rate < 1:
             self.delta_t *= 1.5
-            
+        else:
+            return
+
+        print(f"----->Adjusted delta_t from {delta_t:.4f} to {self.delta_t:.4f}")
         self.threshold_queue.clear()
         
     @staticmethod
@@ -2099,8 +2104,8 @@ class HmcSampler(object):
         axes[2, 0].legend()
 
         # delta_t_iter
-        axes[2, 1].plot(self.delta_t_list[seq_idx].cpu().numpy(), '*', label=f'$\delta t$')
-        axes[2, 1].set_ylabel("$\delta t$")
+        axes[2, 1].plot(self.delta_t_list[seq_idx].cpu().numpy(), '*', label=r'$\delta t$')
+        axes[2, 1].set_ylabel(r"$\delta t$")
         axes[2, 1].set_xlabel("Steps")
         axes[2, 1].legend()
 

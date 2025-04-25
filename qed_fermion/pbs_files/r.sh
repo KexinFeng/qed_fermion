@@ -16,7 +16,7 @@ for L in $L_array; do
                 sbatch --job-name=${config}_hmc \
                 --time=0-30:00:00 \
                 --qos=gpu \
-                --mem-per-cpu=8G \
+                --mem-per-cpu=4G \
                 s_hmc.cmd
         done
 done
