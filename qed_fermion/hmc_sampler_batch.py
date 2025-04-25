@@ -2094,7 +2094,7 @@ class HmcSampler(object):
         axes[1, 1].legend()
 
         # CG_converge_iter
-        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy().mean(axis=1), '*', label=f'rtol_{self.cg_rtol}')
         axes[2, 0].set_ylabel("CG converge iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
