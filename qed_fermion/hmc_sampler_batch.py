@@ -2072,6 +2072,7 @@ class HmcSampler(object):
         
         start = start_total_monitor  # to prevent from being out of scale due to init out-liers
         seq_idx = np.arange(start, self.cur_step, 1)
+        seq_idx_all = np.arange(self.cur_step)
 
         axes[1, 0].plot(self.accp_rate[seq_idx].cpu().numpy())
         axes[1, 0].set_xlabel("Steps")
@@ -2098,13 +2099,13 @@ class HmcSampler(object):
         axes[1, 1].legend()
 
         # CG_converge_iter
-        axes[2, 0].plot(self.cg_iter_list[seq_idx].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+        axes[2, 0].plot(self.cg_iter_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
         axes[2, 0].set_ylabel("CG converge iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
 
         # delta_t_iter
-        axes[2, 1].plot(self.delta_t_list[seq_idx].cpu().numpy(), '*', label=r'$\delta t$')
+        axes[2, 1].plot(self.delta_t_list[seq_idx_all].cpu().numpy(), '*', label=r'$\delta t$')
         axes[2, 1].set_ylabel(r"$\delta t$")
         axes[2, 1].set_xlabel("Steps")
         axes[2, 1].legend()
