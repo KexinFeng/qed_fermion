@@ -2273,7 +2273,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '8'))
+    Lx = int(os.getenv("L", '4'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
