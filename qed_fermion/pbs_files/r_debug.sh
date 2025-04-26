@@ -4,7 +4,7 @@ J_array=$(echo '1.0')
 L_array=$(echo '18 22 24')
 
 J_array=$(echo '1.0')
-L_array=$(echo '24')
+L_array=$(echo '16 20')
 
 export debug=1
 

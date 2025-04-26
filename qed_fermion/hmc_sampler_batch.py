@@ -2008,12 +2008,21 @@ class HmcSampler(object):
             #     cnt_stream_write = 0
 
             print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
+            tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
+            with open(tmp_file_path, "a") as tmp_file:
+                tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
+                
             if torch.cuda.is_available() and i % self.memory_check_rate == 0 and i > 0:
                 # Check memory usage
                 mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
                 max_mem_usage = torch.cuda.max_memory_allocated() / (1024 ** 2)
                 print(f"Memory usage at step {i}: {mem_usage:.2f} MB")
                 print(f"Max memory usage: {max_mem_usage:.2f} MB")
+                
+                # Write memory usage to a temporary file
+                tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
+                with open(tmp_file_path, "a") as tmp_file:
+                    tmp_file.write(f"Step {i}: Memory usage: {mem_usage:.2f} MB, Max memory usage: {max_mem_usage:.2f} MB\n")
 
             # plotting
             if i % self.plt_rate == 0 and i > 0:

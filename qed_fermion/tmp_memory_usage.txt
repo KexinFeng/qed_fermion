@@ -1,0 +1,31 @@
+-----------> True, 0, 0
+-----------> True, 0, 1
+Step 1: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 2
+Step 2: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 3
+Step 3: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 4
+Step 4: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 5
+Step 5: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 6
+Step 6: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 7
+Step 7: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 8
+Step 8: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 9
+Step 9: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 10
+Step 10: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 11
+Step 11: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 12
+Step 12: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 13
+Step 13: Memory usage: 25504.44 MB, Max memory usage: 25586.24 MB
+-----------> True, 0, 0
+-----------> True, 0, 0
+-----------> True, 0, 1
+Step 1: Memory usage: 7568.20 MB, Max memory usage: 7593.53 MB
