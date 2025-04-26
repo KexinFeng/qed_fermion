@@ -8,7 +8,10 @@ J_array=$(echo '1.0')
 L_array=$(echo '12 14 16')  # 16 h (-2)
 
 J_array=$(echo '1.0')
-L_array=$(echo '18 20 22 24') # 28 h (-2)
+L_array=$(echo '18 20 22 24') # 26 h (-2)
+
+J_array=$(echo '1.0')
+L_array=$(echo '24') # 32 h 8G
 
 Nstep=6000
 for L in $L_array; do

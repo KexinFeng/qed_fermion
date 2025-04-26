@@ -1922,7 +1922,6 @@ class HmcSampler(object):
 
 
         if torch.cuda.is_available():
-            print('-----> peak memory stats <-----')
             torch.cuda.reset_peak_memory_stats()
 
         # Measure
@@ -2008,6 +2007,7 @@ class HmcSampler(object):
 
             #     cnt_stream_write = 0
 
+            print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
             if torch.cuda.is_available() and i % self.memory_check_rate == 0 and i > 0:
                 # Check memory usage
                 mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
