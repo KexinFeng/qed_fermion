@@ -2,14 +2,20 @@ mkdir -p report
 
 
 J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
-L_array=$(echo '6 8 10')
+L_array=$(echo '6 8 10')  # 10 h (-2)
+
+J_array=$(echo '1.0')
+L_array=$(echo '12 14 16')  # 16 h (-2)
+
+J_array=$(echo '1.0')
+L_array=$(echo '18 20 22 24') # 28 h (-2)
 
 Nstep=6000
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo hmc_J_${J}_L_${L}_Nstep_${Nstep})
+                config=$(echo J${J}L${L}Nstep${Nstep})
                 echo $config
                 export J Nstep L
                 #

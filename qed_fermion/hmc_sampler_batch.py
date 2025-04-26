@@ -40,7 +40,10 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 100
+debug_mode = int(os.getenv("debug", '0')) != 0
+print(f"debug_mode: {debug_mode}")
+
+start_total_monitor = 0 if debug_mode else 500
 start_load = 2000
 
 executor = None
@@ -84,10 +87,10 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = max(start_total_monitor, 500)
+        self.plt_rate = 1 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 2000
         self.stream_write_rate = Nstep
-        self.memory_check_rate = 100
+        self.memory_check_rate = 1 if debug_mode else 1000
 
         # Statistics
         self.N_step = Nstep
@@ -1919,6 +1922,7 @@ class HmcSampler(object):
 
 
         if torch.cuda.is_available():
+            print('-----> peak memory stats <-----')
             torch.cuda.reset_peak_memory_stats()
 
         # Measure
