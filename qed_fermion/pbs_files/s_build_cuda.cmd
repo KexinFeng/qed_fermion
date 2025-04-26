@@ -16,7 +16,13 @@ module load gcc/9.2
 module load cuda/11.8
 export PATH=/share1/cuda/11.8/bin/:$PATH
 export LD_LIBRARY_PATH=/share1/cuda/11.8/lib64:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
+## export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
+export CUDA_HOME=/share1/cuda/11.8
+
+nvcc --version
+nvidia-smi
+
+pip list | grep torch
 
 /home/fengx463/mount_folder/cuda_pcg/cr.sh
 
