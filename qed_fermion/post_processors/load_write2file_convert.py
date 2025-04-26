@@ -177,17 +177,19 @@ if __name__ == '__main__':
     # Create configs file
     Lx = 6
     Ltau = Lx * 40
-    # Ltau = 10
+    Ltau = 10
+
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    # Js = [0.5, 1.0, 3.0]
-    
+    Js = [0.5, 1.0, 3.0]
+
     part_size = 500
     start = 2000
     end = 6000
     num_parts = math.ceil((end - start )/ part_size)
 
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10/ckpt/hmc_check_point_unconverted_stream"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10/ckpt/hmc_check_point_unconverted_stream"
+    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+    
     for J in Js:
         for part_id in range(num_parts):
             output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"

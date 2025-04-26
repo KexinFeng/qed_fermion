@@ -28,7 +28,8 @@ end_dqmc = 6000
 @time_execution
 def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    # Js = [0.5, 1.0, 3.0]
+    Js = [0.5, 1.0, 3.0]
+
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -40,8 +41,9 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     for J in Js:
         hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
         hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-        hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        # hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
         res = torch.load(hmc_filename, map_location='cpu')
@@ -71,15 +73,10 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
                 
         
         # Concatenate data from all parts
-        if all_Sb_plaq_data:
-            combined_Sb_plaq = np.concatenate(all_Sb_plaq_data)
-            combined_Stau = np.concatenate(all_Stau_data)
-            Sb_plaq_list_dqmc.append(combined_Sb_plaq)
-            Stau_list_dqmc.append(combined_Stau)
-        else:
-            print(f'Warning: No DQMC data found for J = {J}')
-            Sb_plaq_list_dqmc.append(np.array([]))
-            Stau_list_dqmc.append(np.array([]))
+        combined_Sb_plaq = np.concatenate(all_Sb_plaq_data)
+        combined_Stau = np.concatenate(all_Stau_data)
+        Sb_plaq_list_dqmc.append(combined_Sb_plaq)
+        Stau_list_dqmc.append(combined_Stau)
 
 
     # ====== Index ====== #
@@ -179,7 +176,7 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
 
 if __name__ == '__main__':
     Lx, Ly, Ltau = 6, 6, 240
-    # Lx, Ly, Ltau = 6, 6, 10s
+    Lx, Ly, Ltau = 6, 6, 10
     Vs = Lx * Ly * Ltau
 
     plot_energy_J(Lx, Ltau, starts=[2000], sample_steps=[1])
