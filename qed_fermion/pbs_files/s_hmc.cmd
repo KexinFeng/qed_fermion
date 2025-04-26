@@ -13,10 +13,5 @@ cd ${SLURM_SUBMIT_DIR}
 module load python/3.9.7
 module load matlab/r2023b
 export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
-module load cuda/11.8
-export PATH=/share1/cuda/11.8/bin/:$PATH
-export LD_LIBRARY_PATH=/share1/cuda/11.8/lib64:$LD_LIBRARY_PATH
 
-nvcc --version
-nvidia-smi
 python3 ../hmc_sampler_batch.py

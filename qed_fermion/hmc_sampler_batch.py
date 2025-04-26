@@ -40,7 +40,7 @@ print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
 
-start_total_monitor = 0
+start_total_monitor = 100
 start_load = 2000
 
 executor = None
@@ -84,7 +84,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 10
+        self.plt_rate = max(start_total_monitor, 500)
         self.ckp_rate = 2000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 100
