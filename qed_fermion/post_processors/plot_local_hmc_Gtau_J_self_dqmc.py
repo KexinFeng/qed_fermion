@@ -19,6 +19,11 @@ from qed_fermion.local_sampler_batch import LocalUpdateSampler
 from qed_fermion.utils.stat import t_based_error, std_root_n, init_convex_seq_estimator, error_mean
 import time
 
+# Add partition parameters
+part_size = 500
+start_dqmc = 2000
+end_dqmc = 6000
+
 def time_execution(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -85,9 +90,37 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
                 alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2, color=f"C{idx}")
 
     if len(dqmc_filename):
-        data = np.genfromtxt(dqmc_filename).reshape(-1, Ltau)
-        # G_dqmc = np.concat([data[:, 0], data[:1, 0]])
-        # G_dqmc_err = np.concat([data[:, 1], data[:1, 1]])
+        # Extract J and L values from the dqmc_filename
+        dqmc_dir = os.path.dirname(dqmc_filename)
+        match = re.search(r'J_([\d\.]+)_L_(\d+)', dqmc_dir)
+        
+        if match:
+            J = float(match.group(1))
+            L = int(match.group(2))
+            
+            # Aggregate DQMC data from all parts
+            all_data = []
+            
+            num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
+            for part_id in range(num_parts):
+                part_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{L}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+                name = os.path.basename(dqmc_filename)
+                part_filename = os.path.join(part_folder, name)
+                
+                try:
+                    part_data = np.genfromtxt(part_filename).reshape(-1, Ltau)
+                    all_data.append(part_data)
+                    print(f'Loaded DQMC data: {part_filename}')
+                except (FileNotFoundError, ValueError) as e:
+                    raise RuntimeError(f'Warning: Error loading {part_filename}: {str(e)}') from e
+            
+            # Concatenate data from all parts
+            data = np.concatenate(all_data)
+            print(f"Combined data from {len(all_data)} parts, total samples: {data.shape[0]}")
+        else:
+            # If no match, use the original file
+            raise RuntimeError(f'No match found: {dqmc_filename}')
+        
         G_dqmc = data.mean(axis=0)
         G_dqmc_err = data.std(axis=0) / np.sqrt(data.shape[0])
         
@@ -138,23 +171,26 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
 
 if __name__ == '__main__':
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
+    Js = [0.5, 1.0, 3.0]
 
     for J in Js:
-        Nstep = 10000
-
-        # hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
-        # hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-        hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
+        hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        # hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+       
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
-        # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run/run_meas_J_{J:.1g}/"
-        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_6/"
+        # Update to use the run3 folder structure with partitioned files
+        # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_6/"
+        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_6_Ltau_240_part_0_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
         name = f"thetacorrtau_sin_splaq.bin"
         dqmc_filename = os.path.join(dqmc_folder, name)
 
         # Measure
         Lx, Ly, Ltau = 6, 6, 240
+        Lx, Ly, Ltau = 6, 6, 10
+
         load_visualize_final_greens_loglog(
             (Lx, Ly, Ltau), 
             hmc_filename, dqmc_filename, 
