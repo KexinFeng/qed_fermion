@@ -27,7 +27,8 @@ if torch.cuda.is_available():
 from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
 
-BLOCK_SIZE = (4, 4)
+BLOCK_SIZE = (4, 8)
+print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cpu')
@@ -63,7 +64,8 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 5
+        self.bs = 1
+        print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
 
         # Couplings
@@ -153,6 +155,7 @@ class HmcSampler(object):
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.cg_rtol = 1e-7
         self.max_iter = 1000
+        print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
         self.precon = None
         self.plt_cg = False
         self.verbose_cg = False
@@ -2300,7 +2303,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '4'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
