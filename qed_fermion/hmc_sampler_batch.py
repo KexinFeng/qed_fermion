@@ -42,6 +42,9 @@ print(f"cg_cdtype: {cg_dtype}")
 
 debug_mode = int(os.getenv("debug", '0')) != 0
 print(f"debug_mode: {debug_mode}")
+if not debug_mode:
+    import matplotlib
+    matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
 start_total_monitor = 0 if debug_mode else 500
 start_load = 2000
@@ -388,7 +391,8 @@ class HmcSampler(object):
         lower_limit = 0.92
         upper_limit = 0.98
 
-        print('avg_accp_rate:', avg_accp_rate)
+        if debug_mode:
+            print('avg_clipped_threshold:', avg_accp_rate)
         delta_t = self.delta_t
         if 0 < avg_accp_rate < 0.1:
             self.delta_t *= 0.1
@@ -405,7 +409,8 @@ class HmcSampler(object):
         else:
             return
 
-        print(f"----->Adjusted delta_t from {delta_t:.4f} to {self.delta_t:.4f}")
+        if debug_mode:
+            print(f"----->Adjusted delta_t from {delta_t:.4f} to {self.delta_t:.4f}")
         self.threshold_queue.clear()
         
     @staticmethod
@@ -1911,9 +1916,10 @@ class HmcSampler(object):
         """
         boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        print(f"H_old, H_new, diff: {H_old}, \n{H_new}, \n{H_new - H_old}\n")
-        print(f"threshold: {torch.exp(H_old - H_new).mean().item()}")
-        print(f'Accp?: {accp.tolist()}')
+        if debug_mode:
+            print(f"H_old, H_new, diff: {H_old}, \n{H_new}, \n{H_new - H_old}")
+            print(f"unclipped threshold: {torch.exp(H_old - H_new).mean().item()}")
+            print(f'Accp?: {accp.tolist()}')
         
         self.boson[accp] = boson_new[accp]
         threshold = min(torch.exp(H_old - H_new).mean().item(), 1)
