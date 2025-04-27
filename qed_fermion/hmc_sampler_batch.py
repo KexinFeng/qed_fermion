@@ -1954,7 +1954,7 @@ class HmcSampler(object):
             self.adjust_delta_t()
 
             # Define CPU computations to run asynchronously
-            def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter, cnt_stream_write):
+            def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter_cpu, cnt_stream_write):
                 # Update metrics
                 self.accp_list[i] = accp_cpu
                 self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -1968,7 +1968,7 @@ class HmcSampler(object):
                     accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
                     + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
                     
-                self.cg_iter_list[i] = cg_converge_iter
+                self.cg_iter_list[i] = cg_converge_iter_cpu
                 self.delta_t_list[i] = self.delta_t
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
                 
@@ -2019,7 +2019,7 @@ class HmcSampler(object):
 
             #     cnt_stream_write = 0
 
-            print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
+            # print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
             # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
             # with open(tmp_file_path, "a") as tmp_file:
             #     tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
