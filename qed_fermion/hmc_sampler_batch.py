@@ -159,8 +159,8 @@ class HmcSampler(object):
         self.precon = None
         self.plt_cg = False
         self.verbose_cg = False
-        self.use_gpu = torch.cuda.is_available()
-        if self.use_gpu:
+        self.use_cuda_kernel = torch.cuda.is_available()
+        if self.use_cuda_kernel:
             pass
             # assert self.bs < 2
 
@@ -1677,7 +1677,7 @@ class HmcSampler(object):
         x = x0
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
-        if not self.use_gpu:
+        if not self.use_cuda_kernel:
             result = self.get_M_sparse(x)
             MhM0, B_list, M0 = result[0], result[1], result[-1]
             psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
@@ -1805,7 +1805,7 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
 
-            if not self.use_gpu:
+            if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
                 MhM = result[0]
                 B_list = result[1]

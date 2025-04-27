@@ -171,13 +171,13 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
 
 if __name__ == '__main__':
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    Js = [0.5, 1.0, 3.0]
+    # Js = [0.5, 1.0, 3.0]
 
     for J in Js:
         hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
         hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-        # hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
        
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
@@ -189,7 +189,7 @@ if __name__ == '__main__':
 
         # Measure
         Lx, Ly, Ltau = 6, 6, 240
-        Lx, Ly, Ltau = 6, 6, 10
+        # Lx, Ly, Ltau = 6, 6, 10
 
         load_visualize_final_greens_loglog(
             (Lx, Ly, Ltau), 
