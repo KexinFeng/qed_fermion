@@ -60,7 +60,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 1
+        self.bs = 5
         self.Vs = self.Lx * self.Ly
 
         # Couplings
@@ -105,7 +105,7 @@ class HmcSampler(object):
         # self.Sf_list = torch.zeros(self.N_step, self.bs)
         # self.H_list = torch.zeros(self.N_step, self.bs)
 
-        self.cg_iter_list = torch.zeros(self.N_step)
+        self.cg_iter_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step)
 
         # boson_seq
@@ -450,6 +450,8 @@ class HmcSampler(object):
         b = b.view(self.bs, -1)
         norm_b = torch.norm(b, dim=1)
 
+        active_bs = torch.full((self.bs, 1), 1, device=device, dtype=b.dtype)
+
         # Initialize variables
         x = torch.zeros_like(b).view(self.bs, -1)
         r = b.view(self.bs, -1) - _C.mhm_vec(boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
@@ -462,7 +464,10 @@ class HmcSampler(object):
 
         if self.plt_cg and axs is not None:
             # Plot intermediate results
-            line_res = axs.plot(residuals, marker='o', linestyle='-', label='no precon.' if MhM_inv is None and matL is None else 'precon.', color=f'C{0}' if MhM_inv is None and matL is None else f'C{1}')
+            line_res = []
+            for b_idx in range(self.bs):
+                line = axs.plot(residuals, marker='o', linestyle='-', label=b_idx, color=f'C{b_idx}')
+                line_res.append(line[0])
             axs.set_ylabel('Residual Norm')
             axs.set_yscale('log')
             axs.legend()
@@ -472,13 +477,14 @@ class HmcSampler(object):
             plt.pause(0.01)  # Pause to update the plot
 
         cnt = 0
+        iterations = torch.zeros(self.bs, dtype=torch.int64, device=device)
         for i in range(max_iter):
             # Matrix-vector product with M'M
             Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
 
-            alpha = rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real
-            x += alpha.unsqueeze(-1) * p
-            r -= alpha.unsqueeze(-1) * Op
+            alpha = (rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real).unsqueeze(-1)
+            x += alpha * p * active_bs
+            r -= alpha * Op * active_bs
 
             # Compute and store the error (norm of the residual)
             error = torch.norm(r, dim=1) / norm_b
@@ -486,7 +492,9 @@ class HmcSampler(object):
 
             if self.plt_cg and axs is not None:
                 # Plot intermediate results
-                line_res[0].set_data(range(len(residuals)), residuals)
+                for b_idx in range(self.bs):
+                    ys = [residuals[j][b_idx].item() for j in range(len(residuals))]
+                    line_res[b_idx].set_data(range(len(residuals)), ys)
                 axs.relim()
                 axs.autoscale_view()
                 plt.pause(0.01)  # Pause to update the plot
@@ -499,21 +507,26 @@ class HmcSampler(object):
                 print(f"Figure saved at: {file_path}")
 
             # Check for convergence
-            if (error < rtol).all():
+            active_bs = torch.where(error.view(-1, 1) > rtol, active_bs, torch.zeros_like(active_bs))
+
+            if (active_bs == 0).any():
                 if self.verbose_cg:
-                    print(f"Converged in {i+1} iterations.")
-                break
+                    print(f"{torch.nonzero(active_bs).tolist()} Converged in {i+1} iterations.")
+                if (active_bs == 0).all():
+                    break
+            
+            iterations += (active_bs == 1).view(-1).long()
 
             # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to rtL)
             z = _C.precon_vec(r, self.precon_csr, self.Lx)
             rz_new = torch.einsum('bj,bj->b', r.conj(), z).real
             beta = rz_new / rz_old
-            p = z + beta.unsqueeze(-1) * p
+            p = z + beta.unsqueeze(-1) * p * active_bs
             rz_old = rz_new
 
             cnt += 1
 
-        return x, cnt, residuals[-1]
+        return x, iterations, residuals[-1]
 
     def preconditioned_cg(self, MhM, b, MhM_inv=None, matL=None, rtol=1e-8, max_iter=100, b_idx=None, axs=None, cg_dtype=torch.complex64):
         """
@@ -670,7 +683,7 @@ class HmcSampler(object):
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])  
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
-    def initialize_boson_time_slice_random(self):
+    def initialize_boson_time_slice_random_normal(self):
         """
         Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
 
@@ -1441,7 +1454,7 @@ class HmcSampler(object):
             fg, axs = plt.subplots()
         Ot_inv_psi, cnt, r_err = self.preconditioned_cg(MhM, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, cg_dtype=cg_dtype, axs=axs)
 
-        return Ot_inv_psi, cnt
+        return Ot_inv_psi, torch.tensor([cnt], device=device, dtype=torch.long)
 
 
     def force_f_fast(self, psi, boson, MhM):
@@ -1885,7 +1898,8 @@ class HmcSampler(object):
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
         torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=3e-3)
 
-        return x, H0, H_fin, sum(cg_converge_iters)/len(cg_converge_iters)
+        cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
+        return x, H0, H_fin, cg_converge_iters.float().mean(dim=0)
 
     def metropolis_update(self):
         """
@@ -1897,12 +1911,13 @@ class HmcSampler(object):
         """
         boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        print(f"H_old, H_new, diff: {H_old}, {H_new}, {H_new - H_old}")
-        print(f"threshold: {torch.exp(H_old - H_new).item()}")
-        print(f'Accp?: {accp.item()}')
+        print(f"H_old, H_new, diff: {H_old}, \n{H_new}, \n{H_new - H_old}\n")
+        print(f"threshold: {torch.exp(H_old - H_new).mean().item()}")
+        print(f'Accp?: {accp.tolist()}')
         
         self.boson[accp] = boson_new[accp]
-        return self.boson, accp, cg_converge_iter, min(torch.exp(H_old - H_new).mean().item(), 1)
+        threshold = min(torch.exp(H_old - H_new).mean().item(), 1)
+        return self.boson, accp, cg_converge_iter, threshold
     
     # @torch.inference_mode()
     @torch.no_grad()
@@ -1940,9 +1955,6 @@ class HmcSampler(object):
 
             # Define CPU computations to run asynchronously
             def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter, cnt_stream_write):
-                # boson_cpu = boson.cpu()
-                # accp_cpu = accp.cpu()
-                
                 # Update metrics
                 self.accp_list[i] = accp_cpu
                 self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -1968,7 +1980,7 @@ class HmcSampler(object):
                 i, 
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
                 accp.cpu() if accp.is_cuda else accp.clone(), 
-                cg_converge_iter, 
+                cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone(), 
                 cnt_stream_write
             )
             futures[i] = future
@@ -2008,9 +2020,9 @@ class HmcSampler(object):
             #     cnt_stream_write = 0
 
             print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
-            tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
-            with open(tmp_file_path, "a") as tmp_file:
-                tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
+            # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
+            # with open(tmp_file_path, "a") as tmp_file:
+            #     tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
                 
             if torch.cuda.is_available() and i % self.memory_check_rate == 0 and i > 0:
                 # Check memory usage
@@ -2020,9 +2032,9 @@ class HmcSampler(object):
                 print(f"Max memory usage: {max_mem_usage:.2f} MB")
                 
                 # Write memory usage to a temporary file
-                tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
-                with open(tmp_file_path, "a") as tmp_file:
-                    tmp_file.write(f"Step {i}: Memory usage: {mem_usage:.2f} MB, Max memory usage: {max_mem_usage:.2f} MB\n")
+                # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
+                # with open(tmp_file_path, "a") as tmp_file:
+                #     tmp_file.write(f"Step {i}: Memory usage: {mem_usage:.2f} MB, Max memory usage: {max_mem_usage:.2f} MB\n")
 
             # plotting
             if i % self.plt_rate == 0 and i > 0:
@@ -2039,7 +2051,7 @@ class HmcSampler(object):
                         'G_list': self.G_list.cpu(),
                         'S_plaq_list': self.S_plaq_list.cpu(),
                         'S_tau_list': self.S_tau_list.cpu(),
-                        'cg_iter_list': self.cg_iter_list,
+                        'cg_iter_list': self.cg_iter_list.cpu(),
                         'delta_t_list': self.delta_t_list}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
@@ -2053,7 +2065,7 @@ class HmcSampler(object):
                'G_list': self.G_list.cpu(),
                'S_plaq_list': self.S_plaq_list.cpu(),
                'S_tau_list': self.S_tau_list.cpu(),
-               'cg_iter_list': self.cg_iter_list,
+               'cg_iter_list': self.cg_iter_list.cpu(),
                'delta_t_list': self.delta_t_list}
 
         # Save to file
@@ -2282,7 +2294,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '4'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
