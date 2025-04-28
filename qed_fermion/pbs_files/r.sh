@@ -8,7 +8,7 @@ J_array=$(echo '1.0')
 L_array=$(echo '12 14 16')  # 16 h (-2)
 
 J_array=$(echo '1.0')
-L_array=$(echo '18 20 22 24') # 26 h (-2)  16: 8g, 20: 15g
+L_array=$(echo '18 20 22 24') # 26 h (-2)  16: 8g HBM, 20: 15g HBM
 
 J_array=$(echo '1.0')
 L_array=$(echo '24') # 32 h 8g RAM 26g HBM
