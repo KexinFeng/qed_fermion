@@ -4,14 +4,14 @@ mkdir -p report
 J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
 L_array=$(echo '6 8 10')  # 10 h (-2)
 
-J_array=$(echo '1.0')
-L_array=$(echo '12 14 16')  # 16 h (-2)
+# J_array=$(echo '1.0')
+# L_array=$(echo '12 14 16')  # 16 h (-2)
 
-J_array=$(echo '1.0')
-L_array=$(echo '18 20 22 24') # 26 h (-2)  16: 8g HBM, 20: 15g HBM
+# J_array=$(echo '1.0')
+# L_array=$(echo '18 20 22 24') # 26 h (-2)  16: 8g HBM, 20: 15g HBM
 
-J_array=$(echo '1.0')
-L_array=$(echo '24') # 32 h 8g RAM 26g HBM
+# J_array=$(echo '1.0')
+# L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
 Nstep=6000
 for L in $L_array; do
@@ -23,9 +23,9 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config}_hmc \
-                --time=0-30:00:00 \
+                --time=0-10:00:00 \
                 --qos=gpu \
-                --mem-per-cpu=4G \
+                --mem-per-cpu=5G \
                 s_hmc.cmd
         done
 done
