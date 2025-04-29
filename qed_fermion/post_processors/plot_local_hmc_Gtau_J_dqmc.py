@@ -12,7 +12,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../')
+sys.path.insert(0, script_path + '/../../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler
@@ -208,7 +208,8 @@ if __name__ == '__main__':
         # local_update_filename = script_path + f"/check_points/local_check_point/ckpt_N_{lmc.get_specifics()}_step_{step_lmc}.pt"
 
 
-        hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        # hmc_filename = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/cg_result_check3_6x6x10_my_cg/ckpt/ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
         local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
         local_update_filename = ''
 

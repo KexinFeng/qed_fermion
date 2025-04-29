@@ -36,7 +36,7 @@ def plot_spsm(Lsize=(6, 6, 10)):
     Lx, Ly, Ltau = Lsize
     vs = Lx**2
     
-    plt.figure(figsize=(8, 6))
+    # plt.figure(figsize=(8, 6))
     
     for J in Js:
         # Initialize data collection arrays for this J value
@@ -64,6 +64,26 @@ def plot_spsm(Lsize=(6, 6, 10)):
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
         # [num_sample]
         r_afm = 1 - data[:, 1, 2] / data[:, 0, 2]
+        
+        # Compute the mean along the first axis
+        data_mean = data.mean(axis=0)
+
+        # Visualize data_mean as a color map
+        x = data_mean[:, 0]
+        y = data_mean[:, 1]
+        values = data_mean[:, 2]
+
+        plt.figure(figsize=(8, 6))
+        plt.tricontourf(x, y, values, levels=100, cmap='viridis')
+        plt.colorbar(label=f'Value J= {J:.2g}')
+        plt.xlabel('kx', fontsize=14)
+        plt.ylabel('ky', fontsize=14)
+        plt.title('Mean Data Visualization', fontsize=16)
+        plt.grid(True, alpha=0.3)
+        
+        spin_order = data[:, 1, 2]
+
+        # r_afm = spin_order
         rtol = data[:, :, 3] / data[:, :, 2]
         r_afm_err = abs(rtol[:, 0] - rtol[:, 1]) * (1 - r_afm)
         
@@ -74,6 +94,7 @@ def plot_spsm(Lsize=(6, 6, 10)):
         r_afm_values.append(r_afm_mean)
         r_afm_errors.append(r_afm_error)
 
+    plt.figure(figsize=(8, 6))
     # Plot the errorbar for the means
     plt.errorbar(Js, r_afm_values, yerr=r_afm_errors, 
                 linestyle='-', marker='o', lw=2, color='blue', label='r_afm')
