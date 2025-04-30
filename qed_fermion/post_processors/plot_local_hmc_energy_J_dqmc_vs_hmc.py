@@ -29,7 +29,8 @@ def time_execution(func):
 
 @time_execution
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
-    Js = [0.5, 1, 3]
+    # Js = [0.5, 1, 3]
+    Js = [1, 1.5, 2, 2.5, 3]
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -38,36 +39,39 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     Stau_list_hmc = []
     Stau_list_local = []
     Stau_list_tau = []
+    # Lx, Ly, Ltau = 6, 6, 10
+    Lx, Ly, Ltau = 6, 6, 240   
+    beta = int(Ltau * 0.1)
+    N = Lx * Lx * beta
 
     for J in Js:
-        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/cg_result_check3_6x6x10_my_cg/ckpt/ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
-        
+        # hmc_filename = f"/Users/kx/Desktop/hmc/fignote/cg_result_check3_6x6x10_my_cg/ckpt/ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+        hmc_filename = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point/ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
+
+        # local_update_filename = f"/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check_fermion3/ckpt/local_check_point/ckpt_N_local_6_Ltau_10_Nstp_720000bs_5_Jtau_{J:.1g}_K_0.5_dtau_0.1_step_720000.pt"
         local_update_filename = ''
         
-        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
-        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        dqmc_filename = os.path.join(dqmc_folder, name)
-        dqmc_folder_tau = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejs/"
-        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        dqmc_filename_tau = os.path.join(dqmc_folder_tau, name)
+        # dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/ejpi/"
+        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk/"
 
-        res = torch.load(hmc_filename)
+        # name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename = os.path.join(dqmc_folder + "/ejpi/", name)
+    
+        # name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename_tau = os.path.join(dqmc_folder + "/ejs/", name)
+
+        res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')
         Sb_plaq_list_hmc.append(res['S_plaq_list'])
         Stau_list_hmc.append(res['S_tau_list'])
 
-        if local_update_filename != '':
-            res = torch.load(local_update_filename)
-            print(f'Loaded: {local_update_filename}')
-            Sb_plaq_list_local.append(res['S_plaq_list'])
-            Stau_list_local.append(res['S_tau_list'])
-
         # dqmc
         data = np.genfromtxt(dqmc_filename)
-        Sb_plaq_list_dqmc.append(data.reshape(-1, 1))
+        Sb_plaq_list_dqmc.append(data.reshape(-1, 1) * N)
         data = np.genfromtxt(dqmc_filename_tau)
-        Stau_list_tau.append(data.reshape(-1, 1))
+        Stau_list_tau.append(data.reshape(-1, 1) * N)
 
 
     # ====== Index ====== #
@@ -79,15 +83,8 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     seq_idx = np.arange(start, end, sample_step)
     seq_idx_init = np.arange(0, end, sample_step)
 
-    if local_update_filename != '':
-        local_match = re.search(r'Nstp_(\d+)', local_update_filename)
-        end_local = int(local_match.group(1))
-        start_local = starts.pop(0)
-        sample_step_local = sample_steps.pop(0)
-        seq_idx_local = np.arange(start_local, end_local, sample_step_local)
-        seq_idx_local_init = np.arange(0, end_local, sample_step_local)
 
-    # ======= Plot Sb ======= #
+    # ======= Plot Sb_plaq ======= #
     plt.figure()
 
     # HMC
@@ -105,32 +102,15 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
             xs, 
             ys, 
             alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2, color=f"C{idx}")
-        
-    if local_update_filename != '':
-        # Local
-        ys = [Sb_plaq[seq_idx_local].mean().item() for Sb_plaq in Sb_plaq_list_local]  # [seq, bs]
-        yerr1 = [error_mean(init_convex_seq_estimator(Sb_plaq[seq_idx_local_init].numpy()) /np.sqrt(seq_idx_local_init.size)) * 1.00 for Sb_plaq in Sb_plaq_list_local] 
-        # yerr1 = [std_root_n(Sb_plaq[seq_idx_local].numpy(), axis=0, lag_sum=200).mean() for Sb_plaq in Sb_plaq_list_local]
-        yerr2 = [t_based_error(Sb_plaq[seq_idx_local].mean(axis=0).numpy()) for Sb_plaq in Sb_plaq_list_local] 
-        print(yerr1, '\n', yerr2)
-        yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
-        # yerr = np.sqrt(np.array(yerr1)**2)
-        plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
-        for idx, bi in enumerate(range(Sb_plaq_list_local[0].size(1))):
-            ys = [Sb_plaq[seq_idx_local, bi].mean().item() for Sb_plaq in Sb_plaq_list_local] 
-            plt.errorbar(
-                xs, 
-                ys, 
-                alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
-        
+          
     # DQMC
-    ys = [Sb_plaq.mean() * 36 for Sb_plaq in Sb_plaq_list_dqmc]  # [seq, bs]
-    yerr1 = [error_mean(init_convex_seq_estimator(Sb_plaq) / np.sqrt(Sb_plaq.size)) * 1.00 * 36 for Sb_plaq in Sb_plaq_list_dqmc]
+    ys = [Sb_plaq.mean() for Sb_plaq in Sb_plaq_list_dqmc]  # [seq, bs]
+    # yerr1 = [error_mean(init_convex_seq_estimator(Sb_plaq) / np.sqrt(Sb_plaq.size)) * 1.00 * 36 for Sb_plaq in Sb_plaq_list_dqmc]
     # yerr1 = [std_root_n(Sb_plaq, axis=0, lag_sum=50).mean() for Sb_plaq in Sb_plaq_list_dqmc]
     # yerr2 = [t_based_error(Sb_plaq.mean(axis=0)) for Sb_plaq in Sb_plaq_list_dqmc]
     # print(yerr1, '\n', yerr2)
     # yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
-    plt.errorbar(xs, ys, yerr=yerr1, linestyle='-', marker='s', lw=2, color='red', label='dqmc')
+    plt.errorbar(xs, ys, linestyle='-', marker='s', lw=2, color='red', label='dqmc')
 
     # Plot setting
     plt.xlabel(r"$J$")
@@ -163,29 +143,13 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
             ys, 
             alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2, color=f"C{idx}")
 
-    if local_update_filename != '':
-        # Local
-        ys = [Stau[seq_idx_local].mean().item() for Stau in Stau_list_local]  # [seq, bs]
-        # yerr1 = [error_mean(init_convex_seq_estimator(Stau[seq_idx_local_init].numpy()) / np.sqrt(seq_idx_local_init.size)) * 1.00  for Stau in Stau_list_local]  
-        yerr1 = [std_root_n(Stau[seq_idx_local].numpy(), axis=0, lag_sum=200).mean() for Stau in Stau_list_local]
-        yerr2 = [t_based_error(Stau[seq_idx_local].mean(axis=0).numpy()) for Stau in Stau_list_local] 
-        print(yerr1, '\n', yerr2)
-        yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
-        # yerr = np.sqrt(np.array(yerr1)**2)
-        plt.errorbar(xs, ys, yerr=yerr, linestyle='-', marker='*', markersize=10, lw=2, color='green', label='local')
-        for idx, bi in enumerate(range(Stau_list_local[0].size(1))):
-            ys = [Stau[seq_idx_local, bi].mean().item() for Stau in Stau_list_local] 
-            plt.errorbar(
-                xs, 
-                ys, 
-                alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
-        
+     
     # DQMC
-    ys = [Stau.mean() * 36 for Stau in Stau_list_tau]  # [seq, bs]
-    yerr1 = [error_mean(init_convex_seq_estimator(Stau) / np.sqrt(Stau.size)) * 1.00 * 36 for Stau in Stau_list_tau]
+    ys = [Stau.mean() for Stau in Stau_list_tau]  # [seq, bs]
+    # yerr1 = [error_mean(init_convex_seq_estimator(Stau) / np.sqrt(Stau.size)) for Stau in Stau_list_tau]
     # yerr2 = [t_based_error(Stau.mean(axis=0)) for Stau in Stau_list_tau]
     # yerr = np.sqrt(np.array(yerr1)**2 + np.array(yerr2)**2)
-    plt.errorbar(xs, ys, yerr=yerr1, linestyle='-', marker='s', lw=2, color='red', label='dqmc')
+    plt.errorbar(xs, ys, linestyle='-', marker='s', lw=2, color='red', label='dqmc')
 
     # Plot settings
     plt.xlabel(r"$J$")
@@ -205,10 +169,10 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
 
 if __name__ == '__main__':
-    Lx, Ly, Ltau = 6, 6, 10
-    Vs = Lx * Ly * Ltau
+    # Lx, Ly, Ltau = 6, 6, 10
+    # Vs = Lx * Ly * Ltau
 
-    plot_energy_J(starts=[2000, 1000*Vs], sample_steps=[1, Vs])
+    plot_energy_J(starts=[2000], sample_steps=[1])
 
     dbstop = 1
 
