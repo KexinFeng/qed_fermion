@@ -1689,6 +1689,17 @@ class HmcSampler(object):
         M0, B_list = self.get_M_batch(x)
         psi_u = torch.einsum('brs,bs->br', M0.permute(0, 2, 1).conj(), R_u)
 
+        if not self.use_cuda_kernel:
+            result = self.get_M_sparse(x)
+            MhM0, B_list, M0 = result[0], result[1], result[-1]
+            psi_u_fast = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
+        else:
+            psi_u_fast = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
+   
+        torch.testing.assert_close(psi_u, psi_u_fast.view(self.bs, -1), atol=1e-5, rtol=1e-3)
+
+
+
         force_f_u, xi_t_u = self.force_f_batch(psi_u, M0, x, B_list)
 
         force_f_u_fast, xi_t_u_fast, cg_converge_iter = self.force_f_fast(psi_u, x, M0[0].conj().T@M0[0])
@@ -2172,7 +2183,7 @@ class HmcSampler(object):
 
         :return: None
         """
-        boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer4_cmptau()
+        boson_new, H_old, H_new, cg_converge_iter = self.leapfrog_proposer5_cmptau()
         accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
         if debug_mode:
             print(f"H_old, H_new, diff: {H_old}, \n{H_new}, \n{H_new - H_old}")
