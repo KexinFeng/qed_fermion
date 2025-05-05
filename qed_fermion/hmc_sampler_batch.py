@@ -47,7 +47,7 @@ if not debug_mode:
     import matplotlib
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
-start_total_monitor = 0 if debug_mode else 500
+start_total_monitor = 10 if debug_mode else 500
 start_load = 2000
 
 executor = None
@@ -1437,17 +1437,23 @@ class HmcSampler(object):
     
 
     def Ot_inv_psi_fast(self, psi, boson, MhM):
-        # # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
+        # xi_t = torch.einsum('bij,bj->bi', Ot_inv, psi)
         # Ot = MhM.to_dense()
         # L = torch.linalg.cholesky(Ot)
         # Ot_inv = torch.cholesky_inverse(L)
-        # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi)
-        # # # return xi_t.view(-1)
+        # xi_t = torch.einsum('ij,jk->ik', Ot_inv, psi[0].view(-1, 1))
+        
+        # err = torch.norm(MhM @ xi_t - psi[0].view(-1, 1))
+        # print(f"Error in solving Ot_inv_psi_normal: {err}")
+        # # return xi_t.view(-1)
 
         axs = None
         if self.plt_cg:
             fg, axs = plt.subplots()
         Ot_inv_psi, cnt, r_err = self.preconditioned_cg_fast_test(boson, psi, rtol=self.cg_rtol, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
+
+        # err2 = torch.norm(MhM @ Ot_inv_psi.view(-1, 1) - psi[0].view(-1, 1))
+        # print(f"Error in solving Ot_inv_psi_fast: {err2}")
 
         return Ot_inv_psi, cnt
 
@@ -1685,6 +1691,10 @@ class HmcSampler(object):
 
         force_f_u, xi_t_u = self.force_f_batch(psi_u, M0, x, B_list)
 
+        force_f_u_fast, xi_t_u_fast, cg_converge_iter = self.force_f_fast(psi_u, x, M0[0].conj().T@M0[0])
+        torch.testing.assert_close(force_f_u, force_f_u_fast, atol=1e-5, rtol=1e-5)   
+        torch.testing.assert_close(xi_t_u, xi_t_u_fast, atol=1e-5, rtol=1e-5)   
+
         Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
         # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
@@ -1801,6 +1811,10 @@ class HmcSampler(object):
 
             Mt, B_list = self.get_M_batch(x)
             force_f_u, xi_t_u = self.force_f_batch(psi_u, Mt, x, B_list)
+            force_f_u_fast, xi_t_u_fast, cg_converge_iter = self.force_f_fast(psi_u, x, Mt[0].conj().T@Mt[0])
+            torch.testing.assert_close(force_f_u, force_f_u_fast, atol=1e-5, rtol=1e-3)
+            torch.testing.assert_close(xi_t_u, xi_t_u_fast, atol=1e-5, rtol=1e-3)
+
             p = p + dt/2 * (force_f_u)
 
             if self.debug_pde:
@@ -2145,7 +2159,7 @@ class HmcSampler(object):
         H_fin += Sf_fin_u
 
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
-        # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-3)
+        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-2)
 
         cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
         return x, H0, H_fin, cg_converge_iters.float().mean(dim=0)
@@ -2164,6 +2178,8 @@ class HmcSampler(object):
             print(f"H_old, H_new, diff: {H_old}, \n{H_new}, \n{H_new - H_old}")
             print(f"unclipped threshold: {torch.exp(H_old - H_new).mean().item()}")
             print(f'Accp?: {accp.tolist()}')
+            relative_error = torch.abs(H_new - H_old) / torch.abs(H_old)
+            print(f"Relative error: {relative_error}")
         
         self.boson[accp] = boson_new[accp]
         threshold = min(torch.exp(H_old - H_new).mean().item(), 1)
