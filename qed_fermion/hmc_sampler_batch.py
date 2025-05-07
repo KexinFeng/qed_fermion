@@ -133,8 +133,8 @@ class HmcSampler(object):
         self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
         # self.delta_t = 0.008 # (L=10)
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
-        self.delta_t = 0.1
-        self.delta_t = 0.04 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
+        self.delta_t = 0.05
+        self.delta_t = 0.02 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
@@ -2429,12 +2429,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '20'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '400'))
     # print(f'J={J} \nNstep={Nstep}')
 
-    # Ltau = 4*Lx * 10 # dtau=0.1
-    Ltau = 20 # dtau=0.1
+    Ltau = 4*Lx * 10 # dtau=0.1
+    # Ltau = 20 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
