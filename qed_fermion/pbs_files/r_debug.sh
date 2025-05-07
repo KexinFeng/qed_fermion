@@ -6,6 +6,9 @@ L_array=$(echo '18 22 24')
 J_array=$(echo '1.0')
 L_array=$(echo '16 20')
 
+J_array=$(echo '0.5 1.0 3.0')
+L_array=$(echo '6')  # 10 h (-2)
+
 export debug=1
 
 Nstep=6000

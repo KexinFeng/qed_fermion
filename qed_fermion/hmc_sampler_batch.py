@@ -64,7 +64,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 3
+        self.bs = 5
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
 
@@ -2430,11 +2430,11 @@ if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
     Lx = int(os.getenv("L", '6'))
-    # Ltau = int(os.getenv("Ltau", '400'))
+    Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
 
-    Ltau = 4*Lx * 10 # dtau=0.1
-    # Ltau = 20 # dtau=0.1
+    # Ltau = 4*Lx * 10 # dtau=0.1
+    # Ltau = 2 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
