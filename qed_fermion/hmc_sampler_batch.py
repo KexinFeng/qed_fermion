@@ -135,6 +135,7 @@ class HmcSampler(object):
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
         self.delta_t = 0.05
         self.delta_t = 0.02 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
+        self.delta_t = 0.05
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
@@ -622,10 +623,10 @@ class HmcSampler(object):
         self.curl_mat = self.curl_mat_cpu.to(device=device)
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}"
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
