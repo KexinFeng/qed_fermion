@@ -1063,7 +1063,7 @@ class HmcSampler(object):
         boson: [bs=1, 2, Lx, Ly, Ltau]
         """
         boson_input = boson
-        assert len(boson.shape) == 4 or len(boson.shape) == 5 and boson.size(0) == 1
+        assert len(boson.shape) == 4 or len(boson.shape) == 5 and boson.size(0) == 1, "Batch_Size > 1 is not supported"
         if len(boson.shape) == 5:
             boson = boson.squeeze(0)
 
