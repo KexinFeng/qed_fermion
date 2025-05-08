@@ -15,6 +15,9 @@ L_array=$(echo '6')  # 10 h (-2)
 # J_array=$(echo '1.0')
 # L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
+J_array=$(echo '1.0')
+L_array=$(echo '6')  # 16 h (-2)
+
 Nstep=12000
 
 export debug=0
@@ -27,6 +30,7 @@ for L in $L_array; do
                 config=$(echo J${J}L${L})
                 echo $config
                 export J Nstep L
+                export debug=1
                 #
                 sbatch --job-name=${config} \
                 --time=0-30:00:00 \

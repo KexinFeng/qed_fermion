@@ -125,8 +125,8 @@ class HmcSampler(object):
 
         # Leapfrog
         self.debug_pde = False
-        self.m = 1/2 * 4 / scale * 0.05
-        # self.m = 1/2
+        # self.m = 1/2 * 4 / scale * 0.05
+        self.m = 1
 
         # self.delta_t = 0.05 # (L=6)
         # self.delta_t = 0.2/4
@@ -140,8 +140,11 @@ class HmcSampler(object):
         self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
         # self.delta_t = 0.008 # (L=10)
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
-        self.delta_t = 0.05
-        self.delta_t = 0.02 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
+        self.delta_t = 0.03
+        # self.m = (self.delta_t / 0.025) ** 2
+        self.delta_t = 0.2 * (self.m / 50)**(1/2)
+
+        # self.delta_t = 0.03 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
@@ -165,10 +168,9 @@ class HmcSampler(object):
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
 
         # CG
-        # self.cg_rtol = 1e-7
-        # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.cg_rtol = 1e-7
         self.cg_rtol = 1e-5
+        # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         # self.cg_rtol = 1e-9
         self.max_iter = 1000
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
@@ -2004,8 +2006,8 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                x_ref = x + p / self.m * dt/M  # velocity ~ 1/sqrt(m), dt ~ sqrt(m) 
-                x = x + self.apply_m_inv(p) * dt/M  # velocity ~ 1/sqrt(m), dt ~ sqrt(m) 
+                x_ref = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
                 with torch.enable_grad():
