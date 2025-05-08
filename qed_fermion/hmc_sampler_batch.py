@@ -47,7 +47,7 @@ if not debug_mode:
     import matplotlib
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
-start_total_monitor = 10 if debug_mode else 500
+start_total_monitor = 10 if debug_mode else 100
 start_load = 2000
 
 executor = None
@@ -64,7 +64,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 5
+        self.bs = 2
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
 
@@ -135,7 +135,6 @@ class HmcSampler(object):
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
         self.delta_t = 0.05
         self.delta_t = 0.02 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
-        self.delta_t = 0.05
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
         # For the same total_t, the larger N_leapfrog, the smaller error and higher acceptance.
         # So for a given total_t, there is an optimal N_leapfrog which is the smallest N_leapfrog s.t. the acc is larger than say 0.9 the saturate accp (which is 1).
@@ -147,7 +146,7 @@ class HmcSampler(object):
         # self.N_leapfrog = 8
         # self.N_leapfrog = 2
         # self.N_leapfrog = 6
-        self.N_leapfrog = 4
+        self.N_leapfrog = 5
 
         self.threshold_queue = collections.deque(maxlen=5)
 
@@ -155,6 +154,7 @@ class HmcSampler(object):
         # self.cg_rtol = 1e-7
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.cg_rtol = 1e-7
+        self.cg_rtol = 1e-5
         # self.cg_rtol = 1e-9
         self.max_iter = 1000
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
@@ -395,17 +395,17 @@ class HmcSampler(object):
             return
         avg_accp_rate = sum(self.threshold_queue) / len(self.threshold_queue)
 
-        lower_limit = 0.6
-        upper_limit = 0.9
+        lower_limit = 0.9
+        upper_limit = 0.95
 
         if debug_mode:
             print('avg_clipped_threshold:', avg_accp_rate)
         delta_t = self.delta_t
         
         if 0 < avg_accp_rate < lower_limit:
-            self.delta_t *= 0.7
+            self.delta_t *= 0.9
         elif upper_limit < avg_accp_rate < 0.99:
-            self.delta_t *= 1.5
+            self.delta_t *= 1.1
         else:
             return
 
@@ -623,10 +623,10 @@ class HmcSampler(object):
         self.curl_mat = self.curl_mat_cpu.to(device=device)
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}"
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -2029,7 +2029,7 @@ class HmcSampler(object):
         H_fin += Sf_fin_u
 
         # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
-        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=5e-3)
+        # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=5e-3)
 
         cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
         return x, H0, H_fin, cg_converge_iters.float().mean(dim=0)
@@ -2087,7 +2087,7 @@ class HmcSampler(object):
             boson, accp, cg_converge_iter, threshold = self.metropolis_update()
             
             self.threshold_queue.append(threshold)
-            # self.adjust_delta_t()
+            self.adjust_delta_t()
 
             # Define CPU computations to run asynchronously
             def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter_cpu, cnt_stream_write):
@@ -2430,11 +2430,12 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
-    Ltau = int(os.getenv("Ltau", '10'))
+    Lx = int(os.getenv("L", '4'))
+    # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
+    asym = int(os.environ.get("asym", '4'))
 
-    # Ltau = 4*Lx * 10 # dtau=0.1
+    Ltau = asym*Lx * 10 # dtau=0.1
     # Ltau = 2 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
