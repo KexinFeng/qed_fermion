@@ -64,7 +64,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2
+        self.bs = 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
 
@@ -142,7 +142,7 @@ class HmcSampler(object):
         # So proper total_t is a function of N_leapfrog* for a given threshold like 0.9.
         # So natually an adaptive optimization algorithm can be obtained: for a fixed N_leapfrog, check the acceptance_rate / acc_threshold and adjust total_t.
 
-        self.delta_t = torch.full((self.bs,), self.delta_t, device=device, dtype=dtype)
+        self.delta_t_tensor = torch.full((self.bs,), self.delta_t, device=device, dtype=dtype)
 
         # self.N_leapfrog = 6 # already oscilates back
         # self.N_leapfrog = 8
@@ -403,17 +403,17 @@ class HmcSampler(object):
 
             if debug_mode:
                 print(f'Batch {b} avg_clipped_threshold: {avg_accp_rate:.4f}')
-            old_delta_t = self.delta_t[b].item()
+            old_delta_t = self.delta_t_tensor[b].item()
 
             if 0 < avg_accp_rate < lower_limit:
-                self.delta_t[b] *= 0.9
+                self.delta_t_tensor[b] *= 0.9
             elif upper_limit < avg_accp_rate < 0.99:
-                self.delta_t[b] *= 1.1
+                self.delta_t_tensor[b] *= 1.1
             else:
                 continue
 
             if debug_mode:
-                print(f"----->Adjusted delta_t[{b}] from {old_delta_t:.4f} to {self.delta_t[b].item():.4f}")
+                print(f"----->Adjusted delta_t[{b}] from {old_delta_t:.4f} to {self.delta_t_tensor[b].item():.4f}")
             self.threshold_queue[b].clear()
 
     @staticmethod
@@ -1711,7 +1711,7 @@ class HmcSampler(object):
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
 
-        dt = self.delta_t.view(-1, 1, 1, 1, 1)
+        dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
 
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
@@ -1810,6 +1810,8 @@ class HmcSampler(object):
             MhM0, B_list, M0 = result[0], result[1], result[-1]
             psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
             force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
+            psi_u = psi_u.view(self.bs, -1)
+            xi_t_u = xi_t_u.view(self.bs, -1)
         else:
             psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
@@ -1827,7 +1829,7 @@ class HmcSampler(object):
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
 
-        dt = self.delta_t.view(-1, 1, 1, 1, 1)
+        dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
 
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
@@ -1939,6 +1941,7 @@ class HmcSampler(object):
                 MhM = result[0]
                 B_list = result[1]
                 force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+                xi_t_u = xi_t_u.view(self.bs, -1)
             else:
                 force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
@@ -2125,7 +2128,7 @@ class HmcSampler(object):
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone(), 
-                self.delta_t.cpu() if self.delta_t.is_cuda else self.delta_t.clone(),
+                self.delta_t_tensor.cpu() if self.delta_t_tensor.is_cuda else self.delta_t_tensor.clone(),
                 cnt_stream_write
             )
             futures[i] = future
