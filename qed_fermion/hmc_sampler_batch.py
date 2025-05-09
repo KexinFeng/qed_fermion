@@ -150,7 +150,7 @@ class HmcSampler(object):
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
 
-        self.threshold_queue = collections.deque(maxlen=5)
+        self.threshold_queue = [collections.deque(maxlen=5) for _ in range(self.bs)]
 
         # CG
         # self.cg_rtol = 1e-7
@@ -391,30 +391,31 @@ class HmcSampler(object):
 
     def adjust_delta_t(self):
         """
-        Adjust delta_t based on the acceptance rate.
+        Adjust delta_t for each batch element based on its acceptance rate.
         """
-        if len(self.threshold_queue) < self.threshold_queue.maxlen:
-            return
-        avg_accp_rate = sum(self.threshold_queue) / len(self.threshold_queue)
-
         lower_limit = 0.9
         upper_limit = 0.95
 
-        if debug_mode:
-            print('avg_clipped_threshold:', avg_accp_rate)
-        delta_t = self.delta_t
-        
-        if 0 < avg_accp_rate < lower_limit:
-            self.delta_t *= 0.9
-        elif upper_limit < avg_accp_rate < 0.99:
-            self.delta_t *= 1.1
-        else:
-            return
+        for b in range(self.bs):
+            if len(self.threshold_queue[b]) < self.threshold_queue[b].maxlen:
+                continue
+            avg_accp_rate = sum(self.threshold_queue[b]) / len(self.threshold_queue[b])
 
-        if debug_mode:
-            print(f"----->Adjusted delta_t from {delta_t:.4f} to {self.delta_t:.4f}")
-        self.threshold_queue.clear()
-        
+            if debug_mode:
+                print(f'Batch {b} avg_clipped_threshold: {avg_accp_rate:.4f}')
+            old_delta_t = self.delta_t[b].item()
+
+            if 0 < avg_accp_rate < lower_limit:
+                self.delta_t[b] *= 0.9
+            elif upper_limit < avg_accp_rate < 0.99:
+                self.delta_t[b] *= 1.1
+            else:
+                continue
+
+            if debug_mode:
+                print(f"----->Adjusted delta_t[{b}] from {old_delta_t:.4f} to {self.delta_t[b].item():.4f}")
+            self.threshold_queue[b].clear()
+
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
         if MhM_inv is None and matL is None:
@@ -2054,8 +2055,13 @@ class HmcSampler(object):
             print(f"Relative error: {relative_error}")
         
         self.boson[accp] = boson_new[accp]
-        threshold = min(torch.exp(H_old - H_new).cpu(), 1)
-        return self.boson, accp, cg_converge_iter, threshold
+        
+        # Calculate thresholds per batch element and add to respective queues
+        thresholds = torch.minimum(torch.exp(H_old - H_new), torch.ones_like(H_old))
+        for b in range(self.bs):
+            self.threshold_queue[b].append(thresholds[b].item())
+            
+        return self.boson, accp, cg_converge_iter, thresholds
     
     # @torch.inference_mode()
     @torch.no_grad()
@@ -2088,7 +2094,7 @@ class HmcSampler(object):
         for i in tqdm(range(self.N_step)):
             boson, accp, cg_converge_iter, threshold = self.metropolis_update()
             
-            self.threshold_queue.append(threshold)
+            # self.threshold_queue.append(threshold)
             self.adjust_delta_t()
 
             # Define CPU computations to run asynchronously
