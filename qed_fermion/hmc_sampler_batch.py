@@ -93,7 +93,7 @@ class HmcSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
-        self.ckp_rate = 2000
+        self.ckp_rate = 500
         self.stream_write_rate = Nstep
         self.memory_check_rate = 500 if debug_mode else 1000
 
@@ -111,7 +111,7 @@ class HmcSampler(object):
         # self.H_list = torch.zeros(self.N_step, self.bs)
 
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
-        self.delta_t_list = torch.zeros(self.N_step)
+        self.delta_t_list = torch.zeros(self.N_step, self.bs)
 
         # boson_seq
         self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
@@ -141,6 +141,8 @@ class HmcSampler(object):
         # Then increasing total_t will increase N_leapfrog*, if total_t reasonable.
         # So proper total_t is a function of N_leapfrog* for a given threshold like 0.9.
         # So natually an adaptive optimization algorithm can be obtained: for a fixed N_leapfrog, check the acceptance_rate / acc_threshold and adjust total_t.
+
+        self.delta_t = torch.full((self.bs,), self.delta_t, device=device, dtype=dtype)
 
         # self.N_leapfrog = 6 # already oscilates back
         # self.N_leapfrog = 8
@@ -1708,7 +1710,7 @@ class HmcSampler(object):
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
 
-        dt = self.delta_t
+        dt = self.delta_t.view(-1, 1, 1, 1, 1)
 
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
@@ -1824,7 +1826,7 @@ class HmcSampler(object):
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
 
-        dt = self.delta_t
+        dt = self.delta_t.view(-1, 1, 1, 1, 1)
 
         with torch.enable_grad():
             x = x.clone().requires_grad_(True)
@@ -2052,7 +2054,7 @@ class HmcSampler(object):
             print(f"Relative error: {relative_error}")
         
         self.boson[accp] = boson_new[accp]
-        threshold = min(torch.exp(H_old - H_new).mean().item(), 1)
+        threshold = min(torch.exp(H_old - H_new).cpu(), 1)
         return self.boson, accp, cg_converge_iter, threshold
     
     # @torch.inference_mode()
@@ -2090,7 +2092,7 @@ class HmcSampler(object):
             self.adjust_delta_t()
 
             # Define CPU computations to run asynchronously
-            def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter_cpu, cnt_stream_write):
+            def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter_cpu, delta_t_cpu, cnt_stream_write):
                 # Update metrics
                 self.accp_list[i] = accp_cpu
                 self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -2105,7 +2107,7 @@ class HmcSampler(object):
                     + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
                     
                 self.cg_iter_list[i] = cg_converge_iter_cpu
-                self.delta_t_list[i] = self.delta_t
+                self.delta_t_list[i] = delta_t_cpu
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
                 
                 return i  # Return the step index for identification
@@ -2117,6 +2119,7 @@ class HmcSampler(object):
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone(), 
+                self.delta_t.cpu() if self.delta_t.is_cuda else self.delta_t.clone(),
                 cnt_stream_write
             )
             futures[i] = future
@@ -2188,7 +2191,7 @@ class HmcSampler(object):
                         'S_plaq_list': self.S_plaq_list.cpu(),
                         'S_tau_list': self.S_tau_list.cpu(),
                         'cg_iter_list': self.cg_iter_list.cpu(),
-                        'delta_t_list': self.delta_t_list}
+                        'delta_t_list': self.delta_t_list.cpu()}
                 
                 data_folder = script_path + "/check_points/hmc_check_point/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
