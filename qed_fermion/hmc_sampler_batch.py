@@ -64,7 +64,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 1
+        self.bs = 2
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
 

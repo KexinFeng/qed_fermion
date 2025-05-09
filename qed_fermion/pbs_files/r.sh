@@ -18,7 +18,7 @@ L_array=$(echo '4 6 8 10')  # 10 h (-2)
 Nstep=12000
 
 export debug=0
-export asym=2
+export asym=4
 
 for L in $L_array; do
         #
