@@ -1,0 +1,221 @@
+import json
+import math
+import re
+import matplotlib.pyplot as plt
+plt.ion()
+import numpy as np
+# matplotlib.use('MacOSX')
+from matplotlib import rcParams
+rcParams['figure.raise_window'] = False
+import os
+script_path = os.path.dirname(os.path.abspath(__file__))
+
+import torch
+import sys
+sys.path.insert(0, script_path + '/../../../')
+
+from qed_fermion.hmc_sampler_batch import HmcSampler
+from qed_fermion.local_sampler_batch import LocalUpdateSampler
+from qed_fermion.utils.stat import t_based_error, std_root_n, init_convex_seq_estimator, error_mean
+import time
+
+from load_write2file_convert import time_execution
+
+@time_execution
+def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', local_update_filename='', dqmc_filename='', specifics = '', starts=[500], sample_steps=[1], scale_it=[False]):
+    """
+    Visualize green functions with error bar
+    """
+    # Load numerical data
+
+    # Lx, Ly, Ltau = 20, 20, 20
+    Lx, Ly, Ltau = Lsize
+
+    idx_ref = 5
+
+    # Parse to get specifics
+    path_parts = hmc_filename.split('/')
+    filename = path_parts[-1]
+    filename_parts = filename.split('_')
+    specifics = '_'.join(filename_parts[1:]).replace('.pt', '')
+    print(f"Parsed specifics: {specifics}")
+
+    # Parse specifics
+    parts = hmc_filename.split('_')
+    jtau_index = parts.index('Jtau')  # Find position of 'Jtau'
+    jtau_value = float(parts[jtau_index + 1])   # Get the next element
+    
+    # ======== Plot ======== #
+    plt.figure()
+    if len(hmc_filename):
+        res = torch.load(hmc_filename, map_location='cpu')
+        print(f'Loaded: {hmc_filename}')        
+        
+        # Extract Nstep and Nstep_local from filenames
+        hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+        end = int(hmc_match.group(1))
+
+        start = starts.pop(0)
+        sample_step = sample_steps.pop(0)
+        seq_idx = np.arange(start, end, sample_step)
+        seq_idx_init = np.arange(0, end, sample_step)
+
+
+        G_list = res['G_list']
+        x = np.array(list(range(G_list[0].size(-1))))
+
+        G_mean = G_list[seq_idx].numpy().mean(axis=(0, 1))
+    
+        err1 = error_mean(init_convex_seq_estimator(G_list[seq_idx_init].numpy())/ np.sqrt(seq_idx_init.size), axis=0) * 1
+        # err1 = error_mean(std_root_n(G_list[seq_idx].numpy(), axis=0, lag_sum=100), axis=0)
+        err2 = t_based_error(G_list[seq_idx].mean(axis=0).numpy())
+        print(err1, '\n', err2)
+        err_hmc = np.sqrt(err1**2)
+
+        plt.errorbar(x, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=err_hmc, linestyle='-', marker='o', label='G_hmc', color='blue', lw=2)
+
+        for idx, bi in enumerate(range(G_list.size(1))):
+            plt.errorbar(
+                x, 
+                G_list[seq_idx, bi].numpy().mean(axis=(0)), 
+                # yerr=G_list[seq_idx, bi].numpy().std(axis=(0))/np.sqrt(seq_idx.size / 100),
+                alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='o', lw=2, color=f"C{idx}")
+
+
+    if len(local_update_filename): 
+        res = torch.load(local_update_filename)
+        print(f'Loaded: {local_update_filename}')
+
+        # Extract Nstep and Nstep_local from filenames
+        local_match = re.search(r'Nstp_(\d+)', local_update_filename)
+        end_local = int(local_match.group(1))
+        start_local = starts.pop(0)
+        sample_step_local = sample_steps.pop(0)
+        seq_idx_local = np.arange(start_local, end_local, sample_step_local)
+        seq_idx_local_init = np.arange(0, end_local, sample_step_local)
+
+        G_list_local = res['G_list']
+        x_local = np.array(list(range(G_list_local[0].size(-1))))
+
+        # batch_idx = torch.tensor([0, 1, 4])
+        batch_size = G_list_local.size(1)
+        batch_idx = torch.arange(batch_size)
+
+        G_local_mean = G_list_local[seq_idx_local][:, batch_idx].numpy().mean(axis=(0, 1))
+
+        if scale_it.pop(0):
+            scale_factor = G_mean[idx_ref] / G_local_mean[idx_ref] if len(hmc_filename) else 1
+            G_local_mean *= scale_factor
+        
+        # err1 = error_mean(init_convex_seq_estimator(G_list_local[seq_idx_local_init][:, batch_idx].numpy()) / np.sqrt(seq_idx_local_init.size), axis=0) * 1
+        err1 = error_mean(std_root_n(G_list_local[seq_idx_local].numpy(), axis=0, lag_sum=100), axis=0)
+        err2 = t_based_error(G_list_local[seq_idx_local][:, batch_idx].mean(axis=0).numpy())
+        print(err1, '\n', err2)
+        err_local = np.sqrt(err1**2)
+
+        plt.errorbar(x_local, G_local_mean, yerr=err_local, linestyle='-', marker='*', markersize=10, label=f'G_local_{batch_idx.tolist()}', color='green', lw=2)
+
+        for idx, bi in enumerate(range(G_list.size(1))):
+            plt.errorbar(
+            x_local, 
+            G_list_local[seq_idx_local, bi].numpy().mean(axis=(0)), 
+            # yerr=G_list_local[seq_idx_local, bi].numpy().std(axis=(0))/np.sqrt(seq_idx_local.size / 800),
+            alpha=0.5, label=f'bs_{bi}', linestyle='--', marker='*', markersize=10, lw=2, color=f"C{idx}")
+
+
+    if len(dqmc_filename):
+        data = np.genfromtxt(dqmc_filename)
+        G_dqmc = np.concatenate([data[:, 0], data[:1, 0]])
+        G_dqmc_err = np.concatenate([data[:, 1], data[:1, 1]])
+        
+        x_dqmc = np.array(list(range(G_dqmc.size)))
+        plt.errorbar(x_dqmc, G_dqmc, yerr=G_dqmc_err * 1, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+        
+
+    # Add labels and title
+    plt.xlabel(r"$\tau$")
+    plt.ylabel(r"$G(\tau)$")
+    plt.title(f"Ntau={Ltau} Nx=Ny={Lx} J={jtau_value} Nswp={end - start}")
+    plt.legend(ncol=2)
+
+    # Save plot
+    class_name = __file__.split('/')[-1].replace('.py', '')
+    method_name = "greens"
+    save_dir = os.path.join(script_path, f"./figures/{class_name}")
+    os.makedirs(save_dir, exist_ok=True) 
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+    # ======== Log plot ======== #
+    plt.figure()
+    if len(hmc_filename):
+        plt.errorbar(x+1, G_list[seq_idx].numpy().mean(axis=(0, 1)), yerr=err_hmc, linestyle='', marker='o', label='G_hmc', color='blue', lw=2)
+
+    if len(local_update_filename):
+        plt.errorbar(x_local+1, G_local_mean, yerr=err_local, linestyle='', marker='*', markersize=10, label='G_local', color='green', lw=2)
+
+    if len(dqmc_filename):
+        plt.errorbar(x_dqmc + 1, G_dqmc, yerr=G_dqmc_err * 1, linestyle='--', marker='*', label='G_dqmc', color='red', lw=2, ms=10)
+
+    # Add labels and title
+    plt.xlabel('X-axis label')
+    plt.ylabel('log10(G) values')
+    plt.title(f"Ntau={Ltau} Nx=Ny={Lx} J={jtau_value} Nswp={end - start}")
+    plt.legend(ncol=2)
+  
+    plt.xscale('log')
+    plt.yscale('log')
+
+    # --------- save_plot ---------
+    class_name = __file__.split('/')[-1].replace('.py', '')
+    method_name = "greens_log"
+    save_dir = os.path.join(script_path, f"./figures/{class_name}")
+    os.makedirs(save_dir, exist_ok=True) 
+    file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Figure saved at: {file_path}")
+
+if __name__ == '__main__':
+    Js = [0.5, 1, 3]
+
+    for J in Js:
+        Nstep = 10000
+
+        hmc = HmcSampler(J=J, Nstep=Nstep)
+        hmc.Lx, hmc.Ly, hmc.Ltau = 6, 6, 10
+        hmc.reset()
+
+        Nstep_local = 2000
+        lmc = LocalUpdateSampler(J=J, Nstep=Nstep_local)
+        lmc.Lx, lmc.Ly, lmc.Ltau = 6, 6, 10
+        lmc.reset()
+
+        # Updated file paths to match the pattern from plot_local_hmc_energy_J_dqmc_vs_hmc.py
+        bs = 5
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10"
+        hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+        hmc_filename = os.path.join(hmc_folder, hmc_file)
+        
+        # Leave local_update_filename empty as in the selected example
+        local_update_filename = ''
+
+        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/photon_mass_sin_splaq/"
+        name = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        dqmc_filename = os.path.join(dqmc_folder, name)
+
+        # Measure
+        Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+        load_visualize_final_greens_loglog(
+            (Lx, Ly, Ltau), 
+            hmc_filename, local_update_filename, dqmc_filename,
+            specifics=hmc.get_specifics(), 
+            starts=[2000, 1000*lmc.Vs], 
+            sample_steps=[1, lmc.Vs], 
+            scale_it=[False, False])
+
+    plt.show(block=True)
+
+    dbstop = 1
+
+
