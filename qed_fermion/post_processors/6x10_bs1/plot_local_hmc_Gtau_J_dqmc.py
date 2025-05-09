@@ -12,7 +12,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../')
+sys.path.insert(0, script_path + '/../../../')
 
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.local_sampler_batch import LocalUpdateSampler

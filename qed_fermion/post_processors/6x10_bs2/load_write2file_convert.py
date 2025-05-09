@@ -189,9 +189,9 @@ if __name__ == '__main__':
     end = 6000
     num_parts = math.ceil((end - start )/ part_size)
 
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10/ckpt/hmc_check_point_unconverted_stream"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point"  
+    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs1/ckpt/hmc_check_point_unconverted_stream"
+    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point"  
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs2/hmc_check_point_6x10/"
 
     @time_execution

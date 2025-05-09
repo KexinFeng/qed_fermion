@@ -14,7 +14,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../')
+sys.path.insert(0, script_path + '/../../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
