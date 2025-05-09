@@ -27,7 +27,7 @@ def time_execution(func):
     return wrapper
 
 @time_execution
-def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', starts=[500], sample_steps=[1], ends=[6000], part_id=0):
+def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', bid=0, starts=[500], sample_steps=[1], ends=[6000], part_id=0):
     Lx, Ly, Ltau = Lsize
 
     # Parse to get specifics
@@ -62,7 +62,7 @@ def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', starts=[5
     with open(output_path, 'w') as f:
         filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
         for i, boson in tqdm(filtered_seq, desc="Processing boson sequences"):
-            boson = convert((Lx, Ly, Ltau), boson).cpu().numpy()
+            boson = convert((Lx, Ly, Ltau), boson[bid]).cpu().numpy()
             f.write("           1                     0  1.667169721062853E-002\n") 
             np.savetxt(f, boson, fmt="%.16E")
 
@@ -150,7 +150,7 @@ def clear(directory):
                 os.remove(filepath)
         print(f"Cleared files in {directory}")
 
-@time_execution
+# @time_execution
 def execute_bash_scripts(directory):
     """
     Implements the functionality of the bash scripts `run_all_J.sh` and `clear.sh` in Python.
@@ -176,11 +176,13 @@ def execute_bash_scripts(directory):
 if __name__ == '__main__':
     # Create configs file
     Lx = 6
-    Ltau = Lx * 40
-    # Ltau = 10
+    # Ltau = Lx * 40
+    Ltau = 10
 
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    # Js = [0.5, 1.0, 3.0]
+    Js = [0.5, 1.0, 3.0]
+
+    bs = 5
 
     part_size = 500
     start = 2000
@@ -189,20 +191,27 @@ if __name__ == '__main__':
 
     # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10/ckpt/hmc_check_point_unconverted_stream"
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point"  
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_2/hmc_check_point_6x10/"
 
-    for J in Js:
-        for part_id in range(num_parts):
-            output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
-            os.makedirs(output_folder, exist_ok=True)
+    @time_execution
+    def iterate_func():
+        for J in Js:
+            for bid in range(bs):
+                for part_id in range(num_parts):
+                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run4/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
+                    os.makedirs(output_folder, exist_ok=True)
 
-            hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
-            load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, starts=[part_id * part_size + start], sample_steps=[1], ends=[min(end, (part_id+1) * part_size + start)])
-    
-    # Run
-    for J in Js:
-        for part_id in range(num_parts):
-            output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
-            clear(output_folder)
-            execute_bash_scripts(output_folder)
+                    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
+                    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+                    load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, bid=bid, starts=[part_id * part_size + start], sample_steps=[1], ends=[min(end, (part_id+1) * part_size + start)])
+        
+        # Run
+        for J in Js:
+            for bid in range(bs):
+                for part_id in range(num_parts):
+                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run4/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
+                    clear(output_folder)
+                    execute_bash_scripts(output_folder)
 
+    iterate_func()

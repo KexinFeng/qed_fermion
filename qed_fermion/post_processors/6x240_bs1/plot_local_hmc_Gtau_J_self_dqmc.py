@@ -12,11 +12,10 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../')
+sys.path.insert(0, script_path + '/../../../')
 
-from qed_fermion.hmc_sampler_batch import HmcSampler
-from qed_fermion.local_sampler_batch import LocalUpdateSampler
-from qed_fermion.utils.stat import t_based_error, std_root_n, init_convex_seq_estimator, error_mean
+
+from qed_fermion.utils.stat import t_based_error, std_root_n, error_mean
 import time
 
 # Add partition parameters
@@ -176,7 +175,7 @@ if __name__ == '__main__':
     for J in Js:
         hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
         hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs1_Jtau_{J:.1g}_K_1_dtau_0.1_step_6000.pt"
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6x240"
         hmc_file = f"ckpt_N_hmc_6_Ltau_240_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
        
         hmc_filename = os.path.join(hmc_folder, hmc_file)
