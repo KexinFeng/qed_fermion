@@ -2298,7 +2298,7 @@ class HmcSampler(object):
                         'cg_iter_list': self.cg_iter_list.cpu(),
                         'delta_t_list': self.delta_t_list.cpu()}
                 
-                data_folder = script_path + "/check_points/hmc_check_point/"
+                data_folder = script_path + "/check_points/hmc_check_point_aug/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)  
 
@@ -2313,12 +2313,12 @@ class HmcSampler(object):
                'delta_t_list': self.delta_t_list}
 
         # Save to file
-        data_folder = script_path + "/check_points/hmc_check_point/"
+        data_folder = script_path + "/check_points/hmc_check_point_aug/"
         file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(res, data_folder, file_name)  
 
         # Save stream data
-        data_folder = script_path + "/check_points/hmc_check_point/"
+        data_folder = script_path + "/check_points/hmc_check_point_aug/"
         file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
 
@@ -2388,7 +2388,7 @@ class HmcSampler(object):
 
         class_name = __file__.split('/')[-1].replace('.py', '')
         method_name = "totol_monit"
-        save_dir = os.path.join(script_path, f"./figures/{class_name}")
+        save_dir = os.path.join(script_path, f"./figures/{class_name}_aug")
         os.makedirs(save_dir, exist_ok=True) 
         file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -2437,7 +2437,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
     # Save plot
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens"
-    save_dir = os.path.join(script_path, f"./figures/{class_name}")
+    save_dir = os.path.join(script_path, f"./figures/{class_name}_aug")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -2481,7 +2481,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
     # Save_plot 
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens_loglog"
-    save_dir = os.path.join(script_path, f"./figures/{class_name}")
+    save_dir = os.path.join(script_path, f"./figures/{class_name}_aug")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
