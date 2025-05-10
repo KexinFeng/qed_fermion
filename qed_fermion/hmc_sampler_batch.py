@@ -50,6 +50,13 @@ if not debug_mode:
 start_total_monitor = 10 if debug_mode else 100
 start_load = 2000
 
+# Set a random seed for reproducibility
+seed = 42
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
+
 executor = None
 
 def initialize_executor():
@@ -150,7 +157,7 @@ class HmcSampler(object):
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
 
-        self.threshold_queue = [collections.deque(maxlen=5) for _ in range(self.bs)]
+        self.threshold_queue = [collections.deque(maxlen=10) for _ in range(self.bs)]
 
         # CG
         # self.cg_rtol = 1e-7
@@ -393,8 +400,8 @@ class HmcSampler(object):
         """
         Adjust delta_t for each batch element based on its acceptance rate.
         """
-        lower_limit = 0.9
-        upper_limit = 0.95
+        lower_limit = 0.4
+        upper_limit = 0.8
 
         for b in range(self.bs):
             if len(self.threshold_queue[b]) < self.threshold_queue[b].maxlen:
@@ -407,7 +414,7 @@ class HmcSampler(object):
 
             if 0 < avg_accp_rate < lower_limit:
                 self.delta_t_tensor[b] *= 0.9
-            elif upper_limit < avg_accp_rate < 0.99:
+            elif upper_limit < avg_accp_rate < 1.0:
                 self.delta_t_tensor[b] *= 1.1
             else:
                 continue
@@ -2250,6 +2257,7 @@ class HmcSampler(object):
         axes[1, 0].plot(self.accp_rate[seq_idx].cpu().numpy())
         axes[1, 0].set_xlabel("Steps")
         axes[1, 0].set_ylabel("Acceptance Rate")
+        axes[1, 0].grid()
 
         idx = [0, self.num_tau // 2, -2]
         # for b in range(self.G_list.size(1)):
@@ -2264,6 +2272,7 @@ class HmcSampler(object):
         # axes[0, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='S_tau')
         axes[0, 1].set_ylabel("$S_{plaq}$")
         axes[0, 1].legend()
+        axes[0, 1].grid()
 
         # axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
         axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
@@ -2276,12 +2285,14 @@ class HmcSampler(object):
         axes[2, 0].set_ylabel("CG converge iter")
         axes[2, 0].set_xlabel("Steps")
         axes[2, 0].legend()
+        axes[2, 0].grid()
 
         # delta_t_iter
         axes[2, 1].plot(self.delta_t_list[seq_idx_all].cpu().numpy(), '*', label=r'$\delta t$')
         axes[2, 1].set_ylabel(r"$\delta t$")
         axes[2, 1].set_xlabel("Steps")
         axes[2, 1].legend()
+        axes[2, 1].grid()
 
         plt.tight_layout()
         # plt.show(block=False)

@@ -1,10 +1,10 @@
 mkdir -p report
 
-J_array=$(echo '1.0')
-L_array=$(echo '4 6 8 10')  # 10 h (-2)
+# J_array=$(echo '1.0')
+# L_array=$(echo '4 6 8 10')  # 10 h (-2)
 
-# J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
-# L_array=$(echo '6 8 10')  # 10 h (-2)
+J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
+L_array=$(echo '6')  # 10 h (-2)
 
 # J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
 # L_array=$(echo '12 14 16')  # 16 h (-2)
@@ -24,11 +24,11 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J${J}L${L}Nstep${Nstep}asym${asym})
+                config=$(echo J${J}L${L})
                 echo $config
                 export J Nstep L
                 #
-                sbatch --job-name=${config}_hmc \
+                sbatch --job-name=${config} \
                 --time=0-30:00:00 \
                 --qos=gpu \
                 --mem-per-cpu=6G \
