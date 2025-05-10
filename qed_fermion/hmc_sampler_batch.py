@@ -771,7 +771,6 @@ class HmcSampler(object):
 
         scale = (self.sigma_hat * self.multiplier) ** (-1/2)
         z = scale * x + 1j * scale * y
-        z = (self.sigma_hat * 2) ** (-1/2) * x + 1j * (self.sigma_hat * 2) ** (-1/2) * y
         return torch.fft.irfftn(z, (self.Lx, self.Ly, self.Ltau))
 
     def apply_m_inv(self, p):
@@ -1878,7 +1877,7 @@ class HmcSampler(object):
         p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
         """
 
-        p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
+        p0 = self.draw_momentum_fft()  # [bs, 2, Lx, Ly, Ltau] tensor
         x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
         x = x0
@@ -2006,9 +2005,9 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                x_ref = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # x = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
-                torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
+                # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
                 with torch.enable_grad():
                     x = x.clone().requires_grad_(True)
