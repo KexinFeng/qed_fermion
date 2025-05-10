@@ -71,7 +71,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2
+        self.bs = 2 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
 
@@ -158,6 +158,11 @@ class HmcSampler(object):
         self.N_leapfrog = 5
 
         self.threshold_queue = [collections.deque(maxlen=10) for _ in range(self.bs)]
+
+        self.sigma_hat = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device, dtype=dtype)
+
+        self.multiplier = torch.full_like(self.sigma_hat, 2)
+        self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
 
         # CG
         # self.cg_rtol = 1e-7
@@ -752,7 +757,33 @@ class HmcSampler(object):
         :return: [bs, 2, Lx, Ly, Ltau] gaussian tensor
         """
         return torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * math.sqrt(self.m)
+    
+    def draw_momentum_fft(self):
+        """
+        Draw momentum tensor from gaussian distribution.
+        :return: [bs, 2, Lx, Ly, Ltau] gaussian tensor
+        """
+        # return torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * math.sqrt(self.m)
+        x = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device)
+        y = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device)
 
+        scale = (self.sigma_hat * self.multiplier) ** (-1/2)
+        z = scale * x + 1j * scale * y
+        z = (self.sigma_hat * 2) ** (-1/2) * x + 1j * (self.sigma_hat * 2) ** (-1/2) * y
+        return torch.fft.irfftn(z, (self.Lx, self.Ly, self.Ltau))
+
+    def apply_m_inv(self, p):
+        """
+        Apply the inverse of M to the momentum p. 
+        p/self.m = M^{-1} @ p = Sigma @ p = Finv @ Sigma_hat @ F @ p
+        :param p: [bs, 2, Lx, Ly, Ltau]
+        :return: [bs, 2, Lx, Ly, Ltau] tensor
+        """
+        p_fft = torch.fft.rfftn(p, (self.Lx, self.Ly, self.Ltau))
+        p_fft = p_fft * self.sigma_hat
+        p = torch.fft.irfftn(p_fft, (self.Lx, self.Ly, self.Ltau))
+        return p
+ 
     def draw_psudo_fermion(self):
         """
         Draw psudo_fermion psi = M(x0)'R
@@ -833,7 +864,46 @@ class HmcSampler(object):
         boson = boson.permute([3, 2, 1, 4, 0]).reshape(-1, self.Ltau, self.bs)
         curl = torch.einsum('ij,jkl->ikl', self.curl_mat_cpu if boson.device.type == 'cpu' else self.curl_mat, boson)  # [Vs, Ltau, bs]
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
-        return S  
+        return S
+
+    def harmonic_tau(self, x0, p0, delta_t):
+        """
+        x:  [bs, 2, Lx, Ly, Ltau]
+        p:  [bs, 2, Lx, Ly, Ltau]
+        """
+        v0 = p0 / self.m
+        xk_0 = torch.fft.fft(x0, dim=-1)
+        vk_0 = torch.fft.fft(v0, dim=-1)
+
+        L = self.Ltau
+        k = torch.fft.fftfreq(L)
+        assert k[0].item() == 0
+
+        # The unit is checked using `dtau * S_tau + dtau * p**2/(2m) + psi' (M'M)**(-1) psi`
+        omega = torch.sqrt(1/self.m * 2 * (1 - torch.cos(k * 2*torch.pi)) / self.J / self.dtau**2).to(x0.device)
+
+        # Evolve
+        c = torch.cos(omega * delta_t)
+        s = torch.sin(omega * delta_t)
+
+        xk_t = torch.zeros_like(xk_0)
+        vk_t = torch.zeros_like(vk_0)
+
+        xk_t[..., 1:] = xk_0[..., 1:] * c[1:] + vk_0[..., 1:] / omega[1:] * s[1:]
+        vk_t[..., 1:] = -omega[..., 1:] * xk_0[..., 1:] * s[1:] + vk_0[..., 1:] * c[1:]
+
+        xk_t[..., 0] = xk_0[..., 0] + vk_0[..., 0]* delta_t;
+        vk_t[..., 0] = vk_0[..., 0]
+
+        # Transform back to position space
+        xt = torch.fft.ifft(xk_t, dim=-1)
+        xt = torch.real(xt)
+
+        vt = torch.real(torch.fft.ifft(vk_t, dim=-1))
+        pt = vt * self.m
+
+        return xt, pt
+ 
     
     # =========== Turn on fermions =========
     def get_dB(self):
@@ -1916,6 +1986,10 @@ class HmcSampler(object):
         # Multi-scale Leapfrog
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
 
+        # x, p = self.harmonic_tau(x.repeat(2, 1, 1, 1, 1), p.repeat(2, 1, 1, 1, 1), self.dtau)
+        # x = x[:1]
+        # p = p[:1]
+
         cg_converge_iters = [cg_converge_iter]
         for leap in range(self.N_leapfrog):
 
@@ -1930,8 +2004,10 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                x = x + p / self.m * dt/M  # velocity ~ 1/sqrt(m), dt ~ sqrt(m) 
-                
+                x_ref = x + p / self.m * dt/M  # velocity ~ 1/sqrt(m), dt ~ sqrt(m) 
+                x = x + self.apply_m_inv(p) * dt/M  # velocity ~ 1/sqrt(m), dt ~ sqrt(m) 
+                torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
+
                 with torch.enable_grad():
                     x = x.clone().requires_grad_(True)
                     Sb_plaq = self.action_boson_plaq(x)
