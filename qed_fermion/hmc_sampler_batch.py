@@ -121,7 +121,7 @@ class HmcSampler(object):
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
 
         # boson_seq
-        self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device=device, dtype=dtype)
+        self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device='cpu', dtype=dtype)
 
         # Leapfrog
         self.debug_pde = False
@@ -162,7 +162,10 @@ class HmcSampler(object):
 
         self.threshold_queue = [collections.deque(maxlen=10) for _ in range(self.bs)]
 
+        # Sigma adaptive mass
         self.sigma_hat = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device, dtype=dtype)
+        self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
+        self.sigma_mini_batch_size = 10
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
@@ -429,6 +432,14 @@ class HmcSampler(object):
             if debug_mode:
                 print(f"----->Adjusted delta_t[{b}] from {old_delta_t:.4f} to {self.delta_t_tensor[b].item():.4f}")
             self.threshold_queue[b].clear()
+
+    def apply_sigma_hat_cpu(self, i):
+        if i % self.sigma_mini_batch_size == 0 and i > 0:
+            self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
+
+    def update_sigma_hat_cpu(self, boson_cpu, i):
+        new_sigma_hat = torch.fft.rfftn(boson_cpu, dim=(2, 3, 4)).abs()**2
+        self.sigma_hat_cpu = (self.sigma_hat_cpu * i + new_sigma_hat) / (i + 1)
 
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
@@ -2182,6 +2193,7 @@ class HmcSampler(object):
             boson, accp, cg_converge_iter, threshold = self.metropolis_update()
             
             # self.threshold_queue.append(threshold)
+            self.apply_sigma_hat_cpu(i)
             self.adjust_delta_t()
 
             # Define CPU computations to run asynchronously
@@ -2202,7 +2214,7 @@ class HmcSampler(object):
                 self.cg_iter_list[i] = cg_converge_iter_cpu
                 self.delta_t_list[i] = delta_t_cpu
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-                
+                self.update_sigma_hat_cpu(boson_cpu, i)                
                 return i  # Return the step index for identification
 
             # Submit new task to the executor
