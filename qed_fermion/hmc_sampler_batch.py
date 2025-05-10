@@ -1930,7 +1930,7 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                x = x + p / self.m * dt/M
+                x = x + p / self.m * dt/M  # velocity ~ 1/sqrt(m), dt ~ sqrt(m) 
                 
                 with torch.enable_grad():
                     x = x.clone().requires_grad_(True)
