@@ -119,7 +119,7 @@ class HmcSampler(object):
         # self.H_list = torch.zeros(self.N_step, self.bs)
 
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
-        self.cg_r_err = torch.zeros(self.N_step, self.bs)
+        self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
 
         # boson_seq
@@ -2367,6 +2367,7 @@ class HmcSampler(object):
                         'S_plaq_list': self.S_plaq_list.cpu(),
                         'S_tau_list': self.S_tau_list.cpu(),
                         'cg_iter_list': self.cg_iter_list.cpu(),
+                        'cg_r_err_list': self.cg_r_err_list.cpu(),
                         'delta_t_list': self.delta_t_list.cpu()}
                 
                 data_folder = script_path + "/check_points/hmc_check_point_aug/"
@@ -2381,6 +2382,7 @@ class HmcSampler(object):
                'S_plaq_list': self.S_plaq_list.cpu(),
                'S_tau_list': self.S_tau_list.cpu(),
                'cg_iter_list': self.cg_iter_list.cpu(),
+               'cg_r_err_list': self.cg_r_err_list.cpu(),
                'delta_t_list': self.delta_t_list}
 
         # Save to file
@@ -2448,7 +2450,7 @@ class HmcSampler(object):
             axes[2, 0].legend()
             axes[2, 0].grid()
         else:
-            axes[2, 0].plot(self.cg_r_err[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+            axes[2, 0].plot(self.cg_r_err_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
             axes[2, 0].set_ylabel("CG rel err")
             axes[2, 0].set_xlabel("Steps")
             axes[2, 0].legend()
