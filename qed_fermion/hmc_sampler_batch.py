@@ -26,6 +26,7 @@ if torch.cuda.is_available():
 
 from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
+from qed_fermion.force_graph_runner import ForceGraphRunner
 
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
@@ -184,6 +185,16 @@ class HmcSampler(object):
         if self.use_cuda_kernel:
             pass
             # assert self.bs < 2
+        
+        # CUDA Graph for force_f_fast
+        self.use_cuda_graph = False  # Disable CUDA graph support for now
+        print(f'use_cuda_graph:{ self.use_cuda_graph}')
+        self.force_graph_runners = {}
+        self.force_graph_memory_pool = None
+        # self._MAX_ITERS_TO_CAPTURE = [300, 500, 800, 1000]
+        self._MAX_ITERS_TO_CAPTURE = [500]
+        if self.use_cuda_graph:
+            self.max_iter = 500
 
         # Debug
         torch.manual_seed(0)
@@ -197,6 +208,36 @@ class HmcSampler(object):
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform()
+
+
+    def initialize_force_graph(self):
+        """Initialize CUDA graph for force_f_fast function."""
+        if not self.use_cuda_graph:
+            return
+            
+        print("Initializing CUDA graph for force_f_fast...")
+        
+        dummy_psi = torch.zeros(self.bs, self.Lx * self.Ly * self.Ltau, 
+                               dtype=cdtype, device=device)
+        dummy_boson = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, 
+                                 dtype=dtype, device=device)
+        
+        # Capture graphs for different batch sizes
+        for max_iter in reversed(self._MAX_ITERS_TO_CAPTURE):
+            # Capture graphs for given batch size
+            graph_runner = ForceGraphRunner(self)
+            graph_memory_pool = graph_runner.capture(
+                dummy_psi,
+                dummy_boson,
+                max_iter,
+                self.force_graph_memory_pool
+            )
+            
+            # Store the graph runner and memory pool
+            self.force_graph_runners[max_iter] = graph_runner
+            self.force_graph_memory_pool = graph_memory_pool
+                
+        print(f"CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
     
     def reset_precon(self):
@@ -1904,7 +1945,13 @@ class HmcSampler(object):
         else:
             psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
-            force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+
+            # Use CUDA graph if available
+            if self.use_cuda_graph and self.max_iter in self.force_graph_runners:
+                force_f_u, xi_t_u = self.force_graph_runners[self.max_iter](psi_u, x)
+                cg_converge_iter = torch.full(self.bs, self.max_iter, dtype=torch.float32, device=device)
+            else:
+                force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
             # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
 
         Sf0_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
@@ -2038,7 +2085,11 @@ class HmcSampler(object):
                 force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
                 xi_t_u = xi_t_u.view(self.bs, -1)
             else:
-                force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
+                if self.use_cuda_graph and self.max_iter in self.force_graph_runners:
+                    force_f_u, xi_t_u = self.force_graph_runners[self.max_iter](psi_u, x)
+                    cg_converge_iter = torch.full(self.bs, self.max_iter, dtype=torch.float32, device=device)
+                else:
+                    force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
             p = p + dt/2 * (force_f_u)
 
@@ -2175,8 +2226,11 @@ class HmcSampler(object):
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
         self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
-        self.reset_precon()
 
+        # Warm up measure
+        self.reset_precon()
+        if self.use_cuda_graph:
+            self.initialize_force_graph()
 
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()

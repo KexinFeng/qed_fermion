@@ -11,8 +11,9 @@ class ForceGraphRunner:
         self,
         psi,
         boson,
+        max_iter,
         graph_memory_pool=None,
-        n_warmups=1
+        n_warmups=0
     ):
         """Capture the force_f_fast function execution as a CUDA graph."""
         input_buffers = {
@@ -28,7 +29,7 @@ class ForceGraphRunner:
                 static_outputs = self.hmc_sampler.force_f_fast(
                     input_buffers['psi'],
                     input_buffers['boson'],
-                    None  # MhM is not used in the actual computation
+                    None
                 )
             s.synchronize()
         torch.cuda.current_stream().wait_stream(s)
@@ -39,15 +40,14 @@ class ForceGraphRunner:
             static_outputs = self.hmc_sampler.force_f_fast(
                 input_buffers['psi'],
                 input_buffers['boson'],
-                None  # MhM is not used in the actual computation
+                None
             )
         
         self.graph = graph
         self.input_buffers = input_buffers
         self.output_buffers = {
             "Ft": static_outputs[0],
-            "xi_t": static_outputs[1],
-            "cg_converge_iter": static_outputs[2]
+            "xi_t": static_outputs[1]
         }
         
         return graph.pool()
@@ -68,6 +68,5 @@ class ForceGraphRunner:
         # Return the outputs
         return (
             self.output_buffers['Ft'],
-            self.output_buffers['xi_t'],
-            self.output_buffers['cg_converge_iter']
+            self.output_buffers['xi_t']
         )
