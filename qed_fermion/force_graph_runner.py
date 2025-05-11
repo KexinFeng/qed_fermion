@@ -11,6 +11,7 @@ class ForceGraphRunner:
         self,
         psi,
         boson,
+        rtol,
         max_iter,
         graph_memory_pool=None,
         n_warmups=0
@@ -18,7 +19,8 @@ class ForceGraphRunner:
         """Capture the force_f_fast function execution as a CUDA graph."""
         input_buffers = {
             "psi": psi,
-            "boson": boson
+            "boson": boson,
+            "rtol": rtol,
         }
         
         # Warm up
@@ -29,6 +31,7 @@ class ForceGraphRunner:
                 static_outputs = self.hmc_sampler.force_f_fast(
                     input_buffers['psi'],
                     input_buffers['boson'],
+                    input_buffers['rtol'],
                     None
                 )
             s.synchronize()
@@ -40,6 +43,7 @@ class ForceGraphRunner:
             static_outputs = self.hmc_sampler.force_f_fast(
                 input_buffers['psi'],
                 input_buffers['boson'],
+                input_buffers['rtol'],
                 None
             )
         
@@ -47,7 +51,8 @@ class ForceGraphRunner:
         self.input_buffers = input_buffers
         self.output_buffers = {
             "Ft": static_outputs[0],
-            "xi_t": static_outputs[1]
+            "xi_t": static_outputs[1],
+            "r_err": static_outputs[3]
         }
         
         return graph.pool()
@@ -55,12 +60,14 @@ class ForceGraphRunner:
     def __call__(
         self,
         psi,
-        boson
+        boson,
+        rtol,
     ):
         """Execute the captured graph with the given inputs."""
         # Copy inputs to input buffers
         self.input_buffers['psi'].copy_(psi)
         self.input_buffers['boson'].copy_(boson)
+        self.input_buffers['rtol'].copy_(rtol)
         
         # Replay the graph
         self.graph.replay()
@@ -68,5 +75,6 @@ class ForceGraphRunner:
         # Return the outputs
         return (
             self.output_buffers['Ft'],
-            self.output_buffers['xi_t']
+            self.output_buffers['xi_t'],
+            self.output_buffers['r_err']
         )
