@@ -511,7 +511,7 @@ class HmcSampler(object):
         return torch.tensor(output, dtype=r.dtype, device=r.device)  
 
 
-    def preconditioned_cg_fast_test(self, boson, b, MhM_inv=None, matL=None, rtol=None, max_iter=400, b_idx=None, axs=None, cg_dtype=torch.complex64, MhM=None):
+    def preconditioned_cg_fast_test(self, boson, b, MhM_inv=None, matL=None, rtol_tensor=None, max_iter=400, b_idx=None, axs=None, cg_dtype=torch.complex64, MhM=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -1950,6 +1950,8 @@ class HmcSampler(object):
             force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
             psi_u = psi_u.view(self.bs, -1)
             xi_t_u = xi_t_u.view(self.bs, -1)
+
+            r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
         else:
             psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
@@ -1957,7 +1959,7 @@ class HmcSampler(object):
             # Use CUDA graph if available
             if self.use_cuda_graph and self.max_iter in self.force_graph_runners:
                 force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x, self.cg_rtol_tensor)
-                cg_converge_iter = torch.full(self.bs, self.max_iter, dtype=dtype, device=device)
+                cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             else:
                 force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, self.cg_rtol_tensor, None)
             # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
@@ -2091,14 +2093,16 @@ class HmcSampler(object):
                 result = self.get_M_sparse(x)
                 MhM = result[0]
                 B_list = result[1]
-                force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_sparse(psi_u, MhM, x, B_list)
+                force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
                 xi_t_u = xi_t_u.view(self.bs, -1)
+                
+                r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
             else:
                 if self.use_cuda_graph and self.max_iter in self.force_graph_runners:
                     force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x, self.cg_rtol_tensor)
-                    cg_converge_iter = torch.full(self.bs, self.max_iter, dtype=dtype, device=device)
+                    cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
                 else:
-                    force_f_u, xi_t_u, cg_converge_iter = self.force_f_fast(psi_u, x, self.cg_rtol_tensor, None)
+                    force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, self.cg_rtol_tensor, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
             p = p + dt/2 * (force_f_u)
 
