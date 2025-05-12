@@ -48,6 +48,11 @@ if not debug_mode:
     import matplotlib
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
+dt_deque_max_len = 10
+sigma_mini_batch_size = 5
+print(f"dt_deque_max_len: {dt_deque_max_len}")
+print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
+
 start_total_monitor = 10 if debug_mode else 100
 start_load = 2000
 
@@ -100,7 +105,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
+        self.plt_rate = 5 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 500
         self.stream_write_rate = Nstep
         self.memory_check_rate = 500 if debug_mode else 1000
@@ -142,7 +147,8 @@ class HmcSampler(object):
         self.delta_t = 0.025  # >=0.03 will trap the leapfrog at the beginning
         # self.delta_t = 0.008 # (L=10)
         self.delta_t = 0.06/4 if self.Lx == 8 else 0.08
-        self.delta_t = 0.03
+
+        self.delta_t = 0.028
         # self.m = (self.delta_t / 0.025) ** 2
         self.delta_t = 0.2 * (self.m / 50)**(1/2)
 
@@ -162,13 +168,15 @@ class HmcSampler(object):
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
 
-        self.threshold_queue = [collections.deque(maxlen=10) for _ in range(self.bs)]
+        self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
         # Sigma adaptive mass
         self.sigma_hat = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device, dtype=dtype)
         self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
-        self.sigma_mini_batch_size = 10
+        self.boson_mean_cpu = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, device='cpu', dtype=dtype)
+        self.sigma_mini_batch_size = sigma_mini_batch_size
         self.sigma_hat_mini_batch_last_i = 0
+        self.annealing_step = 1000
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
@@ -468,9 +476,9 @@ class HmcSampler(object):
                 print(f'Batch {b} avg_clipped_threshold: {avg_accp_rate:.4f}')
             old_delta_t = self.delta_t_tensor[b].item()
 
-            if 0 < avg_accp_rate < lower_limit:
+            if avg_accp_rate < lower_limit:
                 self.delta_t_tensor[b] *= 0.9
-            elif upper_limit < avg_accp_rate < 1.0:
+            elif upper_limit < avg_accp_rate:
                 self.delta_t_tensor[b] *= 1.1
             else:
                 continue
@@ -807,18 +815,19 @@ class HmcSampler(object):
     def apply_sigma_hat_cpu(self, i):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
             self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
-            # self.sigma_hat /= self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+            self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
 
-            max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
-            self.sigma_hat = self.sigma_hat / (max_values * 100)
+            # max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
+            # self.sigma_hat = self.sigma_hat / (max_values)
 
     def update_sigma_hat_cpu(self, boson_cpu, i):
-        # if i % self.sigma_mini_batch_size == 0 and i > 0:
-        #     self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
-        #     self.sigma_hat_mini_batch_last_i = i
-
-        delta_sigma_hat = torch.fft.rfftn(boson_cpu, dim=(2, 3, 4)).abs()**2
+        if i == self.annealing_step:
+            self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
+            self.sigma_hat_mini_batch_last_i = i
+        
         cnt = i - self.sigma_hat_mini_batch_last_i
+        self.boson_mean_cpu = (self.boson_mean_cpu * cnt + boson_cpu) / (cnt + 1)
+        delta_sigma_hat = torch.fft.rfftn(boson_cpu - self.boson_mean_cpu, dim=(2, 3, 4), norm="ortho").abs()**2
         self.sigma_hat_cpu = (self.sigma_hat_cpu * cnt + delta_sigma_hat) / (cnt + 1)
 
     def draw_momentum(self):
@@ -837,9 +846,9 @@ class HmcSampler(object):
         x = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device)
         y = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device)
 
-        scale = (self.sigma_hat * self.multiplier) ** (-1/2)
-        z = scale * x + 1j * scale * y
-        return torch.fft.irfftn(z, (self.Lx, self.Ly, self.Ltau))
+        scale = torch.sqrt(self.sigma_hat * self.multiplier)
+        z = (x + 1j * y) / scale
+        return torch.fft.irfftn(z, (self.Lx, self.Ly, self.Ltau), norm="ortho")
 
     def apply_m_inv(self, p):
         """
@@ -973,7 +982,6 @@ class HmcSampler(object):
 
         return xt, pt
  
-    
     # =========== Turn on fermions =========
     def get_dB(self):
         Vs = self.Lx * self.Ly
@@ -1947,6 +1955,7 @@ class HmcSampler(object):
         p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
         """
 
+        # p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
         p0 = self.draw_momentum_fft()  # [bs, 2, Lx, Ly, Ltau] tensor
         x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
@@ -2084,7 +2093,7 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                # x = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # x_ref = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
@@ -2638,7 +2647,7 @@ if __name__ == '__main__':
     asym = int(os.environ.get("asym", '4'))
 
     Ltau = asym*Lx * 10 # dtau=0.1
-    Ltau = 10 # dtau=0.1
+    # Ltau = 10 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
