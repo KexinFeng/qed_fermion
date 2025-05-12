@@ -168,6 +168,7 @@ class HmcSampler(object):
         self.sigma_hat = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device, dtype=dtype)
         self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
         self.sigma_mini_batch_size = 10
+        self.sigma_hat_mini_batch_last_i = 0
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
@@ -455,7 +456,7 @@ class HmcSampler(object):
         """
         Adjust delta_t for each batch element based on its acceptance rate.
         """
-        lower_limit = 0.4
+        lower_limit = 0.5
         upper_limit = 0.8
 
         for b in range(self.bs):
@@ -477,14 +478,6 @@ class HmcSampler(object):
             if debug_mode:
                 print(f"----->Adjusted delta_t[{b}] from {old_delta_t:.4f} to {self.delta_t_tensor[b].item():.4f}")
             self.threshold_queue[b].clear()
-
-    def apply_sigma_hat_cpu(self, i):
-        if i % self.sigma_mini_batch_size == 0 and i > 0:
-            self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
-
-    def update_sigma_hat_cpu(self, boson_cpu, i):
-        new_sigma_hat = torch.fft.rfftn(boson_cpu, dim=(2, 3, 4)).abs()**2
-        self.sigma_hat_cpu = (self.sigma_hat_cpu * i + new_sigma_hat) / (i + 1)
 
     @staticmethod
     def apply_preconditioner(r, MhM_inv=None, matL=None):
@@ -811,6 +804,23 @@ class HmcSampler(object):
         self.boson = boson.repeat(self.bs*self.Ltau, 1)
         self.boson = self.boson.reshape(self.bs, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
 
+    def apply_sigma_hat_cpu(self, i):
+        if i % self.sigma_mini_batch_size == 0 and i > 0:
+            self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
+            # self.sigma_hat /= self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+
+            max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
+            self.sigma_hat = self.sigma_hat / (max_values * 100)
+
+    def update_sigma_hat_cpu(self, boson_cpu, i):
+        # if i % self.sigma_mini_batch_size == 0 and i > 0:
+        #     self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
+        #     self.sigma_hat_mini_batch_last_i = i
+
+        delta_sigma_hat = torch.fft.rfftn(boson_cpu, dim=(2, 3, 4)).abs()**2
+        cnt = i - self.sigma_hat_mini_batch_last_i
+        self.sigma_hat_cpu = (self.sigma_hat_cpu * cnt + delta_sigma_hat) / (cnt + 1)
+
     def draw_momentum(self):
         """
         Draw momentum tensor from gaussian distribution.
@@ -834,7 +844,7 @@ class HmcSampler(object):
     def apply_m_inv(self, p):
         """
         Apply the inverse of M to the momentum p. 
-        p/self.m = M^{-1} @ p = Sigma @ p = Finv @ Sigma_hat @ F @ p
+        p / self.m = M^{-1} @ p = Sigma @ p = Finv @ Sigma_hat @ F @ p
         :param p: [bs, 2, Lx, Ly, Ltau]
         :return: [bs, 2, Lx, Ly, Ltau] tensor
         """
@@ -2483,7 +2493,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
-    filename = script_path + f"/check_points/hmc_check_point/ckpt_N_{specifics}_step_{step}.pt"
+    filename = script_path + f"/check_points/hmc_check_point_aug/ckpt_N_{specifics}_step_{step}.pt"
 
     # filename = "/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check/stat_check2/hmc_sampler_batch_rndm_real_space/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
 
@@ -2622,13 +2632,13 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '4'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
     asym = int(os.environ.get("asym", '4'))
 
     Ltau = asym*Lx * 10 # dtau=0.1
-    # Ltau = 2 # dtau=0.1
+    Ltau = 10 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
