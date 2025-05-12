@@ -49,7 +49,7 @@ if not debug_mode:
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
 dt_deque_max_len = 10
-sigma_mini_batch_size = 5
+sigma_mini_batch_size = 10
 print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
