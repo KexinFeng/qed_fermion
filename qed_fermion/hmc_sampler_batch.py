@@ -49,7 +49,7 @@ if not debug_mode:
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
 dt_deque_max_len = 10
-sigma_mini_batch_size = 10
+sigma_mini_batch_size = 10 if debug_mode else 100
 print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
@@ -150,7 +150,8 @@ class HmcSampler(object):
 
         self.delta_t = 0.028
         # self.m = (self.delta_t / 0.025) ** 2
-        self.delta_t = 0.2 * (self.m / 50)**(1/2)
+        # self.delta_t = 0.2 * (self.m / 50)**(1/2)
+        self.delta_t = 0.1 * (self.m / 50)**(1/2)
 
         # self.delta_t = 0.03 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
