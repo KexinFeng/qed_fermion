@@ -1653,7 +1653,7 @@ class HmcSampler(object):
         axs = None
         if self.plt_cg:
             fg, axs = plt.subplots()
-        Ot_inv_psi, cnt_tensor, r_err = self.preconditioned_cg_fast_test(boson, psi, rtol=self.cg_rtol_tensor, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
+        Ot_inv_psi, cnt_tensor, r_err = self.preconditioned_cg_fast_test(boson, psi, rtol_tensor=self.cg_rtol_tensor, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
 
         # err2 = torch.norm(MhM @ Ot_inv_psi.view(-1, 1) - psi[0].view(-1, 1))
         # print(f"Error in solving Ot_inv_psi_fast: {err2}")
