@@ -816,10 +816,38 @@ class HmcSampler(object):
     def apply_sigma_hat_cpu(self, i):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
             self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
-            self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+
+            # Normalize sigma_hat by its mean value
+            # self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+
+            # # Flatten the sigma_hat tensor to 1D for plotting
+            # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
+            # plt.figure(figsize=(10, 6))
+            # plt.hist(sigma_hat_flat, bins=50, alpha=0.75, color='blue', edgecolor='black')
+            # plt.title("Distribution of sigma_hat Values")
+            # plt.xlabel("Value")
+            # plt.ylabel("Frequency")
+            # plt.grid(True)
+            # plt.show()
 
             # max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
             # self.sigma_hat = self.sigma_hat / (max_values)
+
+            # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
+            reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
+            percentile_value = torch.quantile(reshaped_sigma_hat, 0.9, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
+            self.sigma_hat = torch.clamp(self.sigma_hat, max=percentile_value)
+
+            # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
+            # plt.figure(figsize=(10, 6))
+            # plt.hist(sigma_hat_flat, bins=50, alpha=0.75, color='blue', edgecolor='black')
+            # plt.title("Distribution of sigma_hat Values")
+            # plt.xlabel("Value")
+            # plt.ylabel("Frequency")
+            # plt.grid(True)
+            # plt.show()
+
+            dbstop = 1
 
     def update_sigma_hat_cpu(self, boson_cpu, i):
         if i == self.annealing_step:
