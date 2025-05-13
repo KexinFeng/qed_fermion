@@ -181,6 +181,10 @@ class HmcSampler(object):
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
+        
+        self.lmd = 0.95
+        self.sig_min = 0.8
+        self.sig_max = 1.2
 
         # CG
         self.cg_rtol = 1e-7
@@ -700,10 +704,10 @@ class HmcSampler(object):
         self.curl_mat = self.curl_mat_cpu.to(device=device)
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}"
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly
@@ -820,13 +824,13 @@ class HmcSampler(object):
             # Normalize sigma_hat by its mean value
             self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
 
-            self.stabilize_sigma_hat(method='shrink', lmd=0.95)
+            self.stabilize_sigma_hat(method='shrink', lmd=self.lmd)
 
             # # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
             # reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
             # percentile_value = torch.quantile(reshaped_sigma_hat, 0.99, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
 
-            self.stabilize_sigma_hat(method='clamp', sgm_min=0.8, sgm_max=1.2)
+            self.stabilize_sigma_hat(method='clamp', sgm_min=self.sig_min, sgm_max=self.sig_max)
 
             # # Flatten the sigma_hat tensor to 1D for plotting
             # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
