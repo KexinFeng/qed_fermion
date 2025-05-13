@@ -820,7 +820,7 @@ class HmcSampler(object):
             # Normalize sigma_hat by its mean value
             self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
 
-            self.stabilize_sigma_hat(method='shrink', lmd=0.99)
+            self.stabilize_sigma_hat(method='shrink', lmd=0.95)
             self.stabilize_sigma_hat(method='clamp', sgm_min=0.5, sgm_max=2.0)
 
             # # Flatten the sigma_hat tensor to 1D for plotting
