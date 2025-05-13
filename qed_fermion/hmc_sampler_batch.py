@@ -177,7 +177,7 @@ class HmcSampler(object):
         self.boson_mean_cpu = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, device='cpu', dtype=dtype)
         self.sigma_mini_batch_size = sigma_mini_batch_size
         self.sigma_hat_mini_batch_last_i = 0
-        self.annealing_step = 1000
+        self.annealing_step = 1000 if not debug_mode else 50
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
@@ -818,7 +818,10 @@ class HmcSampler(object):
             self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
 
             # Normalize sigma_hat by its mean value
-            # self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+            self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+
+            self.stabilize_sigma_hat(method='shrink', lmd=0.99)
+            self.stabilize_sigma_hat(method='clamp', sgm_min=0.5, sgm_max=2.0)
 
             # # Flatten the sigma_hat tensor to 1D for plotting
             # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
@@ -834,9 +837,9 @@ class HmcSampler(object):
             # self.sigma_hat = self.sigma_hat / (max_values)
 
             # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
-            reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
-            percentile_value = torch.quantile(reshaped_sigma_hat, 0.9, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
-            self.sigma_hat = torch.clamp(self.sigma_hat, max=percentile_value)
+            # reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
+            # percentile_value = torch.quantile(reshaped_sigma_hat, 0.9, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
+            # self.sigma_hat = torch.clamp(self.sigma_hat, max=percentile_value)
 
             # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
             # plt.figure(figsize=(10, 6))
@@ -858,6 +861,22 @@ class HmcSampler(object):
         self.boson_mean_cpu = (self.boson_mean_cpu * cnt + boson_cpu) / (cnt + 1)
         delta_sigma_hat = torch.fft.rfftn(boson_cpu - self.boson_mean_cpu, dim=(2, 3, 4), norm="ortho").abs()**2
         self.sigma_hat_cpu = (self.sigma_hat_cpu * cnt + delta_sigma_hat) / (cnt + 1)
+    
+    def stabilize_sigma_hat(self, method="shrink", **kwargs):
+        if method == "shrink":
+            lmd = kwargs.get("lmd", 0.2)
+            self.sigma_hat = (1-lmd) * self.sigma_hat + lmd * torch.ones_like(self.sigma_hat)
+        elif method == "pow":
+            beta = kwargs.get("beta", 0.5)
+            self.sigma_hat = self.sigma_hat.pow(beta)
+        elif method == "clamp":
+            sgm_min = kwargs.get("sgm_min", 0.5)
+            sgm_max = kwargs.get("sgm_max", 2.0)
+            self.sigma_hat = self.sigma_hat.clamp(sgm_min, sgm_max)
+        # add more strategies as needed
+        # Exponential moving average
+        # α = 0.05
+        # σ_hat = (1-α) * σ_hat + α * delta_sigma_hat
 
     def draw_momentum(self):
         """
