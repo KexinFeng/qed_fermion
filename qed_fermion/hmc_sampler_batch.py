@@ -821,7 +821,12 @@ class HmcSampler(object):
             self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
 
             self.stabilize_sigma_hat(method='shrink', lmd=0.95)
-            self.stabilize_sigma_hat(method='clamp', sgm_min=0.5, sgm_max=2.0)
+
+            # # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
+            # reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
+            # percentile_value = torch.quantile(reshaped_sigma_hat, 0.99, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
+
+            self.stabilize_sigma_hat(method='clamp', sgm_min=0.8, sgm_max=1.2)
 
             # # Flatten the sigma_hat tensor to 1D for plotting
             # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
@@ -835,11 +840,6 @@ class HmcSampler(object):
 
             # max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
             # self.sigma_hat = self.sigma_hat / (max_values)
-
-            # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
-            # reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
-            # percentile_value = torch.quantile(reshaped_sigma_hat, 0.9, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
-            # self.sigma_hat = torch.clamp(self.sigma_hat, max=percentile_value)
 
             # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
             # plt.figure(figsize=(10, 6))
@@ -864,7 +864,7 @@ class HmcSampler(object):
     
     def stabilize_sigma_hat(self, method="shrink", **kwargs):
         if method == "shrink":
-            lmd = kwargs.get("lmd", 0.2)
+            lmd = kwargs.get("lmd", 0.8)
             self.sigma_hat = (1-lmd) * self.sigma_hat + lmd * torch.ones_like(self.sigma_hat)
         elif method == "pow":
             beta = kwargs.get("beta", 0.5)
