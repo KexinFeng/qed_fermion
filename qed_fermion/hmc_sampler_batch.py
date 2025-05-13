@@ -171,6 +171,9 @@ class HmcSampler(object):
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
+        self.lower_limit = 0.5
+        self.upper_limit = 0.8
+
         # Sigma adaptive mass
         self.sigma_hat = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device=device, dtype=dtype)
         self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
@@ -225,6 +228,11 @@ class HmcSampler(object):
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform()
 
+    def initialize_specifics(self):      
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}"
+
+    def get_specifics(self):
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}"
 
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
@@ -469,8 +477,8 @@ class HmcSampler(object):
         """
         Adjust delta_t for each batch element based on its acceptance rate.
         """
-        lower_limit = 0.5
-        upper_limit = 0.8
+        lower_limit = self.lower_limit
+        upper_limit = self.upper_limit
 
         for b in range(self.bs):
             if len(self.threshold_queue[b]) < self.threshold_queue[b].maxlen:
@@ -702,12 +710,6 @@ class HmcSampler(object):
     def initialize_curl_mat(self):
         self.curl_mat_cpu = initialize_curl_mat(self.Lx, self.Ly).to(dtype)
         self.curl_mat = self.curl_mat_cpu.to(device=device)
-
-    def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}"
-
-    def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}"
 
     def initialize_geometry(self):
         Lx, Ly = self.Lx, self.Ly

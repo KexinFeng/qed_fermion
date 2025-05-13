@@ -15,10 +15,13 @@ L_array=$(echo '6')  # 10 h (-2)
 # J_array=$(echo '1.0')
 # L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
+J_array=$(echo '1.0')
+L_array=$(echo '8')  # 10 h (-2)
+
 Nstep=12000
 
 export debug=0
-export asym=4
+export asym=2
 
 for L in $L_array; do
         #
