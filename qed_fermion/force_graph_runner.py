@@ -12,9 +12,10 @@ class ForceGraphRunner:
         psi,
         boson,
         rtol,
+        # cuda_graph control parameters
         max_iter,
         graph_memory_pool=None,
-        n_warmups=0
+        n_warmups=1
     ):
         """Capture the force_f_fast function execution as a CUDA graph."""
         input_buffers = {
@@ -22,6 +23,8 @@ class ForceGraphRunner:
             "boson": boson,
             "rtol": rtol,
         }
+
+        self.hmc_sampler.max_iter = max_iter
         
         # Warm up
         s = torch.cuda.Stream()

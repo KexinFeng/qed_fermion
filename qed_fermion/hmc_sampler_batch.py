@@ -203,14 +203,14 @@ class HmcSampler(object):
             # assert self.bs < 2
         
         # CUDA Graph for force_f_fast
-        self.use_cuda_graph = False  # Disable CUDA graph support for now
+        self.use_cuda_graph = True  # Disable CUDA graph support for now
         print(f'use_cuda_graph:{ self.use_cuda_graph}')
         self.force_graph_runners = {}
         self.force_graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [300, 500, 800, 1000]
-        self._MAX_ITERS_TO_CAPTURE = [500]
+        self._MAX_ITERS_TO_CAPTURE = [200]
         if self.use_cuda_graph:
-            self.max_iter = 500
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
         # Debug
         torch.manual_seed(0)
@@ -1861,129 +1861,6 @@ class HmcSampler(object):
 
         return Ft, xi_t.view(-1), cg_converge_iter
 
- 
-    def leapfrog_proposer4_cmptau(self):
-        """          
-        Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
-        Sf(t) = psi' * [M(xt)'M(xt)]^(-1) * psi := R'R at t=0
-        - dS/dx_{r, tau} = F_fermion
-        Sample R ~ N(0, 1/sqrt(2)) + i N(0, 1/sqrt(2)), 
-            -> psi = M(x0)'R 
-            -> Sf(t) = psi' * [M(xt)'M(xt)]^(-1)*psi := psi' * xi(t)
-        [M(xt)'M(xt)] xi(t) = psi
-
-        Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
-            -> ...
-
-        # Primitive leapfrog
-        x_0 = x
-        p_{1/2} = p_0 + dt/2 * F(x_0)
-
-        x_{n+1} = x_{n} + p_{n+1/2}/m dt
-        p_{n+3/2} = p_{n+1/2} + F(x_{n+1}) dt 
-
-        p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
-        """
-
-        p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
-        x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
-        p = p0
-        x = x0
-
-        R_u = self.draw_psudo_fermion()
-        M0, B_list = self.get_M_batch(x)
-        psi_u = torch.einsum('brs,bs->br', M0.permute(0, 2, 1).conj(), R_u)
-
-        if not self.use_cuda_kernel:
-            result = self.get_M_sparse(x)
-            MhM0, B_list, M0 = result[0], result[1], result[-1]
-            psi_u_fast = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
-        else:
-            psi_u_fast = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE).view(-1, 1)
-   
-        torch.testing.assert_close(psi_u, psi_u_fast.view(self.bs, -1), atol=1e-5, rtol=1e-3)
-
-        force_f_u, xi_t_u = self.force_f_batch(psi_u, M0, x, B_list)
-
-        force_f_u_fast, xi_t_u_fast, cg_converge_iter = self.force_f_fast(psi_u, x, M0[0].conj().T@M0[0])
-        torch.testing.assert_close(force_f_u, force_f_u_fast, atol=1e-5, rtol=1e-5)   
-        torch.testing.assert_close(xi_t_u, xi_t_u_fast, atol=1e-5, rtol=1e-5)   
-
-        Sf0_u = torch.einsum('bi,bi->b', psi_u.conj(), xi_t_u)
-        # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
-        Sf0_u = torch.real(Sf0_u)
-
-        assert x.grad is None
-
-        Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq(x0)
-        H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-        H0 += Sf0_u
-
-        dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
-
-        with torch.enable_grad():
-            x = x.clone().requires_grad_(True)
-            Sb_plaq = self.action_boson_plaq(x)
-            force_b_plaq = -torch.autograd.grad(
-                Sb_plaq, 
-                x, 
-                grad_outputs=torch.ones_like(Sb_plaq),
-                create_graph=False)[0]
- 
-        force_b_tau = self.force_b_tau_cmp(x)
-
-
-        # Multi-scale Leapfrog
-        # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
-
-        for leap in range(self.N_leapfrog):
-
-            p = p + dt/2 * (force_f_u)
-
-            # Update (p, x)
-            x_last = x
-            M = 5
-            for _ in range(M):
-                # p = p + force(x) * dt/2
-                # x = x + velocity(p) * dt
-                # p = p + force(x) * dt/2
-
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                x = x + p / self.m * dt/M
-                
-                with torch.enable_grad():
-                    x = x.clone().requires_grad_(True)
-                    Sb_plaq = self.action_boson_plaq(x)
-                    force_b_plaq = -torch.autograd.grad(Sb_plaq, x,
-                    grad_outputs=torch.ones_like(Sb_plaq),
-                    create_graph=False)[0]
-                    
-                force_b_tau = self.force_b_tau_cmp(x)
-
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M
-
-            Mt, B_list = self.get_M_batch(x)
-            force_f_u, xi_t_u = self.force_f_batch(psi_u, Mt, x, B_list)
-            force_f_u_fast, xi_t_u_fast, cg_converge_iter = self.force_f_fast(psi_u, x, Mt[0].conj().T@Mt[0])
-            torch.testing.assert_close(force_f_u, force_f_u_fast, atol=1e-5, rtol=1e-3)
-            torch.testing.assert_close(xi_t_u, xi_t_u_fast, atol=1e-5, rtol=1e-3)
-
-            p = p + dt/2 * (force_f_u)
-
-        # Final energies
-        Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
-        # torch.testing.assert_close(torch.imag(Sf_fin_u).view(-1).cpu(), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-3, rtol=1e-4)
-        Sf_fin_u = torch.real(Sf_fin_u)
-
-        Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
-        H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
-        H_fin += Sf_fin_u
-
-        # torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=0.05)
-        torch.testing.assert_close(H0, H_fin, atol=5e-3, rtol=1e-3)
-
-        return x, H0, H_fin, torch.zeros(self.bs, device=device, dtype=dtype)
-    
     def leapfrog_proposer5_cmptau(self):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
