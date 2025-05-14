@@ -22,12 +22,13 @@ Nstep=12000
 
 export debug=0
 export asym=2
+export mass_mode=-1
 
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J${J}L${L})
+                config=$(echo J${J}L${L}m${mass_mode})
                 echo $config
                 export J Nstep L
                 #

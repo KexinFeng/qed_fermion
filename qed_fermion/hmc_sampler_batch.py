@@ -48,6 +48,9 @@ if not debug_mode:
     import matplotlib
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
+mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
+print(f"mass_mode: {mass_mode}")
+
 dt_deque_max_len = 10
 sigma_mini_batch_size = 10 if debug_mode else 100
 print(f"dt_deque_max_len: {dt_deque_max_len}")
@@ -229,10 +232,10 @@ class HmcSampler(object):
         self.initialize_boson_time_slice_random_uniform()
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_isomass"
+        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
 
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
@@ -822,6 +825,8 @@ class HmcSampler(object):
     def apply_sigma_hat_cpu(self, i):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
             self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
+            if mass_mode == -1:
+                self.sigma_hat = self.sigma_hat ** (-1)
 
             # Normalize sigma_hat by its mean value
             self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
@@ -2212,7 +2217,8 @@ class HmcSampler(object):
             boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()
             
             # self.threshold_queue.append(threshold)
-            self.apply_sigma_hat_cpu(i)
+            if mass_mode != 0:
+                self.apply_sigma_hat_cpu(i)
             self.adjust_delta_t()
 
             # Define CPU computations to run asynchronously
