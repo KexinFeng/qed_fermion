@@ -111,7 +111,7 @@ class HmcSampler(object):
         self.plt_rate = 5 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 500
         self.stream_write_rate = Nstep
-        self.memory_check_rate = 500 if debug_mode else 1000
+        self.memory_check_rate = 10 if debug_mode else 1000
 
         # Statistics
         self.N_step = Nstep
@@ -2295,7 +2295,7 @@ class HmcSampler(object):
             # with open(tmp_file_path, "a") as tmp_file:
             #     tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
                 
-            if torch.cuda.is_available() and i % self.memory_check_rate == 0 and i > 0:
+            if torch.cuda.is_available() and i % self.memory_check_rate == 0:
                 # Check memory usage
                 mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
                 max_mem_usage = torch.cuda.max_memory_allocated() / (1024 ** 2)
