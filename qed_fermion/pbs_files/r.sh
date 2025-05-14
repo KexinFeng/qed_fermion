@@ -30,7 +30,6 @@ for L in $L_array; do
                 config=$(echo J${J}L${L})
                 echo $config
                 export J Nstep L
-                export debug=1
                 #
                 sbatch --job-name=${config} \
                 --time=0-30:00:00 \
