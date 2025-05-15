@@ -3,7 +3,7 @@ mkdir -p report_aug
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
 
-J_array=$(echo '1.0 2.0 3.0')
+J_array=$(echo '1.0 1.5 2.0 2.5 3.0')
 L_array=$(echo '6')  # 10 h (-2)
 
 # J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
@@ -15,20 +15,21 @@ L_array=$(echo '6')  # 10 h (-2)
 # J_array=$(echo '1.0')
 # L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
-J_array=$(echo '1.0')
-L_array=$(echo '8')  # 10 h (-2)
+# J_array=$(echo '1.0')
+# L_array=$(echo '8')  # 10 h (-2)
 
 Nstep=12000
 
 export debug=0
-export asym=2
+export asym=4
 export mass_mode=-1
+export lmd=0.5
 
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J${J}L${L}m${mass_mode})
+                config=$(echo J${J}L${L}a${asym}m${mass_mode}lmd${lmd})
                 echo $config
                 export J Nstep L
                 #
