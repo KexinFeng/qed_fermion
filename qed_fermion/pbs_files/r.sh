@@ -22,8 +22,8 @@ Nstep=12000
 
 export debug=0
 export asym=4
-export mass_mode=-1
-export lmd=0.5
+export mass_mode=0
+export lmd=0.95
 
 for L in $L_array; do
         #

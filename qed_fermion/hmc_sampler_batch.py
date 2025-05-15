@@ -52,6 +52,12 @@ mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass
 print(f"mass_mode: {mass_mode}")
 cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
 print(f"cuda_graph: {cuda_graph}")
+lmd = float(os.getenv("lmd", '0.95'))
+print(f"lmd: {lmd}")
+sig_min = float(os.getenv("sig_min", '0.8'))
+print(f"sig_min: {sig_min}")
+sig_max = float(os.getenv("sig_max", '1.2'))
+print(f"sig_max: {sig_max}")
 
 dt_deque_max_len = 10
 sigma_mini_batch_size = 10 if debug_mode else 100
@@ -190,9 +196,9 @@ class HmcSampler(object):
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
         
-        self.lmd = 0.95
-        self.sig_min = 0.8
-        self.sig_max = 1.2
+        self.lmd = lmd
+        self.sig_min = sig_min
+        self.sig_max = sig_max
 
         # CG
         self.cg_rtol = 1e-7
