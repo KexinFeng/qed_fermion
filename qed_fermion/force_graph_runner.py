@@ -31,8 +31,8 @@ class ForceGraphRunner:
         BLOCK_SIZE = (4, 8)
         bs = self.hmc_sampler.bs
         Lx = self.hmc_sampler.Lx
-        # Ly = self.hmc_sampler.Ly
         Ltau = self.hmc_sampler.Ltau
+        
         out1 = torch.empty(self.hmc_sampler.bs, self.hmc_sampler.Lx * self.hmc_sampler.Ly * self.hmc_sampler.Ltau, dtype=cdtype, device='cuda')
         out2 = torch.empty(self.hmc_sampler.bs, self.hmc_sampler.Lx * self.hmc_sampler.Ly * self.hmc_sampler.Ltau, dtype=cdtype, device='cuda')
 
@@ -44,7 +44,7 @@ class ForceGraphRunner:
                 b = input_buffers['psi'].reshape(bs, -1)
                 boson = input_buffers['boson'].reshape(bs, -1)
                 tmp = _C.mhm_vec2(boson, b, out1, out2, Lx, Ltau, *BLOCK_SIZE)
-                r = b - tmp
+                # r = b - tmp
                 
                 # static_outputs = self.hmc_sampler.force_f_fast(
                 #     input_buffers['psi'],
@@ -62,7 +62,7 @@ class ForceGraphRunner:
             b = input_buffers['psi'].reshape(bs, -1)
             boson = input_buffers['boson'].reshape(bs, -1)
             tmp = _C.mhm_vec2(boson, b, out1, out2, Lx, Ltau, *BLOCK_SIZE)
-            r = b - tmp
+            # r = b - tmp
 
 
             # static_outputs = self.hmc_sampler.force_f_fast(
@@ -74,11 +74,11 @@ class ForceGraphRunner:
         
         self.graph = graph
         self.input_buffers = input_buffers
-        self.output_buffers = {
-            "Ft": static_outputs[0],
-            "xi_t": static_outputs[1],
-            "r_err": static_outputs[3]
-        }
+        # self.output_buffers = {
+        #     "Ft": static_outputs[0],
+        #     "xi_t": static_outputs[1],
+        #     "r_err": static_outputs[3]
+        # }
         
         return graph.pool()
     
