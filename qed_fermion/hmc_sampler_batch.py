@@ -50,6 +50,8 @@ if not debug_mode:
 
 mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
+cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
+print(f"cuda_graph: {cuda_graph}")
 
 dt_deque_max_len = 10
 sigma_mini_batch_size = 10 if debug_mode else 100
@@ -209,13 +211,13 @@ class HmcSampler(object):
             # assert self.bs < 2
         
         # CUDA Graph for force_f_fast
-        self.use_cuda_graph = True  # Disable CUDA graph support for now
-        print(f'use_cuda_graph:{ self.use_cuda_graph}')
+        self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
+        print(f'cuda_graph:{ self.cuda_graph}')
         self.force_graph_runners = {}
         self.force_graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [300, 500, 800, 1000]
         self._MAX_ITERS_TO_CAPTURE = [200]
-        if self.use_cuda_graph:
+        if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
         # Debug
@@ -239,7 +241,7 @@ class HmcSampler(object):
 
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
-        if not self.use_cuda_graph:
+        if not self.cuda_graph:
             return
             
         print("Initializing CUDA graph for force_f_fast...")
@@ -572,7 +574,7 @@ class HmcSampler(object):
             plt.pause(0.01)  # Pause to update the plot
 
         cnt = 0
-        iterations = torch.zeros(self.bs, dtype=torch.int64, device=device) if not self.use_cuda_graph else None
+        iterations = torch.zeros(self.bs, dtype=torch.int64, device=device) if not self.cuda_graph else None
 
         for i in range(max_iter):
             # Matrix-vector product with M'M
@@ -605,7 +607,7 @@ class HmcSampler(object):
             # Check for convergence
             active_bs = torch.where(error.view(-1, 1) > rtol_tensor, active_bs, torch.zeros_like(active_bs))
 
-            if not self.use_cuda_graph:
+            if not self.cuda_graph:
                 if (active_bs == 0).any():
                     if self.verbose_cg:
                         print(f"{torch.nonzero(active_bs).tolist()} Converged in {i+1} iterations.")
@@ -1912,7 +1914,7 @@ class HmcSampler(object):
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
             # Use CUDA graph if available
-            if self.use_cuda_graph and self.max_iter in self.force_graph_runners:
+            if self.cuda_graph and self.max_iter in self.force_graph_runners:
                 force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x, self.cg_rtol_tensor)
                 cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             else:
@@ -2053,7 +2055,7 @@ class HmcSampler(object):
                 
                 r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
             else:
-                if self.use_cuda_graph and self.max_iter in self.force_graph_runners:
+                if self.cuda_graph and self.max_iter in self.force_graph_runners:
                     force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x, self.cg_rtol_tensor)
                     cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
                 else:
@@ -2199,7 +2201,7 @@ class HmcSampler(object):
 
         # Warm up measure
         self.reset_precon()
-        if self.use_cuda_graph:
+        if self.cuda_graph:
             self.initialize_force_graph()
 
         if torch.cuda.is_available():
@@ -2399,7 +2401,7 @@ class HmcSampler(object):
         axes[1, 1].legend()
 
         # CG_converge_iter
-        if not self.use_cuda_graph:
+        if not self.cuda_graph:
             axes[2, 0].plot(self.cg_iter_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
             axes[2, 0].set_ylabel("CG converge iter")
             axes[2, 0].set_xlabel("Steps")
