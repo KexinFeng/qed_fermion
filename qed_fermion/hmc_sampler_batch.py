@@ -1049,7 +1049,32 @@ class HmcSampler(object):
         diff_phi_tau = - x + torch.roll(x, shifts=-1, dims=-1)  # tau-component at (..., tau+1)
         action = torch.sum(1 - torch.cos(diff_phi_tau), dim=(1, 2, 3, 4))
         return coeff * action
-    
+
+    def force_b_plaq(self, boson):
+        """
+        Compute the force: dS/d(boson)
+        boson: [bs, 2, Lx, Ly, Ltau]
+        returns: force of shape [bs, 2, Lx, Ly, Ltau]
+        """
+        # Prepare boson: [Ly, Lx, 2, Ltau, bs] -> [Ly*Lx*2, Ltau, bs]
+        boson = boson.permute(3, 2, 1, 4, 0).reshape(-1, self.Ltau, self.bs)  # [2*Lx*Ly, Ltau, bs]
+
+        # Forward curl
+        curl_mat = self.curl_mat_cpu if boson.device.type == 'cpu' else self.curl_mat # [Vs, Vs*2]
+        curl = torch.einsum('ij,jkb->ikb', curl_mat, boson)  # [Vs, Ltau, bs]
+
+        # sin(curl) term: [Vs, Ltau, bs]
+        sin_curl = torch.sin(curl)
+
+        # Apply transpose(C): force = -K * C^T @ sin(curl)
+        # Result: [2*Lx*Ly, Ltau, bs]
+        force = -self.K * torch.einsum('ij,ikl->jkl', curl_mat, sin_curl)
+
+        # Reshape back to original boson shape: [bs, 2, Lx, Ly, Ltau]
+        force = force.reshape(self.Ly, self.Lx, 2, self.Ltau, self.bs).permute(4, 2, 1, 0, 3).contiguous()
+
+        return -force
+        
     def action_boson_plaq(self, boson):
         """
         boson: [bs, 2, Lx, Ly, Ltau]
@@ -2086,9 +2111,12 @@ class HmcSampler(object):
                 with torch.enable_grad():
                     x = x.clone().requires_grad_(True)
                     Sb_plaq = self.action_boson_plaq(x)
-                    force_b_plaq = -torch.autograd.grad(Sb_plaq, x,
+                    force_b_plaq_ref = -torch.autograd.grad(Sb_plaq, x,
                     grad_outputs=torch.ones_like(Sb_plaq),
                     create_graph=False)[0]
+                
+                force_b_plaq = self.force_b_plaq(x)
+                torch.testing.assert_close(force_b_plaq_ref, force_b_plaq, atol=1e-5, rtol=1e-5)
                     
                 force_b_tau = self.force_b_tau_cmp(x)
 
@@ -2569,7 +2597,7 @@ class HmcSampler(object):
                 self.cg_r_err_list[i] = cg_r_err_cpu
                 self.delta_t_list[i] = delta_t_cpu
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-                if self.mass_mode != 0:
+                if mass_mode != 0:
                     self.update_sigma_hat_cpu(boson_cpu, i)                
                 return i  # Return the step index for identification
 
