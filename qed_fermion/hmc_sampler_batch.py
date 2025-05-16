@@ -2295,7 +2295,8 @@ class HmcSampler(object):
                 self.cg_r_err_list[i] = cg_r_err_cpu
                 self.delta_t_list[i] = delta_t_cpu
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-                self.update_sigma_hat_cpu(boson_cpu, i)                
+                if self.mass_mode != 0:
+                    self.update_sigma_hat_cpu(boson_cpu, i)                
                 return i  # Return the step index for identification
 
             # Submit new task to the executor
