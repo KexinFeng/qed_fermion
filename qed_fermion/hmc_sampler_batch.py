@@ -2012,15 +2012,7 @@ class HmcSampler(object):
 
         dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
 
-        with torch.enable_grad():
-            x = x.clone().requires_grad_(True)
-            Sb_plaq = self.action_boson_plaq(x)
-            force_b_plaq = -torch.autograd.grad(
-                Sb_plaq, 
-                x, 
-                grad_outputs=torch.ones_like(Sb_plaq),
-                create_graph=False)[0]
- 
+        force_b_plaq = self.force_b_plaq(x)
         force_b_tau = self.force_b_tau_cmp(x)
 
         if self.debug_pde:
@@ -2108,16 +2100,7 @@ class HmcSampler(object):
                 x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
-                with torch.enable_grad():
-                    x = x.clone().requires_grad_(True)
-                    Sb_plaq = self.action_boson_plaq(x)
-                    force_b_plaq_ref = -torch.autograd.grad(Sb_plaq, x,
-                    grad_outputs=torch.ones_like(Sb_plaq),
-                    create_graph=False)[0]
-                
                 force_b_plaq = self.force_b_plaq(x)
-                torch.testing.assert_close(force_b_plaq_ref, force_b_plaq, atol=1e-5, rtol=1e-5)
-                    
                 force_b_tau = self.force_b_tau_cmp(x)
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
@@ -2297,17 +2280,8 @@ class HmcSampler(object):
         H0 += Sf0_u
 
         dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
-
-        with torch.enable_grad():
-            x = x.clone().requires_grad_(True)
-            Sb_plaq = self.action_boson_plaq(x)
-            force_b_plaq = -torch.autograd.grad(
-                Sb_plaq, 
-                x, 
-                grad_outputs=torch.ones_like(Sb_plaq),
-                create_graph=False)[0]
- 
-        force_b_tau = self.force_b_tau_cmp(x)
+        
+        force_b = self.force_b_plaq(x)
 
         if self.debug_pde:
             # print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -2394,11 +2368,7 @@ class HmcSampler(object):
 
                 x, p = self.harmonic_tau(x, p, dt/M)
                 
-                with torch.enable_grad():
-                    x = x.clone().requires_grad_(True)
-                    Sb_plaq = self.action_boson_plaq(x)
-                    force_b = -torch.autograd.grad(Sb_plaq, x, create_graph=False)[0]
-
+                force_b = self.force_b_plaq(x)
                 p = p + force_b * dt/2/M
 
             if not self.use_cuda_kernel:
@@ -2539,8 +2509,8 @@ class HmcSampler(object):
             
         return self.boson, accp, cg_converge_iter, cg_r_err
     
-    # @torch.inference_mode()
-    @torch.no_grad()
+    @torch.inference_mode()
+    # @torch.no_grad()
     def measure(self):
         """
         boson: [2, Lx, Ly, Ltau]
