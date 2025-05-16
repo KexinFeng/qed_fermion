@@ -203,9 +203,8 @@ class HmcSampler(object):
         # CG
         self.cg_rtol = 1e-7
         self.cg_rtol = 1e-5
-        self.cg_rtol_tensor = torch.tensor([self.cg_rtol], dtype=dtype, device=device)
+        self.cg_rtol = 1e-9
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
-        # self.cg_rtol = 1e-9
         self.max_iter = 1000
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
         self.precon = None
@@ -222,7 +221,7 @@ class HmcSampler(object):
         self.force_graph_runners = {}
         self.force_graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [300, 500, 800, 1000]
-        self._MAX_ITERS_TO_CAPTURE = [200]
+        self._MAX_ITERS_TO_CAPTURE = [400]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
@@ -256,7 +255,6 @@ class HmcSampler(object):
                                dtype=cdtype, device=device)
         dummy_boson = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, 
                                  dtype=dtype, device=device)
-        dummy_rtol = self.cg_rtol_tensor
         
         # Capture graphs for different batch sizes
         for max_iter in reversed(self._MAX_ITERS_TO_CAPTURE):
@@ -265,7 +263,6 @@ class HmcSampler(object):
             graph_memory_pool = graph_runner.capture(
                 dummy_psi,
                 dummy_boson,
-                dummy_rtol,
                 max_iter,
                 self.force_graph_memory_pool
             )
@@ -536,7 +533,7 @@ class HmcSampler(object):
         return torch.tensor(output, dtype=r.dtype, device=r.device)  
 
 
-    def preconditioned_cg_fast_test(self, boson, b, MhM_inv=None, matL=None, rtol_tensor=None, max_iter=400, b_idx=None, axs=None, cg_dtype=torch.complex64, MhM=None):
+    def preconditioned_cg_fast_test(self, boson, b, MhM_inv=None, matL=None, b_idx=None, axs=None, cg_dtype=torch.complex64, MhM=None):
         """
         Solve M'M x = b using preconditioned conjugate gradient (CG) algorithm.
 
@@ -582,7 +579,7 @@ class HmcSampler(object):
         cnt = 0
         iterations = torch.zeros(self.bs, dtype=torch.int64, device=device) if not self.cuda_graph else None
 
-        for i in range(max_iter):
+        for i in range(self.max_iter):
             # Matrix-vector product with M'M
             Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
 
@@ -611,7 +608,7 @@ class HmcSampler(object):
                 print(f"Figure saved at: {file_path}")
 
             # Check for convergence
-            active_bs = torch.where(error.view(-1, 1) > rtol_tensor, active_bs, torch.zeros_like(active_bs))
+            active_bs = torch.where(error.view(-1, 1) > self.cg_rtol, active_bs, torch.zeros_like(active_bs))
 
             if not self.cuda_graph:
                 if (active_bs == 0).any():
@@ -1668,7 +1665,7 @@ class HmcSampler(object):
         axs = None
         if self.plt_cg:
             fg, axs = plt.subplots()
-        Ot_inv_psi, cnt_tensor, r_err = self.preconditioned_cg_fast_test(boson, psi, rtol_tensor=self.cg_rtol_tensor, max_iter=self.max_iter, MhM_inv=self.precon, MhM=MhM, axs=axs)
+        Ot_inv_psi, cnt_tensor, r_err = self.preconditioned_cg_fast_test(boson, psi, MhM_inv=self.precon, MhM=MhM, axs=axs)
 
         # err2 = torch.norm(MhM @ Ot_inv_psi.view(-1, 1) - psi[0].view(-1, 1))
         # print(f"Error in solving Ot_inv_psi_fast: {err2}")
@@ -1692,7 +1689,7 @@ class HmcSampler(object):
         return Ot_inv_psi, torch.tensor([cnt], device=device, dtype=torch.long)
 
 
-    def force_f_fast(self, psi, boson, rtol, MhM):
+    def force_f_fast(self, psi, boson, MhM):
         """
         Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
 
@@ -1705,8 +1702,6 @@ class HmcSampler(object):
         :return Ft: [bs, 2, Lx, Ly, Ltau]
         :return xi: [bs, Lx*Ly*Ltau]
         """
-        self.cg_rtol_tensor = rtol
-
         # assert len(boson.shape) == 4 or boson.size(0) == 1
         # if len(boson.shape) == 5:
         #     boson = boson.squeeze(0)
@@ -1921,10 +1916,10 @@ class HmcSampler(object):
 
             # Use CUDA graph if available
             if self.cuda_graph and self.max_iter in self.force_graph_runners:
-                force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x, self.cg_rtol_tensor)
+                force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
                 cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             else:
-                force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, self.cg_rtol_tensor, None)
+                force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
             # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
 
         Sf0_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
@@ -2062,10 +2057,10 @@ class HmcSampler(object):
                 r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
             else:
                 if self.cuda_graph and self.max_iter in self.force_graph_runners:
-                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x, self.cg_rtol_tensor)
+                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
                     cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
                 else:
-                    force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, self.cg_rtol_tensor, None)
+                    force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
             p = p + dt/2 * (force_f_u)
 

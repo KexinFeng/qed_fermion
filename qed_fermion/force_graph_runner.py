@@ -11,7 +11,6 @@ class ForceGraphRunner:
         self,
         psi,
         boson,
-        rtol,
         # cuda_graph control parameters
         max_iter,
         graph_memory_pool=None,
@@ -21,7 +20,6 @@ class ForceGraphRunner:
         input_buffers = {
             "psi": psi,
             "boson": boson,
-            "rtol": rtol,
         }
 
         self.hmc_sampler.max_iter = max_iter
@@ -34,7 +32,6 @@ class ForceGraphRunner:
                 static_outputs = self.hmc_sampler.force_f_fast(
                     input_buffers['psi'],
                     input_buffers['boson'],
-                    input_buffers['rtol'],
                     None
                 )
 
@@ -48,7 +45,6 @@ class ForceGraphRunner:
             static_outputs = self.hmc_sampler.force_f_fast(
                 input_buffers['psi'],
                 input_buffers['boson'],
-                input_buffers['rtol'],
                 None
             )
         
@@ -67,13 +63,12 @@ class ForceGraphRunner:
         self,
         psi,
         boson,
-        rtol,
     ):
         """Execute the captured graph with the given inputs."""
         # Copy inputs to input buffers
         self.input_buffers['psi'].copy_(psi)
         self.input_buffers['boson'].copy_(boson)
-        self.input_buffers['rtol'].copy_(rtol)
+
         
         # Replay the graph
         self.graph.replay()
