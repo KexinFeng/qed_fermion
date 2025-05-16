@@ -240,10 +240,10 @@ class HmcSampler(object):
         self.initialize_boson_time_slice_random_uniform()
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
+        self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
 
     def get_specifics(self):
-        return f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
+        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
 
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""

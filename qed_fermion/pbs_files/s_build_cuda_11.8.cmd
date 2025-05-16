@@ -13,11 +13,11 @@ cd ${SLURM_SUBMIT_DIR}
 module load python/3.9.7
 module load matlab/r2023b
 module load gcc/9.2
-module load cuda/12.4
-export PATH=/share1/cuda/12.4/bin/:$PATH
-export LD_LIBRARY_PATH=/share1/cuda/12.4/lib64:$LD_LIBRARY_PATH
+module load cuda/11.8
+export PATH=/share1/cuda/11.8/bin/:$PATH
+export LD_LIBRARY_PATH=/share1/cuda/11.8/lib64:$LD_LIBRARY_PATH
 ## export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
-export CUDA_HOME=/share1/cuda/12.4
+export CUDA_HOME=/share1/cuda/11.8
 
 nvcc --version
 nvidia-smi

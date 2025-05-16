@@ -8,14 +8,14 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J_${J}_L_${L}_Nstep_${Nstep})
+                config=$(echo build_cuda)
                 echo $config
                 export J Nstep L
                 #
                 sbatch --job-name=${config}_hmc \
                 --time=0-0:20:00 \
                 --qos=debug \
-                --mem-per-cpu=8G \
+                --mem-per-cpu=16G \
                 s_build_cuda.cmd
                 # {L: size_gb} = {12: 20, 16: 30}
         done
