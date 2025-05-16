@@ -50,17 +50,19 @@ if not debug_mode:
 
 cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
 print(f"cuda_graph: {cuda_graph}")
-mass_mode = int(os.getenv("mass_mode", '1')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
+mass_mode = int(os.getenv("mass_mode", '-1')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
-lmd = float(os.getenv("lmd", '0.99'))
+lmd = float(os.getenv("lmd", '0.8'))
 print(f"lmd: {lmd}")
+lambda_ = float(os.getenv("lambda_", '0.05'))
+print(f"lambda_: {lambda_}")
 sig_min = float(os.getenv("sig_min", '0.8'))
 print(f"sig_min: {sig_min}")
 sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
 
 dt_deque_max_len = 10
-sigma_mini_batch_size = 100 if debug_mode else 1000
+sigma_mini_batch_size = 50 if debug_mode else 1000
 print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
@@ -200,6 +202,7 @@ class HmcSampler(object):
         self.lmd = lmd
         self.sig_min = sig_min
         self.sig_max = sig_max
+        self.lambda_ = lambda_
 
         # CG
         self.cg_rtol = 1e-7
@@ -845,11 +848,19 @@ class HmcSampler(object):
             self.stabilize_sigma_hat(method='clamp', sgm_min=0, sgm_max=percentile_value.mean())
 
             # self.sigma_hat = torch.log1p(self.sigma_hat)
-            self.lambda_ = 0.01
+            self.lambda_ = 0.05
             lambda_ = self.lambda_
             self.sigma_hat = (self.sigma_hat ** lambda_ - 1) / lambda_
 
             # normalize sigma_hat by moving the mean to 1
+            # First scale self.sigma_hat to be in [self.sig_min, self.sig_max]
+            min_val = self.sigma_hat.amin(dim=(2, 3, 4), keepdim=True)
+            max_val = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
+            # Avoid division by zero
+            denom = (max_val - min_val).clamp(min=1e-8)
+            self.sigma_hat = (self.sigma_hat - min_val) / denom * (self.sig_max - self.sig_min) + self.sig_min
+
+            # Then shift mean to 1
             self.sigma_hat = self.sigma_hat - self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True) + 1
 
             self.stabilize_sigma_hat(method='shrink', lmd=self.lmd)
@@ -884,8 +895,8 @@ class HmcSampler(object):
             # plt.savefig(file_path, format="pdf", bbox_inches="tight")
             # print(f"Figure saved at: {file_path}")
 
-            # if mass_mode == -1:
-            #     self.sigma_hat = self.sigma_hat ** (-1)
+            if mass_mode == -1:
+                self.sigma_hat = self.sigma_hat ** (-1)
 
             dbstop = 1
 
