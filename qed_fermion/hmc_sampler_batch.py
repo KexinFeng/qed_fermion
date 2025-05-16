@@ -50,9 +50,9 @@ if not debug_mode:
 
 cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
 print(f"cuda_graph: {cuda_graph}")
-mass_mode = int(os.getenv("mass_mode", '-1')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
+mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
-lmd = float(os.getenv("lmd", '0.8'))
+lmd = float(os.getenv("lmd", '0.9'))
 print(f"lmd: {lmd}")
 lambda_ = float(os.getenv("lambda_", '0.05'))
 print(f"lambda_: {lambda_}")
@@ -224,7 +224,7 @@ class HmcSampler(object):
         print(f'cuda_graph:{ self.cuda_graph}')
         self.force_graph_runners = {}
         self.force_graph_memory_pool = None
-        # self._MAX_ITERS_TO_CAPTURE = [300, 500, 800, 1000]
+        # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [400]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
@@ -261,7 +261,8 @@ class HmcSampler(object):
                                  dtype=dtype, device=device)
         
         # Capture graphs for different batch sizes
-        for max_iter in reversed(self._MAX_ITERS_TO_CAPTURE):
+        for idx, max_iter in enumerate(reversed(self._MAX_ITERS_TO_CAPTURE)):
+            print(f"Capturing CUDA graph for max_iter={max_iter} ({idx+1}/{len(self._MAX_ITERS_TO_CAPTURE)})...")
             # Capture graphs for given batch size
             graph_runner = ForceGraphRunner(self)
             graph_memory_pool = graph_runner.capture(
