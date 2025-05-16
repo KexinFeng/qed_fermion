@@ -217,10 +217,6 @@ class HmcSampler(object):
         self._MAX_ITERS_TO_CAPTURE = [200]
         if self.use_cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
-        
-        # self.out1 = 
-        # self.out2 = torch.empty(self.bs, self.Lx * self.Ly * self.Ltau, 
-        #                        dtype=cdtype, device=device)
 
         # Debug
         torch.manual_seed(0)
@@ -549,15 +545,11 @@ class HmcSampler(object):
         b = b.view(self.bs, -1)
         norm_b = torch.norm(b, dim=1)
 
-        out1 = torch.empty(self.bs, self.Lx * self.Ly * self.Ltau, dtype=cdtype, device=device)
-        out2 = torch.empty(self.bs, self.Lx * self.Ly * self.Ltau, dtype=cdtype, device=device)
-
         active_bs = torch.full((self.bs, 1), 1, device=device, dtype=b.dtype)
 
         # Initialize variables
         x = torch.zeros_like(b).view(self.bs, -1)
-        tmp = _C.mhm_vec(boson, x, out1, out2, self.Lx, self.dtau, *BLOCK_SIZE)
-        r = b.view(self.bs, -1) - tmp
+        r = b.view(self.bs, -1) - _C.mhm_vec(boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
         z = _C.precon_vec(r, self.precon_csr, self.Lx)
 
         p = z
@@ -584,7 +576,7 @@ class HmcSampler(object):
 
         for i in range(max_iter):
             # Matrix-vector product with M'M
-            Op = _C.mhm_vec(boson, p, out1, out2, self.Lx, self.dtau, *BLOCK_SIZE)
+            Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
 
             alpha = (rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real).unsqueeze(-1)
             x += alpha * p * active_bs

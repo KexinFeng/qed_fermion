@@ -1,5 +1,4 @@
 import torch
-from qed_fermion import _C 
 
 class ForceGraphRunner:
     def __init__(self, hmc_sampler):
@@ -16,7 +15,7 @@ class ForceGraphRunner:
         # cuda_graph control parameters
         max_iter,
         graph_memory_pool=None,
-        n_warmups=1
+        n_warmups=3
     ):
         """Capture the force_f_fast function execution as a CUDA graph."""
         input_buffers = {
@@ -27,31 +26,18 @@ class ForceGraphRunner:
 
         self.hmc_sampler.max_iter = max_iter
         
-        cdtype = torch.complex64
-        BLOCK_SIZE = (4, 8)
-        bs = self.hmc_sampler.bs
-        Lx = self.hmc_sampler.Lx
-        Ltau = self.hmc_sampler.Ltau
-        
-        out1 = torch.empty(self.hmc_sampler.bs, self.hmc_sampler.Lx * self.hmc_sampler.Ly * self.hmc_sampler.Ltau, dtype=cdtype, device='cuda')
-        out2 = torch.empty(self.hmc_sampler.bs, self.hmc_sampler.Lx * self.hmc_sampler.Ly * self.hmc_sampler.Ltau, dtype=cdtype, device='cuda')
-
         # Warm up
         s = torch.cuda.Stream()
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for _ in range(n_warmups):
-                b = input_buffers['psi'].reshape(bs, -1)
-                boson = input_buffers['boson'].reshape(bs, -1)
-                tmp = _C.mhm_vec2(boson, b, out1, out2, Lx, Ltau, *BLOCK_SIZE)
-                # r = b - tmp
-                
-                # static_outputs = self.hmc_sampler.force_f_fast(
-                #     input_buffers['psi'],
-                #     input_buffers['boson'],
-                #     input_buffers['rtol'],
-                #     None
-                # )
+                static_outputs = self.hmc_sampler.force_f_fast(
+                    input_buffers['psi'],
+                    input_buffers['boson'],
+                    input_buffers['rtol'],
+                    None
+                )
+
             s.synchronize()
 
         torch.cuda.current_stream().wait_stream(s)
@@ -59,26 +45,21 @@ class ForceGraphRunner:
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            b = input_buffers['psi'].reshape(bs, -1)
-            boson = input_buffers['boson'].reshape(bs, -1)
-            tmp = _C.mhm_vec2(boson, b, out1, out2, Lx, Ltau, *BLOCK_SIZE)
-            # r = b - tmp
-
-
-            # static_outputs = self.hmc_sampler.force_f_fast(
-            #     input_buffers['psi'],
-            #     input_buffers['boson'],
-            #     input_buffers['rtol'],
-            #     None
-            # )
+            static_outputs = self.hmc_sampler.force_f_fast(
+                input_buffers['psi'],
+                input_buffers['boson'],
+                input_buffers['rtol'],
+                None
+            )
         
         self.graph = graph
         self.input_buffers = input_buffers
-        # self.output_buffers = {
-        #     "Ft": static_outputs[0],
-        #     "xi_t": static_outputs[1],
-        #     "r_err": static_outputs[3]
-        # }
+        # self.output_buffers['Ft'] = tmp
+        self.output_buffers = {
+            "Ft": static_outputs[0],
+            "xi_t": static_outputs[1],
+            "r_err": static_outputs[3]
+        }
         
         return graph.pool()
     
