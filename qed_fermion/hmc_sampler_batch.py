@@ -48,11 +48,11 @@ if not debug_mode:
     import matplotlib
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
-mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
-print(f"mass_mode: {mass_mode}")
-cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
+cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
 print(f"cuda_graph: {cuda_graph}")
-lmd = float(os.getenv("lmd", '0.95'))
+mass_mode = int(os.getenv("mass_mode", '-1')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
+print(f"mass_mode: {mass_mode}")
+lmd = float(os.getenv("lmd", '0.2'))
 print(f"lmd: {lmd}")
 sig_min = float(os.getenv("sig_min", '0.8'))
 print(f"sig_min: {sig_min}")
@@ -116,7 +116,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 5 if debug_mode else max(start_total_monitor, 500)
+        self.plt_rate = 30 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 500
         self.stream_write_rate = Nstep
         self.memory_check_rate = 10 if debug_mode else 1000
@@ -191,7 +191,8 @@ class HmcSampler(object):
         self.boson_mean_cpu = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, device='cpu', dtype=dtype)
         self.sigma_mini_batch_size = sigma_mini_batch_size
         self.sigma_hat_mini_batch_last_i = 0
-        self.annealing_step = 1000 if not debug_mode else 50
+        self.annealing_step = 50
+        self.anneal_times = 20 if not debug_mode else 5
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
@@ -239,10 +240,10 @@ class HmcSampler(object):
         self.initialize_boson_time_slice_random_uniform()
 
     def initialize_specifics(self):      
-        self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
+        self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.3g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
 
     def get_specifics(self):
-        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.2g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
+        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.3g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
 
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
@@ -830,8 +831,6 @@ class HmcSampler(object):
     def apply_sigma_hat_cpu(self, i):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
             self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
-            if mass_mode == -1:
-                self.sigma_hat = self.sigma_hat ** (-1)
 
             # Normalize sigma_hat by its mean value
             self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
@@ -843,16 +842,6 @@ class HmcSampler(object):
             # percentile_value = torch.quantile(reshaped_sigma_hat, 0.99, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
 
             self.stabilize_sigma_hat(method='clamp', sgm_min=self.sig_min, sgm_max=self.sig_max)
-
-            # # Flatten the sigma_hat tensor to 1D for plotting
-            # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
-            # plt.figure(figsize=(10, 6))
-            # plt.hist(sigma_hat_flat, bins=50, alpha=0.75, color='blue', edgecolor='black')
-            # plt.title("Distribution of sigma_hat Values")
-            # plt.xlabel("Value")
-            # plt.ylabel("Frequency")
-            # plt.grid(True)
-            # plt.show()
 
             # max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
             # self.sigma_hat = self.sigma_hat / (max_values)
@@ -866,12 +855,23 @@ class HmcSampler(object):
             # plt.grid(True)
             # plt.show()
 
+            # class_name = __file__.split('/')[-1].replace('.py', '')
+            # method_name = "sigma_hat"
+            # save_dir = os.path.join(script_path, f"./figures/{class_name}_aug")
+            # os.makedirs(save_dir, exist_ok=True) 
+            # file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
+            # plt.savefig(file_path, format="pdf", bbox_inches="tight")
+            # print(f"Figure saved at: {file_path}")
+
+            if mass_mode == -1:
+                self.sigma_hat = self.sigma_hat ** (-1)
+
             dbstop = 1
 
     def update_sigma_hat_cpu(self, boson_cpu, i):
-        if i == self.annealing_step:
-            self.sigma_hat_cpu = torch.ones(self.bs, 2, self.Lx, self.Ly, self.Ltau // 2 + 1, device='cpu', dtype=dtype)
+        if i % self.annealing_step == 0 and i > 0 and self.anneal_times > 0:
             self.sigma_hat_mini_batch_last_i = i
+            self.anneal_times -= 1
         
         cnt = i - self.sigma_hat_mini_batch_last_i
         self.boson_mean_cpu = (self.boson_mean_cpu * cnt + boson_cpu) / (cnt + 1)
@@ -2403,13 +2403,13 @@ class HmcSampler(object):
 
         # CG_converge_iter
         if not self.cuda_graph:
-            axes[2, 0].plot(self.cg_iter_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+            axes[2, 0].plot(self.cg_iter_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol};iter_{self.max_iter}')
             axes[2, 0].set_ylabel("CG converge iter")
             axes[2, 0].set_xlabel("Steps")
             axes[2, 0].legend()
             axes[2, 0].grid()
         else:
-            axes[2, 0].plot(self.cg_r_err_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol}')
+            axes[2, 0].semilogy(self.cg_r_err_list[seq_idx_all].cpu().numpy(), '*', label=f'rtol_{self.cg_rtol};iter_{self.max_iter}')
             axes[2, 0].set_ylabel("CG rel err")
             axes[2, 0].set_xlabel("Steps")
             axes[2, 0].legend()
@@ -2581,10 +2581,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '8'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = int(os.environ.get("asym", '4'))
+    asym = int(os.environ.get("asym", '2'))
 
     Ltau = asym*Lx * 10 # dtau=0.1
     # Ltau = 10 # dtau=0.1
