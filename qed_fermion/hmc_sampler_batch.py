@@ -50,9 +50,9 @@ if not debug_mode:
 
 cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
 print(f"cuda_graph: {cuda_graph}")
-mass_mode = int(os.getenv("mass_mode", '-1')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
+mass_mode = int(os.getenv("mass_mode", '1')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
-lmd = float(os.getenv("lmd", '0.2'))
+lmd = float(os.getenv("lmd", '0.99'))
 print(f"lmd: {lmd}")
 sig_min = float(os.getenv("sig_min", '0.8'))
 print(f"sig_min: {sig_min}")
@@ -60,7 +60,7 @@ sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
 
 dt_deque_max_len = 10
-sigma_mini_batch_size = 10 if debug_mode else 100
+sigma_mini_batch_size = 100 if debug_mode else 1000
 print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
@@ -191,8 +191,8 @@ class HmcSampler(object):
         self.boson_mean_cpu = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, device='cpu', dtype=dtype)
         self.sigma_mini_batch_size = sigma_mini_batch_size
         self.sigma_hat_mini_batch_last_i = 0
-        self.annealing_step = 50
-        self.anneal_times = 20 if not debug_mode else 5
+        self.annealing_step = max(50, sigma_mini_batch_size)
+        self.anneal_times = 10 if not debug_mode else 5
 
         self.multiplier = torch.full_like(self.sigma_hat, 2)
         self.multiplier[..., torch.tensor([0, -1], dtype=torch.int64, device=self.sigma_hat.device)] = 1
@@ -832,20 +832,41 @@ class HmcSampler(object):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
             self.sigma_hat = self.sigma_hat_cpu.to(self.sigma_hat.device)
 
-            # Normalize sigma_hat by its mean value
-            self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+            # # ---Shrinkage_primitive---
+            # self.sigma_hat = self.sigma_hat / self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True)
+            # self.stabilize_sigma_hat(method='shrink', lmd=self.lmd)
+            # self.stabilize_sigma_hat(method='clamp', sgm_min=self.sig_min, sgm_max=self.sig_max)
+
+            # ----Shrinkage----
+            # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
+            reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
+            percentile_value = torch.quantile(reshaped_sigma_hat, 0.99, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
+
+            self.stabilize_sigma_hat(method='clamp', sgm_min=0, sgm_max=percentile_value.mean())
+
+            # self.sigma_hat = torch.log1p(self.sigma_hat)
+            self.lambda_ = 0.01
+            lambda_ = self.lambda_
+            self.sigma_hat = (self.sigma_hat ** lambda_ - 1) / lambda_
+
+            # normalize sigma_hat by moving the mean to 1
+            self.sigma_hat = self.sigma_hat - self.sigma_hat.mean(dim=(2, 3, 4), keepdim=True) + 1
 
             self.stabilize_sigma_hat(method='shrink', lmd=self.lmd)
 
-            # # Find the 0.9 percentile value. Clip values in sigma_hat above the 0.9 percentile
+            # # ----Log Interp---
             # reshaped_sigma_hat = self.sigma_hat.view(self.sigma_hat.size(0), self.sigma_hat.size(1), -1)
             # percentile_value = torch.quantile(reshaped_sigma_hat, 0.99, dim=-1, keepdim=True).view(self.sigma_hat.size(0), self.sigma_hat.size(1), 1, 1, 1)
 
-            self.stabilize_sigma_hat(method='clamp', sgm_min=self.sig_min, sgm_max=self.sig_max)
+            # self.stabilize_sigma_hat(method='clamp', sgm_min=0, sgm_max=percentile_value.mean()) 
 
+            # self.stabilize_sigma_hat(method='log_inter', lmd=self.lmd)
+
+            # ---Other----
             # max_values = self.sigma_hat.amax(dim=(2, 3, 4), keepdim=True)
             # self.sigma_hat = self.sigma_hat / (max_values)
 
+            # ---Plotting---
             # sigma_hat_flat = self.sigma_hat.view(-1).cpu().numpy()
             # plt.figure(figsize=(10, 6))
             # plt.hist(sigma_hat_flat, bins=50, alpha=0.75, color='blue', edgecolor='black')
@@ -863,8 +884,8 @@ class HmcSampler(object):
             # plt.savefig(file_path, format="pdf", bbox_inches="tight")
             # print(f"Figure saved at: {file_path}")
 
-            if mass_mode == -1:
-                self.sigma_hat = self.sigma_hat ** (-1)
+            # if mass_mode == -1:
+            #     self.sigma_hat = self.sigma_hat ** (-1)
 
             dbstop = 1
 
@@ -875,7 +896,7 @@ class HmcSampler(object):
         
         cnt = i - self.sigma_hat_mini_batch_last_i
         self.boson_mean_cpu = (self.boson_mean_cpu * cnt + boson_cpu) / (cnt + 1)
-        delta_sigma_hat = torch.fft.rfftn(boson_cpu - self.boson_mean_cpu, dim=(2, 3, 4), norm="ortho").abs()**2
+        delta_sigma_hat = torch.fft.rfftn(boson_cpu - self.boson_mean_cpu, (self.Lx, self.Ly, self.Ltau), norm="ortho").abs()**2
         self.sigma_hat_cpu = (self.sigma_hat_cpu * cnt + delta_sigma_hat) / (cnt + 1)
     
     def stabilize_sigma_hat(self, method="shrink", **kwargs):
@@ -889,6 +910,25 @@ class HmcSampler(object):
             sgm_min = kwargs.get("sgm_min", 0.5)
             sgm_max = kwargs.get("sgm_max", 2.0)
             self.sigma_hat = self.sigma_hat.clamp(sgm_min, sgm_max)
+        elif method == "clamp_shrink":
+            sgm_min = kwargs.get("sgm_min", 0.5)
+            sgm_max = kwargs.get("sgm_max", 2.0)
+            # Shrink values > 1
+            reduce_dims = (2, 3, 4)
+            max_val = self.sigma_hat.amax(dim=reduce_dims, keepdim=True)
+            min_val = self.sigma_hat.amin(dim=reduce_dims, keepdim=True)
+            # For values > 1, shrink by max_val / sgm_max
+            # For values < 1, scale up by min_val / sgm_min
+            self.sigma_hat = torch.where(
+                self.sigma_hat > 1,
+                1 + (self.sigma_hat - 1) * ((sgm_max - 1) / (max_val - 1)),
+                1 - (1 - self.sigma_hat) * ((sgm_min - 1) / (min_val - 1)),
+            )
+        elif method == "log_inter":
+            lmd = kwargs.get("lmd", 0.8)
+            log_sigma = torch.log1p(self.sigma_hat) # log(1 + x)
+            self.sigma_hat = (1-lmd) * log_sigma + lmd * torch.ones_like(self.sigma_hat)
+
         # add more strategies as needed
         # Exponential moving average
         # α = 0.05
