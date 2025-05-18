@@ -1085,33 +1085,36 @@ class HmcSampler(object):
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S
     
-    def curl_phi(phi):
+    def curl_phi(self, phi):
         """
         Compute the lattice curl of phi.
         phi: Tensor of shape [bs, 2, Lx, Ly, Ltau]
+        Returns: Tensor of shape [bs, Lx, Ly, Ltau]
+        
+        Computes: phi_x(r) + phi_y(r+x̂) - phi_x(r+ŷ) - phi_y(r)
         """
         phi_x = phi[:, 0]  # [bs, Lx, Ly, Ltau]
         phi_y = phi[:, 1]  # [bs, Lx, Ly, Ltau]
 
-        # shift for finite differences
-        phi_y_xp = torch.roll(phi_y, shifts=-1, dims=1)  # phi^y(x + x̂)
-        phi_x_yp = torch.roll(phi_x, shifts=-1, dims=2)  # phi^x(x + ŷ)
+        # Shifted fields using periodic boundary conditions
+        phi_y_xp = torch.roll(phi_y, shifts=-1, dims=1)  # phi_y(x+1,y)
+        phi_x_yp = torch.roll(phi_x, shifts=-1, dims=2)  # phi_x(x,y+1)
 
-        curl = phi_y_xp - phi_y + phi_x_yp - phi_x  # [bs, Lx, Ly, Ltau]
+        # Compute curl: phi_x(r) + phi_y(r+x̂) - phi_x(r+ŷ) - phi_y(r)
+        curl = phi_x + phi_y_xp - phi_x_yp - phi_y
         return curl
 
     def action_boson_plaq_matfree(self, boson):
         """
         Compute the action of the boson field using a matrix-free approach.
-        phi: [bs, 2, Lx, Ly, Ltau]
+        boson: [bs, 2, Lx, Ly, Ltau]
         Returns: Tensor of shape [bs]
         """
-        curl = self.curl_phi(boson)
-        cos_curl = torch.cos(curl)
-        S = self.K * torch.sum(cos_curl, dim=(1, 2, 3))
+        curl = self.curl_phi(boson)  # [bs, Lx, Ly, Ltau]
+        S = self.K * torch.sum(torch.cos(curl), dim=(1, 2, 3))
         return S
-
-    def force_b_plaq_matfree(self, boson):
+    
+    def grad_S_phi_x(self, boson):
         """
         Compute ∂S/∂phi^x(p) for all p.
         phi: [bs, 2, Lx, Ly, Ltau]
@@ -1125,6 +1128,49 @@ class HmcSampler(object):
 
         grad_phi_x = self.K * (sin_curl_p - sin_curl_p_minus_y)
         return grad_phi_x
+
+    
+    def grad_S_phi_y(self, boson):
+        """
+        Compute ∂S/∂phi^y(p) for all p.
+        phi: [bs, 2, Lx, Ly, Ltau]
+        Returns: Tensor of shape [bs, Lx, Ly, Ltau]
+        """
+        curl = self.curl_phi(boson)
+        sin_curl = torch.sin(curl)
+
+        sin_curl_p = sin_curl
+        sin_curl_p_minus_x = torch.roll(sin_curl, shifts=1, dims=1)  # shift back in x
+
+        grad_phi_y = self.K * (sin_curl_p - sin_curl_p_minus_x)
+        return grad_phi_y
+
+    def force_b_plaq_matfree(self, boson):
+        """
+        Compute the force: dS/d(boson) in a matrix-free way.
+        boson: [bs, 2, Lx, Ly, Ltau]
+        returns: force of shape [bs, 2, Lx, Ly, Ltau]
+        """
+        curl = self.curl_phi(boson)  # [bs, Lx, Ly, Ltau]
+        sin_curl = torch.sin(curl)  # [bs, Lx, Ly, Ltau]
+        
+        bs, Lx, Ly, Ltau = sin_curl.shape
+        
+        # Initialize force components
+        force_x = torch.zeros_like(sin_curl)
+        force_y = torch.zeros_like(sin_curl)
+        
+        # Calculate gradient contributions for phi_x and phi_y
+        # For phi_x at (x,y): sin_curl at (x,y) and -sin_curl at (x,y+1)
+        force_x = sin_curl - torch.roll(sin_curl, shifts=-1, dims=2)
+        
+        # For phi_y at (x,y): -sin_curl at (x,y) and sin_curl at (x-1,y)
+        force_y = -sin_curl + torch.roll(sin_curl, shifts=1, dims=1)
+        
+        # Combine forces and scale by K
+        force = torch.stack([force_x, force_y], dim=1) * self.K
+        
+        return force
 
     def harmonic_tau(self, x0, p0, delta_t):
         """
