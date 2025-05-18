@@ -1971,8 +1971,8 @@ class HmcSampler(object):
         p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
         """
 
-        # p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
-        p0 = self.draw_momentum_fft()  # [bs, 2, Lx, Ly, Ltau] tensor
+        p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
+        # p0 = self.draw_momentum_fft()  # [bs, 2, Lx, Ly, Ltau] tensor
         x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
         x = x0
@@ -2003,8 +2003,6 @@ class HmcSampler(object):
         # Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
         # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
-
-        assert x.grad is None
 
         Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq(x0)
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
@@ -2096,8 +2094,8 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                # x_ref = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
-                x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                x = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
                 force_b_plaq = self.force_b_plaq(x)
