@@ -103,6 +103,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), hmc_filename='', dqmc
             num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
             for part_id in range(num_parts):
                 part_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{L}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+                part_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run41/run_meas_J_{J:.2g}_L_{L}_Ltau_{Ltau}_bid0_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
                 name = os.path.basename(dqmc_filename)
                 part_filename = os.path.join(part_folder, name)
                 
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 
         # Update to use the run3 folder structure with partitioned files
         # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run2/run_meas_J_{J:.2g}_L_6/"
-        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_6_Ltau_240_part_0_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+        dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run41/run_meas_J_{J:.2g}_L_6_Ltau_240_part_0_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
         name = f"thetacorrtau_sin_splaq.bin"
         dqmc_filename = os.path.join(dqmc_folder, name)
 

@@ -68,7 +68,7 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         for bid in range(bs):
             for part_id in range(num_parts):
                 dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run4/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+                dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run41/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid0_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
 
                 name = f"ener1.bin"
                 dqmc_filename = os.path.join(dqmc_folder, name)
