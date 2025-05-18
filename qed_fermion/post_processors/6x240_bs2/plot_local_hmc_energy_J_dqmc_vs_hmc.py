@@ -20,11 +20,12 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 
 from load_write2file_convert import time_execution
 
+end_hmc = 12000
 
 @time_execution
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
-    Js = [0.5, 1, 3]
-    # Js = [1, 1.5, 2, 2.5, 3]
+    # Js = [0.5, 1, 3]
+    Js = [1, 1.5, 2, 2.5, 3]
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -32,17 +33,23 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     Stau_list_hmc = []
     Stau_list_tau = []
 
-    Lx, Ly, Ltau = 6, 6, 10
-    # Lx, Ly, Ltau = 6, 6, 240   
+    # Lx, Ly, Ltau = 6, 6, 10
+    Lx, Ly, Ltau = 6, 6, 240   
     beta = int(Ltau * 0.1)
     N = Lx * Lx * beta
 
-    bs = 5
+    bs = 2
 
     for J in Js:
         # hmc
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10"
-        hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10"
+        # hmc_file = f"ckpt_N_hmc_6_Ltau_10_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+
+        # hmc_filename = os.path.join(hmc_folder, hmc_file)
+
+        end = end_hmc
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
+        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.02_N_leapfrog_5_m_1_cg_rtol_1e-05_step_{end}.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
@@ -52,22 +59,20 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         Stau_list_hmc.append(res['S_tau_list'])
 
         # dqmc
-        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/" + "/piflux_B0.0K1.0_L6_tuneJ_kexin_hk/"
-        # dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk/"
+        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk/"
 
         name_plaq = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        # name_plaq = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name_plaq = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_plaq = os.path.join(dqmc_folder + "/ejpi/", name_plaq)
     
         name_tau = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        # name_tau = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name_tau = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_tau = os.path.join(dqmc_folder + "/ejs/", name_tau)
 
         data = np.genfromtxt(dqmc_filename_plaq)
         Sb_plaq_list_dqmc.append(data.reshape(-1, 1) * N)
         data = np.genfromtxt(dqmc_filename_tau)
         Stau_list_tau.append(data.reshape(-1, 1) * N)
-
 
     # ====== Index ====== #
     hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
@@ -167,7 +172,7 @@ if __name__ == '__main__':
     # Lx, Ly, Ltau = 6, 6, 10
     # Vs = Lx * Ly * Ltau
 
-    plot_energy_J(starts=[2000], sample_steps=[1])
+    plot_energy_J(starts=[5000], sample_steps=[1])
 
     dbstop = 1
 
