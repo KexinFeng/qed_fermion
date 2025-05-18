@@ -26,6 +26,7 @@ part_size = 500
 start_dqmc = 2000
 end_dqmc = 6000
 root_folder = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/"
+root_folder = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run41/"
 # root_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point"
 
 @time_execution
@@ -51,6 +52,7 @@ def plot_spsm(Lsize=(6, 6, 10)):
         # Loop through all parts
         for part_id in range(num_parts):
             input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+            input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid0_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
             name = f"spsm.bin"
             ftdqmc_filename = os.path.join(input_folder, name)
             
