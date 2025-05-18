@@ -182,36 +182,38 @@ if __name__ == '__main__':
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
     # Js = [0.5, 1.0, 3.0]
 
-    bs = 1
+    bs = 2
 
     part_size = 500
-    start = 2000
-    end = 6000
+    start = 5000
+    end = 12000
     num_parts = math.ceil((end - start )/ part_size)
+    print(f"Number of parts: {num_parts}")
 
     # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10/ckpt/hmc_check_point_unconverted_stream"
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/hmc_check_point_L6"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810x4L/hmc_check_point"  
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/data6810/hmc_check_point"  
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
 
     @time_execution
     def iterate_func():
         for J in Js:
             for bid in range(bs):
                 for part_id in range(num_parts):
-                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
+                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     os.makedirs(output_folder, exist_ok=True)
 
                     hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
-                    # hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+                    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+                    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.02_N_leapfrog_5_m_1_cg_rtol_1e-05_step_{end}.pt"
                     load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, bid=bid, starts=[part_id * part_size + start], sample_steps=[1], ends=[min(end, (part_id+1) * part_size + start)])
         
         # Run
         for J in Js:
             for bid in range(bs):
                 for part_id in range(num_parts):
-                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
+                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     clear(output_folder)
                     execute_bash_scripts(output_folder)
 

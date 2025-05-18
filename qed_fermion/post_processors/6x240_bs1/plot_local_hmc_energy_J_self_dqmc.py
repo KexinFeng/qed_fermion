@@ -36,7 +36,7 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     Stau_list_hmc = []
     Stau_list_dqmc = []
 
-    bs = 5
+    bs = 1
 
     for J in Js:
         # hmc_folder = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_unconverted_stream/"
