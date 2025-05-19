@@ -784,42 +784,72 @@ class HmcSampler(object):
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])  
         self.boson = torch.cat([self.boson, delta_boson], dim=0)
 
-    def initialize_boson_time_slice_random_normal(self):
+    def initialize_boson_matfree(self):
         """
-        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+        Matrix-free version of initialize_boson.
+        """
+        boson = torch.randn(self.bs-1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
+        # Staggered pi field for the last batch: only x component nonzero, y=0
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = ((x + y) % 2) * 2 - 1
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                # y component remains zero
+        self.boson_matfree = torch.cat([boson, boson_stag], dim=0)
 
-        :return: None
+    def test_initialize_boson_equivalence(self):
+        self.initialize_boson()
+        boson_old = self.boson.clone()
+        self.initialize_boson_matfree()
+        boson_new = self.boson_matfree
+        torch.testing.assert_close(boson_old, boson_new, atol=1e-5, rtol=1e-5)
+
+    def initialize_boson_time_slice_random_normal_matfree(self):
         """
-        # Generate random values for each time slice
+        Matrix-free version of initialize_boson_time_slice_random_normal.
+        """
         random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.01, 0.1, self.bs-1, device=device).view(-1, 1, 1, 1)
+        boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = ((x + y) % 2) * 2 - 1
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = sign * torch.pi / 4
+        self.boson_matfree = torch.cat([boson, boson_stag], dim=0)
 
-        # Repeat the random values across the time slices
-        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
-
-        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
-        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-        boson = boson.repeat(1 * self.Ltau, 1)
-        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+    def test_initialize_boson_time_slice_random_normal_equivalence(self):
+        self.initialize_boson_time_slice_random_normal()
+        boson_old = self.boson.clone()
+        self.initialize_boson_time_slice_random_normal_matfree()
+        boson_new = self.boson_matfree
+        torch.testing.assert_close(boson_old, boson_new, atol=1e-5, rtol=1e-5)
 
     def initialize_boson_time_slice_random_uniform(self):
         """
-        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
-
-        :return: None
+        Initialize bosons with random values within each time slice; across the time dimensions, the values are consistent.
+        This matches the matrix-free and matrix-based convention: the last batch is a staggered pi field, the rest are random uniform.
         """
         # Generate random values for each time slice using a uniform distribution in the range [-0.1, 0.1]
         random_values = (torch.rand(self.bs-1, 2, self.Lx, self.Ly, device=device) - 0.5) * 0.2
-
         # Repeat the random values across the time slices
         self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+        # Staggered pi field for the last batch
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = ((x + y) % 2) * 2 - 1
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = sign * torch.pi / 4
+        self.boson = torch.cat([self.boson, boson_stag], dim=0)
 
-        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
-        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-        boson = boson.repeat(1 * self.Ltau, 1)
-        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
-
+    def test_initialize_boson_time_slice_random_uniform_equivalence(self):
+        self.initialize_boson_time_slice_random_uniform()
+        boson_old = self.boson.clone()
+        self.initialize_boson_time_slice_random_uniform_matfree()
+        boson_new = self.boson_matfree
+        torch.testing.assert_close(boson_old, boson_new, atol=1e-5, rtol=1e-5)
 
     def initialize_boson_staggered_pi(self):
         """
@@ -831,6 +861,25 @@ class HmcSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         self.boson = boson.repeat(self.bs*self.Ltau, 1)
         self.boson = self.boson.reshape(self.bs, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+
+    def initialize_boson_staggered_pi_matfree(self):
+        """
+        Matrix-free version: create a staggered pi field directly.
+        """
+        boson = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = ((x + y) % 2) * 2 - 1  # checkerboard: -1, +1
+                boson[:, 0, x, y, :] = sign * torch.pi / 4
+                boson[:, 1, x, y, :] = sign * torch.pi / 4
+        self.boson_matfree = boson
+
+    def test_initialize_boson_staggered_pi_equivalence(self):
+        self.initialize_boson_staggered_pi()
+        boson_old = self.boson.clone()
+        self.initialize_boson_staggered_pi_matfree()
+        boson_new = self.boson_matfree
+        torch.testing.assert_close(boson_old, boson_new, atol=1e-5, rtol=1e-5)
 
     def apply_sigma_hat_cpu(self, i):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
@@ -1687,7 +1736,7 @@ class HmcSampler(object):
         :param Mt: [bs, Vs*Ltau, Vs*Ltau]
         :param psi: [bs, Vs*Ltau]
 
-        :return Ft: [bs=1, 2, Lx, Ly, Ltau]
+        :return Ft: [bs, 2, Lx, Ly, Ltau]
         :return xi: [bs, Lx*Ly*Ltau]
         """
         # assert boson.size(0) == 1
@@ -2112,6 +2161,7 @@ class HmcSampler(object):
 
         # Save stream data
         data_folder = script_path + "/check_points/hmc_check_point_aug/"
+         
         file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
 
