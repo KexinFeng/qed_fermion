@@ -240,7 +240,7 @@ class HmcSampler(object):
         self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson_time_slice_random_uniform()
+        self.initialize_boson_time_slice_random_uniform_matfree()
 
     def initialize_specifics(self):      
         self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.3g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
@@ -773,53 +773,63 @@ class HmcSampler(object):
 
         :return: None
         """
-        # self.boson = torch.zeros(2, self.Lx, self.Ly, self.Ltau, device=device)
-        # self.boson = torch.randn(2, self.Lx, self.Ly, self.Ltau, device=device) * 0.1
-
-        self.boson = torch.randn(self.bs-1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs-1, device=device).view(-1, 1, 1, 1, 1)
-
-        curl_mat = self.curl_mat * torch.pi/4  # [Ly*Lx, Ly*Lx*2]
-        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-        boson = boson.repeat(1 * self.Ltau, 1)
-        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])  
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
-
-    def initialize_boson_time_slice_random_normal(self):
-        """
-        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
-
-        :return: None
-        """
-        # Generate random values for each time slice
-        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.01, 0.1, self.bs-1, device=device).view(-1, 1, 1, 1)
-
-        # Repeat the random values across the time slices
-        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
-
+        # The last batch is a staggered pi field, constructed to match the effect of self.curl_mat * pi/4.
         curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         boson = boson.repeat(1 * self.Ltau, 1)
         delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
+        # The first (bs-1) batches are random, the last is the staggered pi field
+        random_boson = torch.randn(self.bs - 1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs - 1, device=device).view(-1, 1, 1, 1, 1)
+        self.boson = torch.cat([random_boson, delta_boson], dim=0)
 
-    def initialize_boson_time_slice_random_uniform(self):
+    def initialize_boson_matfree(self):
         """
-        Initialize bosons with random values within each time slice, keeping the values consistent across the spatial dimensions.
+        Matrix-free version of initialize_boson.
+        The last batch is a staggered pi field, constructed using a checkerboard pattern (no curl_mat).
+        """
+        random_boson = torch.randn(self.bs - 1, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs - 1, device=device).view(-1, 1, 1, 1, 1)
+        # Construct staggered pi field directly
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = (-1) ** (x + y)
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
+        self.boson_matfree = torch.cat([random_boson, boson_stag], dim=0)
 
-        :return: None
+    def initialize_boson_time_slice_random_normal_matfree(self):
+        """
+        Matrix-free version of initialize_boson_time_slice_random_normal.
+        """
+        random_values = torch.randn(self.bs-1, 2, self.Lx, self.Ly, device=device) * torch.linspace(0.01, 0.1, self.bs-1, device=device).view(-1, 1, 1, 1)
+        random_boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+        # Construct staggered pi field directly
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = (-1) ** (x + y)
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
+        self.boson_matfree = torch.cat([random_boson, boson_stag], dim=0)
+
+    def initialize_boson_time_slice_random_uniform_matfree(self):
+        """
+        Initialize bosons with random values within each time slice; across the time dimensions, the values are consistent.
+        This matches the matrix-free and matrix-based convention: the last batch is a staggered pi field, the rest are random uniform.
         """
         # Generate random values for each time slice using a uniform distribution in the range [-0.1, 0.1]
         random_values = (torch.rand(self.bs-1, 2, self.Lx, self.Ly, device=device) - 0.5) * 0.2
 
         # Repeat the random values across the time slices
-        self.boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
-
-        curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
-        boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-        boson = boson.repeat(1 * self.Ltau, 1)
-        delta_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
-        self.boson = torch.cat([self.boson, delta_boson], dim=0)
-
+        random_boson = random_values.unsqueeze(-1).repeat(1, 1, 1, 1, self.Ltau)
+        # Construct staggered pi field directly
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = (-1) ** (x + y)
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
+        self.boson_matfree = torch.cat([random_boson, boson_stag], dim=0)
 
     def initialize_boson_staggered_pi(self):
         """
@@ -831,6 +841,19 @@ class HmcSampler(object):
         boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
         self.boson = boson.repeat(self.bs*self.Ltau, 1)
         self.boson = self.boson.reshape(self.bs, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+
+    def initialize_boson_staggered_pi_matfree(self):
+        """
+        Matrix-free version: create a staggered pi field directly.
+        """
+        boson_stag = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = (-1) ** (x + y)
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
+        self.boson_matfree = boson_stag
+
 
     def apply_sigma_hat_cpu(self, i):
         if i % self.sigma_mini_batch_size == 0 and i > 0:
@@ -1687,7 +1710,7 @@ class HmcSampler(object):
         :param Mt: [bs, Vs*Ltau, Vs*Ltau]
         :param psi: [bs, Vs*Ltau]
 
-        :return Ft: [bs=1, 2, Lx, Ly, Ltau]
+        :return Ft: [bs, 2, Lx, Ly, Ltau]
         :return xi: [bs, Lx*Ly*Ltau]
         """
         # assert boson.size(0) == 1

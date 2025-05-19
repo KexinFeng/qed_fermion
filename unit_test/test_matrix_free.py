@@ -101,18 +101,6 @@ def test_matrix_free_implementations():
             print("✗ Staggered force test failed.")
             raise
     
-    # hmc.bs = 1  # Batch size
-    # hmc.reset()
-    # # Test boson initialization equivalence: random + staggered
-    # print("\nTesting boson initialization equivalence...")
-    # hmc.test_initialize_boson_equivalence()
-    # print("✓ test_initialize_boson_equivalence passed!")
-    # hmc.test_initialize_boson_time_slice_random_normal_equivalence()
-    # print("✓ test_initialize_boson_time_slice_random_normal_equivalence passed!")
-    # hmc.test_initialize_boson_time_slice_random_uniform_equivalence()
-    # print("✓ test_initialize_boson_time_slice_random_uniform_equivalence passed!")
-    # hmc.test_initialize_boson_staggered_pi_equivalence()
-    # print("✓ test_initialize_boson_staggered_pi_equivalence passed!")
     
 if __name__ == "__main__":
     test_matrix_free_implementations()
