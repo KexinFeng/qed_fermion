@@ -48,7 +48,7 @@ if not debug_mode:
     import matplotlib
     matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
-cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
+cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
 print(f"cuda_graph: {cuda_graph}")
 mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
@@ -1084,6 +1084,58 @@ class HmcSampler(object):
         curl = torch.einsum('ij,jkl->ikl', self.curl_mat_cpu if boson.device.type == 'cpu' else self.curl_mat, boson)  # [Vs, Ltau, bs]
         S = self.K * torch.sum(torch.cos(curl), dim=(0, 1))  
         return S
+
+    def curl_phi(self, phi):
+        """
+        Compute the lattice curl of phi.
+        phi: Tensor of shape [bs, 2, Lx, Ly, Ltau]
+        Returns: Tensor of shape [bs, Lx, Ly, Ltau]
+
+        Computes: phi_x(r) + phi_y(r+x̂) - phi_x(r+ŷ) - phi_y(r)
+        """
+        phi_x = phi[:, 0]  # [bs, Lx, Ly, Ltau]
+        phi_y = phi[:, 1]  # [bs, Lx, Ly, Ltau]
+
+        # Shifted fields using periodic boundary conditions
+        phi_y_xp = torch.roll(phi_y, shifts=-1, dims=1)  # phi_y(x+1,y)
+        phi_x_yp = torch.roll(phi_x, shifts=-1, dims=2)  # phi_x(x,y+1)
+
+        # Compute curl: phi_x(r) + phi_y(r+x̂) - phi_x(r+ŷ) - phi_y(r)
+        curl = phi_x + phi_y_xp - phi_x_yp - phi_y
+        return curl
+
+    def action_boson_plaq_matfree(self, boson):
+        """
+        Compute the action of the boson field using a matrix-free approach.
+        boson: [bs, 2, Lx, Ly, Ltau]
+        Returns: Tensor of shape [bs]
+        """
+        curl = self.curl_phi(boson)  # [bs, Lx, Ly, Ltau]
+        S = self.K * torch.sum(torch.cos(curl), dim=(1, 2, 3))
+        return S
+
+    def force_b_plaq_matfree(self, boson):
+        """
+        Compute the force: dS/d(boson) in a matrix-free way.
+        boson: [bs, 2, Lx, Ly, Ltau]
+        returns: force of shape [bs, 2, Lx, Ly, Ltau]
+        """
+        # Compute curl and sin(curl)
+        curl = self.curl_phi(boson)
+        sin_curl = torch.sin(curl)
+
+        # For φ_x at (x,y): contribution from plaquette at (x,y) with coeff 1
+        # and from plaquette at (x,y+1) with coeff -1
+        grad_phi_x = self.K * (sin_curl - torch.roll(sin_curl, shifts=1, dims=2))
+
+        # For φ_y at (x,y): contribution from plaquette at (x,y) with coeff -1
+        # and from plaquette at (x-1,y) with coeff 1 (the plaquette at (x-1,y) has φ_y(x,y) with coeff +1)
+        grad_phi_y = self.K * (-sin_curl + torch.roll(sin_curl, shifts=1, dims=1))
+
+        # Force is the gradient (not negative gradient) to match the original implementation
+        force = torch.stack([grad_phi_x, grad_phi_y], dim=1)  # [bs, 2, Lx, Ly, Ltau]
+
+        return force
 
     def harmonic_tau(self, x0, p0, delta_t):
         """
@@ -2504,6 +2556,9 @@ class HmcSampler(object):
         thresholds = torch.minimum(torch.exp(H_old - H_new), torch.ones_like(H_old))
         for b in range(self.bs):
             self.threshold_queue[b].append(thresholds[b].item())
+
+        torch.testing.assert_close(self.action_boson_plaq_matfree(self.boson), self.action_boson_plaq(self.boson), atol=1e-5, rtol=1e-5)
+        torch.testing.assert_close(self.force_b_plaq_matfree(self.boson), self.force_b_plaq(self.boson), atol=1e-5, rtol=1e-5)
             
         return self.boson, accp, cg_converge_iter, cg_r_err
     
@@ -2904,13 +2959,13 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '8'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
     asym = int(os.environ.get("asym", '2'))
 
-    Ltau = asym*Lx * 10 # dtau=0.1
-    # Ltau = 10 # dtau=0.1
+    # Ltau = asym*Lx * 10 # dtau=0.1
+    Ltau = 10 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
