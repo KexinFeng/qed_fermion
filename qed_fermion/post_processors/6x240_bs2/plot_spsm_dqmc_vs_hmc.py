@@ -49,7 +49,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5):
         
         # Loop through all batches and parts
         for bid in range(bs):
-            if not bid == 0: continue
+            # if not bid == 0: continue
             for part_id in range(num_parts):
                 input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
                 name = f"spsm.bin"
@@ -64,24 +64,24 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5):
         
         # Combine all parts' data
         data = np.concatenate(all_data)
-        data = data.reshape(-1, vs, 4)
+        data = data.reshape(bs, -1, vs, 4)
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
         # [num_sample]
-        r_afm = 1 - data[:, 1, 2] / data[:, 0, 2]
+        r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
 
         # spin order
-        spin_order = np.mean(data[:, 0, 2])
-        spin_order_err = np.mean(np.abs(data[:, 0, 3]))
+        spin_order = np.mean(data[..., 0, 2], axis=1)
+        spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
         spin_order_values.append(spin_order)
         spin_order_errors.append(spin_order_err)
 
         # r_afm = spin_order
-        rtol = data[:, :, 3] / data[:, :, 2]
-        r_afm_err = abs(rtol[:, 0] - rtol[:, 1]) * (1 - r_afm)
+        rtol = data[:, :, :, 3] / data[:, :, :, 2]
+        r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
         
         # Calculate mean and error for plotting
-        r_afm_mean = np.mean(r_afm)
-        r_afm_error = np.mean(r_afm_err)
+        r_afm_mean = np.mean(r_afm, axis=1)
+        r_afm_error = np.mean(r_afm_err, axis=1)
         
         r_afm_values.append(r_afm_mean)
         r_afm_errors.append(r_afm_error)
@@ -104,9 +104,31 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5):
 
     # ========== AFM ========= #
     plt.figure(figsize=(8, 6))
-    # Plot the errorbar for the means
-    plt.errorbar(Js, r_afm_values, yerr=r_afm_errors, 
-                linestyle='-', marker='o', lw=2, color='blue', label='hmc_r_afm')
+
+    # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
+    r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
+    r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
+
+    # Plot the batch mean
+    plt.errorbar(Js, r_afm_values.mean(axis=1), yerr=r_afm_errors.mean(axis=1),
+                 linestyle='-', marker='o', lw=2, color='blue', label='hmc_r_afm')
+
+    # Plot each batch curve
+    for idx in range(r_afm_values.shape[1]):
+        ys = r_afm_values[:, idx]
+        yerrs = r_afm_errors[:, idx]
+        plt.errorbar(
+            Js,
+            ys,
+            yerr=yerrs,
+            alpha=0.5,
+            label=f'bs_{idx}',
+            linestyle='--',
+            marker='o',
+            lw=2,
+            color=f"C{idx}"
+        )
+
     
     # Load dqmc and plot
     dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk_avg/"
@@ -132,9 +154,33 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5):
 
     # ========== Spin order ========= #
     plt.figure(figsize=(8, 6))
-    plt.errorbar(Js, spin_order_values, yerr=spin_order_errors, 
-                linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
+    # plt.errorbar(Js, spin_order_values, yerr=spin_order_errors, 
+    #             linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
     
+    # Stack spin_order_values and spin_order_errors to arrays of shape [Js_num, bs]
+    spin_order_values = np.stack(spin_order_values, axis=0)  # shape: [Js_num, bs]
+    spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
+
+    # Plot the batch mean
+    plt.errorbar(Js, spin_order_values.mean(axis=1), yerr=spin_order_errors.mean(axis=1),
+                 linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
+
+    # Plot each batch curve
+    for idx in range(spin_order_values.shape[1]):
+        ys = spin_order_values[:, idx]
+        yerrs = spin_order_errors[:, idx]
+        plt.errorbar(
+            Js,
+            ys,
+            yerr=yerrs,
+            alpha=0.5,
+            label=f'bs_{idx}',
+            linestyle='--',
+            marker='o',
+            lw=2,
+            color=f"C{idx}"
+        )
+
     # Load dqmc and plot
     dqmc_filename = dqmc_folder + "/tuning_js_sectune_l6_spin_order.dat"
     data = np.genfromtxt(dqmc_filename)
