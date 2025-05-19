@@ -10,8 +10,12 @@ J_array=$(echo '1.0')
 L_array=$(echo '6')  # 10 h (-2)
 
 export debug=1
+export asym=4
+export mass_mode=0
+export lmd=0.99
+export cuda_graph=1
 
-Nstep=6000
+Nstep=12000
 for L in $L_array; do
         #
         for J in $J_array; do

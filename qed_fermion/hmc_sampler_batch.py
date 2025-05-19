@@ -61,9 +61,9 @@ print(f"sig_min: {sig_min}")
 sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
 
-dt_deque_max_len = 10 * 40
+# dt_deque_max_len = 5 * 10
 sigma_mini_batch_size = 50 if debug_mode else 1000
-print(f"dt_deque_max_len: {dt_deque_max_len}")
+# print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
 start_total_monitor = 10 if debug_mode else 100
@@ -95,8 +95,10 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 10 * asym
+        self.max_tau_block_idx = 10
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
+        dt_deque_max_len = 5 * self.max_tau_block_idx
+        print(f"dt_deque_max_len: {dt_deque_max_len}")    
 
         # Couplings
         self.Nf = 2
@@ -167,8 +169,8 @@ class HmcSampler(object):
 
         self.delta_t = 0.028
         # self.m = (self.delta_t / 0.025) ** 2
-        # self.delta_t = 0.2 * (self.m / 50)**(1/2)
-        self.delta_t = 0.1 * (self.m / 50)**(1/2)
+        self.delta_t = 0.2 * (self.m / 50)**(1/2)
+        # self.delta_t = 0.1 * (self.m / 50)**(1/2)
 
         # self.delta_t = 0.03 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
         # self.delta_t = 0.1 # This will be too large and trigger H0,Hfin not equal, even though N_leapfrog is cut half to 3
@@ -219,9 +221,6 @@ class HmcSampler(object):
         self.plt_cg = False
         self.verbose_cg = False
         self.use_cuda_kernel = torch.cuda.is_available()
-        if self.use_cuda_kernel:
-            pass
-            # assert self.bs < 2
         
         # CUDA Graph for force_f_fast
         self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
@@ -229,7 +228,7 @@ class HmcSampler(object):
         self.force_graph_runners = {}
         self.force_graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
-        self._MAX_ITERS_TO_CAPTURE = [400]
+        self._MAX_ITERS_TO_CAPTURE = [200]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
