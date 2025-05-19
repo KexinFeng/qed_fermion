@@ -2056,13 +2056,13 @@ class HmcSampler(object):
         # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
 
-        Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq(x0)
+        Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq_matfree(x0)
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
 
         dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
 
-        force_b_plaq = self.force_b_plaq(x)
+        force_b_plaq = self.force_b_plaq_matfree(x)
         force_b_tau = self.force_b_tau_cmp(x)
 
         if self.debug_pde:
@@ -2150,7 +2150,7 @@ class HmcSampler(object):
                 # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
-                force_b_plaq = self.force_b_plaq(x)
+                force_b_plaq = self.force_b_plaq_matfree(x)
                 force_b_tau = self.force_b_tau_cmp(x)
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M
@@ -2181,7 +2181,7 @@ class HmcSampler(object):
                 if len(Sf0_u.shape) < 1:
                     Sf0_u = Sf0_u.view(-1)
 
-                Sb_t = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x)
+                Sb_t = self.action_boson_plaq_matfree(x) + self.action_boson_tau_cmp(x)
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
                 H_t += Sf_u
 
@@ -2256,7 +2256,7 @@ class HmcSampler(object):
         # torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-2, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
 
-        Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
+        Sb_fin = self.action_boson_plaq_matfree(x) + self.action_boson_tau_cmp(x) 
         H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H_fin += Sf_fin_u
 
@@ -2325,13 +2325,13 @@ class HmcSampler(object):
 
         assert x.grad is None
 
-        Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq(x0)
+        Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq_matfree(x0)
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
 
         dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
         
-        force_b = self.force_b_plaq(x)
+        force_b = self.force_b_plaq_matfree(x)
 
         if self.debug_pde:
             # print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -2418,7 +2418,7 @@ class HmcSampler(object):
 
                 x, p = self.harmonic_tau(x, p, dt/M)
                 
-                force_b = self.force_b_plaq(x)
+                force_b = self.force_b_plaq_matfree(x)
                 p = p + force_b * dt/2/M
 
             if not self.use_cuda_kernel:
@@ -2447,7 +2447,7 @@ class HmcSampler(object):
                 if len(Sf0_u.shape) < 1:
                     Sf0_u = Sf0_u.view(-1)
 
-                Sb_t = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x)
+                Sb_t = self.action_boson_plaq_matfree(x) + self.action_boson_tau_cmp(x)
                 H_t = Sb_t + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
                 H_t += Sf_u
 
@@ -2522,7 +2522,7 @@ class HmcSampler(object):
         # torch.testing.assert_close(torch.imag(Sf_fin_u), torch.zeros_like(torch.real(Sf_fin_u)), atol=5e-2, rtol=1e-4)
         Sf_fin_u = torch.real(Sf_fin_u)
 
-        Sb_fin = self.action_boson_plaq(x) + self.action_boson_tau_cmp(x) 
+        Sb_fin = self.action_boson_plaq_matfree(x) + self.action_boson_tau_cmp(x) 
         H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H_fin += Sf_fin_u
 
@@ -2556,9 +2556,6 @@ class HmcSampler(object):
         thresholds = torch.minimum(torch.exp(H_old - H_new), torch.ones_like(H_old))
         for b in range(self.bs):
             self.threshold_queue[b].append(thresholds[b].item())
-
-        torch.testing.assert_close(self.action_boson_plaq_matfree(self.boson), self.action_boson_plaq(self.boson), atol=1e-5, rtol=1e-5)
-        torch.testing.assert_close(self.force_b_plaq_matfree(self.boson), self.force_b_plaq(self.boson), atol=1e-5, rtol=1e-5)
             
         return self.boson, accp, cg_converge_iter, cg_r_err
     
@@ -2574,7 +2571,7 @@ class HmcSampler(object):
         """
         # Initialization
         self.G_list[-1] = self.sin_curl_greens_function_batch(self.boson)
-        self.S_plaq_list[-1] = self.action_boson_plaq(self.boson)
+        self.S_plaq_list[-1] = self.action_boson_plaq_matfree(self.boson)
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
 
         # Warm up measure
@@ -2610,7 +2607,7 @@ class HmcSampler(object):
                     accp_cpu.view(-1, 1) * self.sin_curl_greens_function_batch(boson_cpu) \
                     + (1 - accp_cpu.view(-1, 1).to(torch.float)) * self.G_list[i-1]
                 self.S_plaq_list[i] = \
-                    accp_cpu.view(-1) * self.action_boson_plaq(boson_cpu) \
+                    accp_cpu.view(-1) * self.action_boson_plaq_matfree(boson_cpu) \
                     + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
                 self.S_tau_list[i] = \
                     accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
@@ -2962,10 +2959,10 @@ if __name__ == '__main__':
     Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = int(os.environ.get("asym", '2'))
+    asym = int(os.environ.get("asym", '4'))
 
-    # Ltau = asym*Lx * 10 # dtau=0.1
-    Ltau = 10 # dtau=0.1
+    Ltau = asym*Lx * 10 # dtau=0.1
+    # Ltau = 10 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
