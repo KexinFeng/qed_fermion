@@ -2055,9 +2055,9 @@ class HmcSampler(object):
         x = x0
 
         if len(self._MAX_ITERS_TO_CAPTURE) > 1:
-            max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > 500 else self._MAX_ITERS_TO_CAPTURE[1]
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > 500 else self._MAX_ITERS_TO_CAPTURE[1]
         else:
-            max_iter = self._MAX_ITERS_TO_CAPTURE[0]
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
         if not self.use_cuda_kernel:
@@ -2074,9 +2074,9 @@ class HmcSampler(object):
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
             # Use CUDA graph if available
-            if self.cuda_graph and max_iter in self.force_graph_runners:
-                force_f_u, xi_t_u, r_err = self.force_graph_runners[max_iter](psi_u, x)
-                cg_converge_iter = torch.full((self.bs,), max_iter, dtype=dtype, device=device)
+            if self.cuda_graph and self.max_iter in self.force_graph_runners:
+                force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             else:
                 force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
             # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
@@ -2202,9 +2202,9 @@ class HmcSampler(object):
                 
                 r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
             else:
-                if self.cuda_graph and max_iter in self.force_graph_runners:
-                    force_f_u, xi_t_u, r_err = self.force_graph_runners[max_iter](psi_u, x)
-                    cg_converge_iter = torch.full((self.bs,), max_iter, dtype=dtype, device=device)
+                if self.cuda_graph and self.max_iter in self.force_graph_runners:
+                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                    cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
