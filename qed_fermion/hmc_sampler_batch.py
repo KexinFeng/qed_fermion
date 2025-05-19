@@ -237,7 +237,6 @@ class HmcSampler(object):
     
     def reset(self):
         self.Vs = self.Lx * self.Ly
-        self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform_matfree()
@@ -795,7 +794,7 @@ class HmcSampler(object):
                 sign = (-1) ** (x + y)
                 boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
                 boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
-        self.boson_matfree = torch.cat([random_boson, boson_stag], dim=0)
+        self.boson = torch.cat([random_boson, boson_stag], dim=0)
 
     def initialize_boson_time_slice_random_normal_matfree(self):
         """
@@ -810,7 +809,7 @@ class HmcSampler(object):
                 sign = (-1) ** (x + y)
                 boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
                 boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
-        self.boson_matfree = torch.cat([random_boson, boson_stag], dim=0)
+        self.boson = torch.cat([random_boson, boson_stag], dim=0)
 
     def initialize_boson_time_slice_random_uniform_matfree(self):
         """
@@ -829,7 +828,7 @@ class HmcSampler(object):
                 sign = (-1) ** (x + y)
                 boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
                 boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
-        self.boson_matfree = torch.cat([random_boson, boson_stag], dim=0)
+        self.boson = torch.cat([random_boson, boson_stag], dim=0)
 
     def initialize_boson_staggered_pi(self):
         """
@@ -852,7 +851,7 @@ class HmcSampler(object):
                 sign = (-1) ** (x + y)
                 boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
                 boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
-        self.boson_matfree = boson_stag
+        self.boson = boson_stag
 
 
     def apply_sigma_hat_cpu(self, i):
