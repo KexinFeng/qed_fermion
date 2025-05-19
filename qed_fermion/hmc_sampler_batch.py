@@ -2053,9 +2053,9 @@ class HmcSampler(object):
         x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
         x = x0
-        
+
         if len(self._MAX_ITERS_TO_CAPTURE) > 1:
-            max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step < 200 else self._MAX_ITERS_TO_CAPTURE[1]
+            max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > 500 else self._MAX_ITERS_TO_CAPTURE[1]
         else:
             max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
