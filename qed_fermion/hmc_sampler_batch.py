@@ -61,7 +61,7 @@ print(f"sig_min: {sig_min}")
 sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
 
-dt_deque_max_len = 10
+dt_deque_max_len = 10 * 10
 sigma_mini_batch_size = 50 if debug_mode else 1000
 print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
@@ -93,6 +93,9 @@ class HmcSampler(object):
         self.bs = 2 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
+        self.tau_block_idx = 0
+        self.max_tau_block_idx = 10
+        self.tau_block_size = self.Ltau // self.max_tau_block_idx
 
         # Couplings
         self.Nf = 2
@@ -2151,31 +2154,39 @@ class HmcSampler(object):
             axs[2, 0].legend()
             axs[2, 0].grid()
 
+            x_last = x
+
+        # Create mask for tau dimension: shape [1, 1, 1, 1, Ltau]
+        tau_start = self.tau_block_idx * self.tau_block_size
+        tau_end = (self.tau_block_idx + 1) * self.tau_block_size
+        tau_mask = torch.zeros((1, 1, 1, 1, self.Ltau), device=p.device, dtype=p.dtype)
+        tau_mask[..., tau_start: tau_end] = 1.0
+        
         # Multi-scale Leapfrog
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
         cg_converge_iters = [cg_converge_iter]
         cg_r_errs = [r_err]
         for leap in range(self.N_leapfrog):
 
-            p = p + dt/2 * (force_f_u)
+            # Update p only for selected tau block
+            p = p + dt/2 * (force_f_u) * tau_mask
 
             # Update (p, x)
-            x_last = x
             M = 5
             for _ in range(M):
                 # p = p + force(x) * dt/2
                 # x = x + velocity(p) * dt
                 # p = p + force(x) * dt/2
 
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M
-                x = x + p / self.m * dt/M  # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
                 # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
                 force_b_plaq = self.force_b_plaq_matfree(x)
                 force_b_tau = self.force_b_tau_cmp(x)
 
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M
+                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
 
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
@@ -2192,7 +2203,7 @@ class HmcSampler(object):
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
-            p = p + dt/2 * (force_f_u)
+            p = p + dt/2 * (force_f_u) * tau_mask
 
             cg_converge_iters.append(cg_converge_iter)
             cg_r_errs.append(r_err)
@@ -2344,8 +2355,6 @@ class HmcSampler(object):
         # Sf0_u = torch.dot(psi_u.conj().view(-1), xi_t_u.view(-1))
         # torch.testing.assert_close(torch.imag(Sf0_u), torch.zeros_like(torch.imag(Sf0_u)), atol=5e-3, rtol=1e-5)
         Sf0_u = torch.real(Sf0_u)
-
-        assert x.grad is None
 
         Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq_matfree(x0)
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
@@ -2563,21 +2572,27 @@ class HmcSampler(object):
 
         :return: None
         """
-        boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau()
-        accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
-        if debug_mode:
-            print(f"H_old, H_new, diff: \n{H_old}, \n{H_new}, \n{H_new - H_old}")
-            print(f"unclipped threshold: {torch.exp(H_old - H_new).tolist()}")
-            print(f'Accp?: {accp.tolist()}')
-            relative_error = torch.abs(H_new - H_old) / torch.abs(H_old)
-            print(f"Relative error: {relative_error}")
-        
-        self.boson[accp] = boson_new[accp]
-        
-        # Calculate thresholds per batch element and add to respective queues
-        thresholds = torch.minimum(torch.exp(H_old - H_new), torch.ones_like(H_old))
-        for b in range(self.bs):
-            self.threshold_queue[b].append(thresholds[b].item())
+        while self.tau_block_idx < self.max_tau_block_idx:
+            boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau()
+            accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
+            if debug_mode:
+                print(f"H_old, H_new, diff: \n{H_old}, \n{H_new}, \n{H_new - H_old}")
+                print(f"unclipped threshold: {torch.exp(H_old - H_new).tolist()}")
+                print(f'Accp?: {accp.tolist()}')
+                relative_error = torch.abs(H_new - H_old) / torch.abs(H_old)
+                print(f"Relative error: {relative_error}")
+            
+            self.boson[accp] = boson_new[accp]
+            
+            # Calculate thresholds per batch element and add to respective queues
+            thresholds = torch.minimum(torch.exp(H_old - H_new), torch.ones_like(H_old))
+            for b in range(self.bs):
+                self.threshold_queue[b].append(thresholds[b].item())
+            
+            self.tau_block_idx += 1
+
+        else:
+            self.tau_block_idx = 0
             
         return self.boson, accp, cg_converge_iter, cg_r_err
     
