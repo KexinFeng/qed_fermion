@@ -61,7 +61,7 @@ print(f"sig_min: {sig_min}")
 sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
 
-dt_deque_max_len = 10 * 10
+dt_deque_max_len = 10 * 40
 sigma_mini_batch_size = 50 if debug_mode else 1000
 print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
