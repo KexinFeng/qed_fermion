@@ -94,7 +94,8 @@ class HmcSampler(object):
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
-        self.max_tau_block_idx = 10
+        asym = self.Ltau // self.Lx // 10
+        self.max_tau_block_idx = 10 * asym
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
 
         # Couplings
