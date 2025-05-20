@@ -60,6 +60,8 @@ sig_min = float(os.getenv("sig_min", '0.8'))
 print(f"sig_min: {sig_min}")
 sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
+gear0_steps = float(os.getenv("gear0_steps", '1000'))
+print(f"gear0_steps: {gear0_steps}")
 
 # dt_deque_max_len = 5 * 10
 sigma_mini_batch_size = 50 if debug_mode else 1000
@@ -95,7 +97,7 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 10
+        self.max_tau_block_idx = 10 if asym > 0 else 1
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
         dt_deque_max_len = 5 * self.max_tau_block_idx
         print(f"dt_deque_max_len: {dt_deque_max_len}")    
@@ -245,10 +247,10 @@ class HmcSampler(object):
         self.initialize_boson_time_slice_random_uniform_matfree()
 
     def initialize_specifics(self):      
-        self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.3g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
+        self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
 
     def get_specifics(self):
-        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_lmd_{self.lmd:.3g}_sig_min_{self.sig_min:.2g}_sig_max_{self.sig_max:.2g}_lower_limit_{self.lower_limit:.2g}_upper_limit_{self.upper_limit:.2g}_mass_mode_{mass_mode}"
+        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
 
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
@@ -2055,7 +2057,7 @@ class HmcSampler(object):
         x = x0
 
         if len(self._MAX_ITERS_TO_CAPTURE) > 1:
-            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > 500 else self._MAX_ITERS_TO_CAPTURE[1]
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
         else:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
@@ -3001,9 +3003,9 @@ if __name__ == '__main__':
     Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = int(os.environ.get("asym", '4'))
+    asym = float(os.environ.get("asym", '4'))
 
-    Ltau = asym*Lx * 10 # dtau=0.1
+    Ltau = int(asym*Lx * 10) # dtau=0.1
     # Ltau = 10 # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
