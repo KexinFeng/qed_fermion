@@ -21,7 +21,7 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 Nstep=8000
 
 export debug=0
-export asym=2
+export asym=1
 export cuda_graph=1
 
 for L in $L_array; do
