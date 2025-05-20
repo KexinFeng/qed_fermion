@@ -4,9 +4,13 @@ mkdir -p report_precon
 # L_array=$(echo '26 28 30')
 J_array=$(echo '1.0')
 L_array=$(echo '6 8 10')  # 10 h (-2)
+J_array=$(echo '1.0')
+L_array=$(echo '12 14 16 18')  # 10 h (-2)
+J_array=$(echo '1.0')
+L_array=$(echo '20 22 24 26')  # 10 h (-2)
 
 export debug=0
-export asym=0.1
+export asym=1
 export cuda_graph=0
 
 
