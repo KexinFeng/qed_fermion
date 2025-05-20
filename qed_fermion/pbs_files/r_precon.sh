@@ -1,7 +1,13 @@
-mkdir -p report
+mkdir -p report_precon
 
+# J_array=$(echo '1.0')
+# L_array=$(echo '26 28 30')
 J_array=$(echo '1.0')
-L_array=$(echo '26 28 30')
+L_array=$(echo '6 8 10')  # 10 h (-2)
+
+export debug=0
+export asym=0.1
+export cuda_graph=0
 
 
 for L in $L_array; do
@@ -14,11 +20,27 @@ for L in $L_array; do
                 #
         	sbatch --job-name=${config}_hmc \
                 --time=0-15:00:00 \
-                --qos=hugemem \
-                --mem=2000G \
+                --qos=normal \
+                --mem=10G \
                 s_hmc_precon.cmd
 	done
 done
+
+# for L in $L_array; do
+#         #
+#         for J in $J_array; do
+#                 #
+# 		config=$(echo L_${L})
+#                 echo $config
+#                 export L
+#                 #
+#         	sbatch --job-name=${config}_hmc \
+#                 --time=0-15:00:00 \
+#                 --qos=hugemem \
+#                 --mem=2000G \
+#                 s_hmc_precon.cmd
+# 	done
+# done
 
 # Nstep=100
 # bs=5

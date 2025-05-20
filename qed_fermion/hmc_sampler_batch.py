@@ -241,7 +241,7 @@ class HmcSampler(object):
     
     def reset(self):
         self.Vs = self.Lx * self.Ly
-        self.initialize_curl_mat()
+        # self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform_matfree()
@@ -295,10 +295,18 @@ class HmcSampler(object):
             def embedded_func():    
                 print(f"Preconditioner file {file_path} does not exist. \nComputing the preconditioner.....")
                 # Compute preconditioner if not exists
-                curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
-                boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
-                boson = boson.repeat(1 * self.Ltau, 1)
-                pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+                # curl_mat = self.curl_mat * torch.pi / 4  # [Ly*Lx, Ly*Lx*2]
+                # boson = curl_mat[self.i_list_1, :].sum(dim=0)  # [Ly*Lx*2]
+                # boson = boson.repeat(1 * self.Ltau, 1)
+                # pi_flux_boson = boson.reshape(1, self.Ltau, self.Ly, self.Lx, 2).permute([0, 4, 3, 2, 1])
+
+                # Construct staggered pi field directly
+                pi_flux_boson = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+                for x in range(self.Lx):
+                    for y in range(self.Ly):
+                        sign = (-1) ** (x + y)
+                        pi_flux_boson[:, 0, x, y, :] = sign * torch.pi / 4
+                        pi_flux_boson[:, 1, x, y, :] = -sign * torch.pi / 4
                 precon_dict = self.get_precon2(pi_flux_boson)
                 gc.collect()
 
