@@ -60,7 +60,7 @@ sig_min = float(os.getenv("sig_min", '0.8'))
 print(f"sig_min: {sig_min}")
 sig_max = float(os.getenv("sig_max", '1.2'))
 print(f"sig_max: {sig_max}")
-gear0_steps = float(os.getenv("gear0_steps", '1000'))
+gear0_steps = int(os.getenv("gear0_steps", '1000'))
 print(f"gear0_steps: {gear0_steps}")
 
 # dt_deque_max_len = 5 * 10
@@ -226,7 +226,6 @@ class HmcSampler(object):
         
         # CUDA Graph for force_f_fast
         self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
-        print(f'cuda_graph:{ self.cuda_graph}')
         self.force_graph_runners = {}
         self.force_graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
@@ -242,6 +241,7 @@ class HmcSampler(object):
     
     def reset(self):
         self.Vs = self.Lx * self.Ly
+        self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
         self.initialize_boson_time_slice_random_uniform_matfree()
@@ -3003,7 +3003,7 @@ if __name__ == '__main__':
     Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = float(os.environ.get("asym", '4'))
+    asym = float(os.environ.get("asym", '0.1'))
 
     Ltau = int(asym*Lx * 10) # dtau=0.1
     # Ltau = 10 # dtau=0.1
