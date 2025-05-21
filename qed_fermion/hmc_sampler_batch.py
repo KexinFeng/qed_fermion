@@ -127,7 +127,7 @@ class HmcSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
-        self.ckp_rate = 500
+        self.ckp_rate = 10000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 10 if debug_mode else 1000
 
