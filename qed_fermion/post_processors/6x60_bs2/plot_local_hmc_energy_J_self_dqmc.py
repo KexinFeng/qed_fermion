@@ -51,7 +51,7 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
     for J in Js:
         end = end_hmc
         # hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_lmd_0.99_sig_min_0.8_sig_max_1.2_lower_limit_0.5_upper_limit_0.8_mass_mode_0_step_{end}.pt"
-        hmc_file = f"/stream_ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_step_{end}.pt"
+        hmc_file = f"ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_step_{end}.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
@@ -186,12 +186,12 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
 
 
 if __name__ == '__main__':
-    Lx, Ly, Ltau = 6, 6, 240
+    # Lx, Ly, Ltau = 6, 6, 240
     # Lx, Ly, Ltau = 6, 6, 10
-    Vs = Lx * Ly * Ltau
+    # Vs = Lx * Ly * Ltau
 
-    Js = [1.0, 1.5, 2.0, 2.5, 3.0]
-    Js = [1.0, 2.0, 2.5, 3.0]
+    Js = [1.0, 1.5, 2.0, 2.3, 2.5, 3.0]
+    # Js = [1.0, 2.0, 2.5, 3.0]
     # Js = [2.0, 2.5, 3.0]
     # Js = [0.5, 1.0, 3.0]
 

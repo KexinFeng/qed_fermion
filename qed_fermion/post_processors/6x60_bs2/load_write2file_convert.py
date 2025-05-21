@@ -175,9 +175,9 @@ def execute_bash_scripts(directory):
 
 if __name__ == '__main__':
     # Create configs file
-    Lx = int(os.getenv("Lx", '6'))
+    Lx = int(os.getenv("Lx", '8'))
     print(f"Lx: {Lx}")
-    Ltau = int(os.getenv("Ltau", '60'))
+    Ltau = int(os.getenv("Ltau", '80'))
     print(f"Ltau: {Ltau}")
     # Ltau = Lx * 10
 
