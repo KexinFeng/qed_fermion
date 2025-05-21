@@ -32,8 +32,8 @@ print(f"Lx: {Lx}")
 Ltau = int(os.getenv("Ltau", '60'))
 print(f"Ltau: {Ltau}")
 
-dqmc_dir = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5_{Lx}_{Ltau}/"
 hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
+dqmc_dir = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
 
 @time_execution
 def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):

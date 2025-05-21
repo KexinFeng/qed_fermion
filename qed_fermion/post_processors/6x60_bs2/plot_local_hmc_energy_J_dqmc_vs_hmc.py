@@ -20,17 +20,21 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 
 from load_write2file_convert import time_execution
 
+Lx = int(os.getenv("Lx", '6'))
+print(f"Lx: {Lx}")
+Ltau = int(os.getenv("Ltau", '60'))
+print(f"Ltau: {Ltau}")
+
 end_dqmc = 10000
 end_hmc = 10000
 
-hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_block_tau/"
-dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk/"
+hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
+dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b1l_kexin_hk/"
 
 @time_execution
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     # Js = [0.5, 1, 3]
-    Js = [1, 1.5, 2, 2.5, 3]
-    Js = [1, 2, 2.5, 3]
+    Js = [1, 1.5, 2, 2.3, 2.5, 3]
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -38,8 +42,6 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     Stau_list_hmc = []
     Stau_list_tau = []
 
-    # Lx, Ly, Ltau = 6, 6, 10
-    Lx, Ly, Ltau = 6, 6, 240   
     beta = int(Ltau * 0.1)
     N = Lx * Lx * beta
 
@@ -53,7 +55,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         # hmc_filename = os.path.join(hmc_folder, hmc_file)
 
         end = end_hmc
-        hmc_file = f"ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{2}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_lmd_0.99_sig_min_0.8_sig_max_1.2_lower_limit_0.5_upper_limit_0.8_mass_mode_0_step_{end}.pt"
+        hmc_file = f"ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{2}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_step_{end}.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
@@ -63,12 +65,12 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         Stau_list_hmc.append(res['S_tau_list'])
 
         # dqmc
-        name_plaq = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        name_plaq = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        # name_plaq = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name_plaq = f"l{Lx}b{Ltau//10}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_plaq = os.path.join(dqmc_folder + "/ejpi/", name_plaq)
     
-        name_tau = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        name_tau = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        # name_tau = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name_tau = f"l{Lx}b{Ltau//10}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_tau = os.path.join(dqmc_folder + "/ejs/", name_tau)
 
         data = np.genfromtxt(dqmc_filename_plaq)
@@ -121,7 +123,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # save plot
     method_name = "Splaq"
-    save_dir = os.path.join(script_path, f"./figures/energies_Splaq")
+    save_dir = os.path.join(script_path, f"./figures{Lx}_{Ltau}/energies_Splaq")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -161,7 +163,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
     # save plot
     method_name = "Stau"
-    save_dir = os.path.join(script_path, f"./figures/energies_Stau")
+    save_dir = os.path.join(script_path, f"./figures{Lx}_{Ltau}/energies_Stau")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
