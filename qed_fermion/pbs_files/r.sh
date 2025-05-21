@@ -1,10 +1,10 @@
-mkdir -p report_aug
+mkdir -p report_bench
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
 
-# J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
-# L_array=$(echo '6 8 10')  # 10 h (-2)
+J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
+L_array=$(echo '6 8 10')  # 10 h (-2)
 
 # J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
 # L_array=$(echo '12 14 16')  # 16 h (-2)
@@ -15,23 +15,23 @@ mkdir -p report_aug
 # J_array=$(echo '1.0')
 # L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
-J_array=$(echo '1.0 1.5 2.0 2.5 3.0')
-L_array=$(echo '8')  # 10 h (-2)
+# J_array=$(echo '1.0 1.5 2.0 2.5 3.0')
+# L_array=$(echo '8')  # 10 h (-2)
 
-J_array=$(echo '1.5')
-L_array=$(echo '6')  # 10 h (-2)
+# J_array=$(echo '1.5')
+# L_array=$(echo '6')  # 10 h (-2)
 
 Nstep=10000
 
 export debug=0
-export asym=4
+export asym=0.1
 export cuda_graph=1
 
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J${J}L${L}a${asym}m${mass_mode}lmd${lmd})
+                config=$(echo J${J}L${L}a${asym})
                 echo $config
                 export J Nstep L
                 #
