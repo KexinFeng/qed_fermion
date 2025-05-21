@@ -24,12 +24,15 @@ from load_write2file_convert import time_execution
 # Add partition parameters
 part_size = 500
 start_dqmc = 5000
-end_dqmc = 12000
-root_folder = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5/"
+end_dqmc = 10000
+# root_folder = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5/"
+root_folder = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5_blk/"
+dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk_avg/"
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5):
     Js = [1, 1.5, 2, 2.5, 3]
+    Js = [1, 2, 2.5, 3]
     r_afm_values = []
     r_afm_errors = []
     spin_order_values = []
@@ -131,7 +134,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5):
 
     
     # Load dqmc and plot
-    dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk_avg/"
     dqmc_filename = dqmc_folder + "/tuning_js_sectune_l6_spin_coratio.dat"
     data = np.genfromtxt(dqmc_filename)
     plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 

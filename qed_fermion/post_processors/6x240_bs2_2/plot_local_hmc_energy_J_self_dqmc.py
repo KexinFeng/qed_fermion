@@ -23,8 +23,11 @@ from load_write2file_convert import time_execution
 
 part_size = 500
 start_dqmc = 5000
-end_dqmc = 12000
-end_hmc = 12000
+end_dqmc = 10000
+end_hmc = 10000
+
+dqmc_dir = "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5_blk/"
+hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_block_tau/"
 
 @time_execution
 def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
@@ -41,8 +44,8 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
 
     for J in Js:
         end = end_hmc
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.02_N_leapfrog_5_m_1_cg_rtol_1e-05_step_{end}.pt"
+        # hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_lmd_0.99_sig_min_0.8_sig_max_1.2_lower_limit_0.5_upper_limit_0.8_mass_mode_0_step_{end}.pt"
+        hmc_file = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_block_tau/ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{2}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_lmd_0.99_sig_min_0.8_sig_max_1.2_lower_limit_0.5_upper_limit_0.8_mass_mode_0_step_{end}.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
@@ -61,7 +64,7 @@ def plot_energy_J(Lx, Ltau, Js=[], starts=[500], sample_steps=[1]):
         for bid in range(bs):
             for part_id in range(num_parts):
                 # dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run3/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                dqmc_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run5/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+                dqmc_folder = dqmc_dir + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
 
                 name = f"ener1.bin"
                 dqmc_filename = os.path.join(dqmc_folder, name)
@@ -182,6 +185,8 @@ if __name__ == '__main__':
     Vs = Lx * Ly * Ltau
 
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
+    Js = [1.0, 2.0, 2.5, 3.0]
+    # Js = [2.0, 2.5, 3.0]
     # Js = [0.5, 1.0, 3.0]
 
     plot_energy_J(Lx, Ltau, Js=Js, starts=[5000], sample_steps=[1])

@@ -20,12 +20,17 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 
 from load_write2file_convert import time_execution
 
-end_hmc = 12000
+end_dqmc = 10000
+end_hmc = 10000
+
+hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_block_tau/"
+dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk/"
 
 @time_execution
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
     # Js = [0.5, 1, 3]
     Js = [1, 1.5, 2, 2.5, 3]
+    Js = [1, 2, 2.5, 3]
     xs = Js
 
     Sb_plaq_list_hmc = []
@@ -48,8 +53,7 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         # hmc_filename = os.path.join(hmc_folder, hmc_file)
 
         end = end_hmc
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.02_N_leapfrog_5_m_1_cg_rtol_1e-05_step_{end}.pt"
+        hmc_file = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_block_tau/ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{2}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_lmd_0.99_sig_min_0.8_sig_max_1.2_lower_limit_0.5_upper_limit_0.8_mass_mode_0_step_{end}.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
 
@@ -59,8 +63,6 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
         Stau_list_hmc.append(res['S_tau_list'])
 
         # dqmc
-        dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6b24_avg/piflux_B0.0K1.0_L6b24_tuneJ_kexin_hk/"
-
         name_plaq = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         name_plaq = f"l6b24js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_plaq = os.path.join(dqmc_folder + "/ejpi/", name_plaq)
