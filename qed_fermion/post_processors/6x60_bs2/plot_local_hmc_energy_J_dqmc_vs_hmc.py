@@ -24,12 +24,13 @@ Lx = int(os.getenv("Lx", '6'))
 print(f"Lx: {Lx}")
 Ltau = int(os.getenv("Ltau", '60'))
 print(f"Ltau: {Ltau}")
+asym = Ltau / Lx * 0.1
 
 end_dqmc = 10000
 end_hmc = 10000
 
 hmc_folder = f"/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
-dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b1l_kexin_hk/"
+dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk/"
 
 @time_execution
 def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
@@ -66,11 +67,11 @@ def plot_energy_J(Js=[], starts=[500], sample_steps=[1]):
 
         # dqmc
         # name_plaq = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        name_plaq = f"l{Lx}b{Ltau//10}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name_plaq = f"l{Lx}b{Ltau/10:.1g}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_plaq = os.path.join(dqmc_folder + "/ejpi/", name_plaq)
     
         # name_tau = f"l6b1js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-        name_tau = f"l{Lx}b{Ltau//10}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
+        name_tau = f"l{Lx}b{Ltau/10:.1g}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
         dqmc_filename_tau = os.path.join(dqmc_folder + "/ejs/", name_tau)
 
         data = np.genfromtxt(dqmc_filename_plaq)
