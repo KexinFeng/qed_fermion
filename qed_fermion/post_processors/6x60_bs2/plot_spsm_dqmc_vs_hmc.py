@@ -165,6 +165,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5):
     spin_order_values = np.stack(spin_order_values, axis=0)  # shape: [Js_num, bs]
     spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
 
+    # Filter out outliers in spin_order_values (values > 100)
+    spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
+
     # Plot the batch mean
     plt.errorbar(Js, spin_order_values.mean(axis=1), yerr=spin_order_errors.mean(axis=1),
                  linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
