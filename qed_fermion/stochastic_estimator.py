@@ -109,6 +109,8 @@ class StochaticEstimator:
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
+        boson_in = boson.clone()
+
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
 
         psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
@@ -119,18 +121,32 @@ class StochaticEstimator:
         print("max_pcg_iter:", cnt[:10])
         print("err:", err[:10])
 
+        # Check
+        M, _ = self.hmc_sampler.get_M_batch(boson_in)
+        M = M[0]
+        psudo_fermion_ref = torch.einsum('ij,bj->bi', M.conj().T, eta)
+        torch.testing.assert_close(psudo_fermion, psudo_fermion_ref, rtol=1e-6, atol=1e-6)
+
+        O = M.conj().T @ M
+        O_inv = torch.linalg.inv(O)
+        
+        G_eta_ref = torch.einsum('ij,bj->bi', O_inv, psudo_fermion_ref)
+        torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-6, atol=1e-6)
+
+        dbstop = 1
+
     def G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
         # Build augmented eta and G_eta
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
-        eta_ext = torch.cat([eta, -eta], dim=1)
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
 
         # Compute the two-point green's function
         # Here, a = eta_ext, b = G_eta_ext
-        a = eta_ext
+        a = eta_ext_conj
         b = G_eta_ext
 
         a_F = torch.fft.fft(a, dim=1, norm="ortho")
@@ -139,6 +155,28 @@ class StochaticEstimator:
 
         G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="ortho").mean(dim=0).view(2*self.Ltau, self.Ly, self.Lx)
         return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
+
+    def G_delta_0_O2(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        G = torch.einsum('bi,bj->ij', eta.conj(), G_eta) / self.Nrv  # [Ltau * Ly * Lx]
+        
+        N = G.shape[0]
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau = i % self.Ltau
+                y = (i // self.Ltau) % self.Ly
+                x = i // (self.Ltau * self.Ly)
+                dtau = d % self.Ltau
+                dy = (d // self.Ltau) % self.Ly
+                dx = d // (self.Ltau * self.Ly)
+                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
+                result[i, d] = G[idx, i]
+        G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        
 
     def G_delta_0_G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -189,9 +227,13 @@ class StochaticEstimator:
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                x, y, tau = i // (self.Ly * self.Ltau), (i // self.Ltau) % self.Ly, i % self.Ltau
-                dx, dy, dtau = d // (self.Ly * self.Ltau), (d // self.Ltau) % self.Ly, d % self.Ltau
-                idx = ((x + dx) % self.Lx) * (self.Ly * self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((tau + dtau) % self.Ltau)
+                tau = i % self.Ltau
+                y = (i // self.Ltau) % self.Ly
+                x = i // (self.Ltau * self.Ly)
+                dtau = d % self.Ltau
+                dy = (d // self.Ltau) % self.Ly
+                dx = d // (self.Ltau * self.Ly)
+                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
@@ -212,10 +254,13 @@ class StochaticEstimator:
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                # idx = (i + d) % N
-                x, y, tau = i // (self.Ly * self.Ltau), (i // self.Ltau) % self.Ly, i % self.Ltau
-                dx, dy, dtau = d // (self.Ly * self.Ltau), (d // self.Ltau) % self.Ly, d % self.Ltau
-                idx = ((x + dx) % self.Lx) * (self.Ly * self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((tau + dtau) % self.Ltau)
+                tau = i % self.Ltau
+                y = (i // self.Ltau) % self.Ly
+                x = i // (self.Ltau * self.Ly)
+                dtau = d % self.Ltau
+                dy = (d // self.Ltau) % self.Ly
+                dx = d // (self.Ltau * self.Ly)
+                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
 
                 result[i, d] = G[idx, i] * G[idx, i]
 
@@ -225,9 +270,9 @@ class StochaticEstimator:
 
 if __name__ == "__main__":  
     hmc = HmcSampler()
-    hmc.Lx = 4
-    hmc.Ly = 4
-    hmc.Ltau = 4
+    hmc.Lx = 2
+    hmc.Ly = 2
+    hmc.Ltau = 2
 
     hmc.bs = 1
     hmc.reset()
@@ -248,11 +293,16 @@ if __name__ == "__main__":
     GG_stoch = se.G_delta_0_G_delta_0()
     G_stoch = se.G_delta_0()
 
+    G_stoch_O2 = se.G_delta_0_O2()
+
+    torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+
     dbstop = 1
 
     # Benchmark with direct inverse of M(boson)
-    G_gt = se.G_groundtruth(boson)
-    GG_gt = se.G_delta_0_G_delta_0_groundtruth(G_gt)
+    G = se.G_groundtruth(boson)
+    GG_gt = se.G_delta_0_G_delta_0_groundtruth(G)
+    G_gt = se.G_delta_0_groundtruth(G)
 
     # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=1e-2)
 
@@ -265,7 +315,7 @@ if __name__ == "__main__":
     G1 = G_stoch.real
     G1[G1.abs() < 1e-3] = 0
 
-    torch.testing.assert_close(G1, GG_gt, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=1e-2)
     
 
 
