@@ -184,16 +184,16 @@ class StochaticEstimator:
 
         # Build augmented eta and G_eta
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
-        eta_ext = torch.cat([eta, -eta], dim=1)
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
 
         # Compute the four-point green's function
         # G_delta_0_G_delta_0
         # Get all unique pairs (s, s_prime) with s < s_prime
-        N = eta_ext.shape[0]
+        N = eta_ext_conj.shape[0]
         s, s_prime = torch.triu_indices(N, N, offset=1)
 
-        a = eta_ext[s] * eta_ext[s_prime]
+        a = eta_ext_conj[s] * eta_ext_conj[s_prime]
         b = G_eta_ext[s] * G_eta_ext[s_prime]
 
         a_F = torch.fft.fft(a, dim=1, norm="ortho")
