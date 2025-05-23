@@ -27,7 +27,7 @@ class StochaticEstimator:
 
     def __init__(self, hmc_sampler):
         self.hmc_sampler = hmc_sampler
-        self.Nrv = 20
+        self.Nrv = 10
         self.green_four = None
         self.green_two = None
 
@@ -92,8 +92,10 @@ class StochaticEstimator:
         print("external_product.real[1, :10]:\n", external_product.real[1, :10])
         print("external_product.real[-1, -10:]:\n", external_product.real[-1, -10:])
     
-        dbstop = 1
-
+        diff = external_product - torch.eye(self.Nrv, device=device)  # [Nrv, Nrv]
+        atol = diff.abs().max()
+        print("Max absolute difference from orthogonality (atol):", atol.item())
+        return atol
 
     def set_eta_G_eta(self, boson, eta):
         """
@@ -143,9 +145,41 @@ class StochaticEstimator:
         b_F = torch.fft.fft(b, dim=1, norm="orthogonal")
         G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="orthogonal").mean(dim=(0)).view(self.Ltau, self.Ly, self.Lx)
 
+        return G_delta_0_G_delta_0.permute(2, 1, 0)
+
         # Compute the four-point green's function
         # G_delta_0_G_delta_0  
 
+    def G_groundtruth(self, boson):
+        M, _ = self.hmc_sampler.get_M(boson)
+        M_inv = torch.linalg.inv(M)
+        return M_inv  # [Lx*Ly*Ltau, Lx*Ly*Ltau]
+
+    def G_delta_0_G_delta_0_groundtruth(self, M_inv):
+        """
+        Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
+        result[i, d] = G[i+d, i] * G[i+d, i], with periodic boundary conditions.
+
+        Returns:
+            result: [N, N] tensor, result[i, d] = G[(i+d)%N, i] * G[(i+d)%N, i]
+        """
+
+        # Compute the four-point green's function using the ground truth
+        # G_delta_0_G_delta_0 = mean_i G_{i+d, i} G_{i+d, i}
+        G = M_inv # [N, N]
+        N = G.shape[0]
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                # idx = (i + d) % N
+                x, y, tau = i // (self.Ly * self.Ltau), (i // self.Ltau) % self.Ly, i % self.Ltau
+                dx, dy, dtau = d // (self.Ly * self.Ltau), (d // self.Ltau) % self.Ly, d % self.Ltau
+                idx = ((x + dx) % self.Lx) * (self.Ly * self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((tau + dtau) % self.Ltau)
+
+                result[i, d] = G[idx, i] * G[idx, i]
+
+        GG = result.mean(dim=0) # [Lx * Ly * Ltau]
+        return GG.view(self.Lx, self.Ly, self.Ltau)  # [Ltau, Ly, Lx]
 
 
 if __name__ == "__main__":  
@@ -154,18 +188,25 @@ if __name__ == "__main__":
     hmc.reset()
 
     se = StochaticEstimator(hmc)
+    se.Nrv = 1000
     
-    # se.test_orthogonality(se.random_vec_bin())
-
+    se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
 
-
+    # Compute Green
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-    se.set_eta_G_eta(hmc.boson, eta)
+    boson = hmc.boson
+
+    se.set_eta_G_eta(boson, eta)
     G1 = se.G_delta_0_G_delta_0()
 
     dbstop = 1
 
+    # Benchmark with direct inverse of M(boson)
+    G = se.G_groundtruth(boson)
+    G1_gt = se.G_delta_0_G_delta_0_groundtruth(G)
+
+    torch.testing.assert_close(G1, G1_gt, rtol=1e-2, atol=1e-2)
 
     
 
