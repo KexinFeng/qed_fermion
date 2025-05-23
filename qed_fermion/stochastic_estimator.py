@@ -70,6 +70,9 @@ class StochaticEstimator:
         rand_vec = torch.randn(self.Nrv, N_site, device=device)
         return rand_vec
 
+    @staticmethod
+    def fft_negate_k(a_F):
+        return torch.roll(a_F.flip(dims=[1]), shifts=1, dims=1)
     
     def test_orthogonality(self, rand_vec):
         """
@@ -92,7 +95,7 @@ class StochaticEstimator:
         dbstop = 1
 
 
-    def four_point_green(self, boson):
+    def four_point_green_sample(self, boson):
         """
         Compute the four-point green's function
 
@@ -103,11 +106,16 @@ class StochaticEstimator:
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1).repeat(self.Nrv, 1)  # [Nrv, Lx * Ly * Ltau]
 
-        eta = self.random_vec_bin()  # [Nrv, Lx * Ly * Ltau]
+        self.eta = self.random_vec_bin()  # [Nrv, Lx * Ly * Ltau]
         
-        psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
+        psudo_fermion = _C.mh_vec(boson, self.eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
 
-        G_eta = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson, None)  # [Nrv, Ltau * Ly * Lx]
+        self.G_eta = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson, None)  # [Nrv, Ltau * Ly * Lx]
+
+
+    def G_delta_0_G_delta_0(self):
+        eta = self.eta
+        G_eta = self.G_eta
 
         # Build augmented eta and G_eta
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
@@ -121,12 +129,17 @@ class StochaticEstimator:
 
         a_F = torch.fft.fft(a, dim=1, norm="orthogonal")
         # To get a_F(-k), use torch.flip on the frequency dimension
-        a_F_neg_k = torch.flip(a_F, dims=[1])
-        ks = torch.fft.fftfreq(a_F.shape[1])  # [Ltau * Ly * Lx]
+        a_F_neg_k = self.fft_negate_k(a_F)
+
+        ks = torch.fft.fftfreq(a_F.shape[1]).view(1, -1)  # [Ltau * Ly * Lx]
+        ks_neg = self.fft_negate_k(ks)
         dbstop = 1
 
         b_F = torch.fft.fft(b, dim=1, norm="orthogonal")
-        G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="orthogonal").view(self.Nrv)
+        G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="orthogonal").mean(dim=(0)).view(self.Ltau, self.Ly, self.Lx)
+
+        # Compute the four-point green's function
+        # G_delta_0_G_delta_0  
 
 
 
