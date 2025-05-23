@@ -281,12 +281,12 @@ if __name__ == "__main__":
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
     se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
-    # se.test_orthogonality(se.random_vec_bin())
-    se.test_orthogonality(se.random_vec_norm())
+    se.test_orthogonality(se.random_vec_bin())
+    # se.test_orthogonality(se.random_vec_norm())
 
     # Compute Green
-    # eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-    eta = se.random_vec_norm().to(torch.complex64)  # [Nrv, Ltau * Ly * Lx]
+    eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+    # eta = se.random_vec_norm().to(torch.complex64)  # [Nrv, Ltau * Ly * Lx]
     boson = hmc.boson
 
     se.set_eta_G_eta(boson, eta)
