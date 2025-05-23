@@ -116,9 +116,29 @@ class StochaticEstimator:
         self.hmc_sampler.bs = self.Nrv
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = 1
-        print("max_pcg_iter:", cnt)
-        print("err:", err)
+        print("max_pcg_iter:", cnt[:10])
+        print("err:", err[:10])
 
+    def G_delta_0(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        # Build augmented eta and G_eta
+        # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
+        eta_ext = torch.cat([eta, -eta], dim=1)
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        # Compute the two-point green's function
+        # Here, a = eta_ext, b = G_eta_ext
+        a = eta_ext
+        b = G_eta_ext
+
+        a_F = torch.fft.fft(a, dim=1, norm="ortho")
+        a_F_neg_k = self.fft_negate_k(a_F)
+        b_F = torch.fft.fft(b, dim=1, norm="ortho")
+
+        G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="ortho").mean(dim=0).view(2*self.Ltau, self.Ly, self.Lx)
+        return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
 
     def G_delta_0_G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -142,22 +162,39 @@ class StochaticEstimator:
         # To get a_F(-k), use torch.flip on the frequency dimension
         a_F_neg_k = self.fft_negate_k(a_F)
 
-        ks = torch.fft.fftfreq(a_F.shape[1]).view(1, -1)  # [Ltau * Ly * Lx]
-        ks_neg = self.fft_negate_k(ks)
-        dbstop = 1
+        # ks = torch.fft.fftfreq(a_F.shape[1]).view(1, -1)  # [Ltau * Ly * Lx]
+        # ks_neg = self.fft_negate_k(ks)
+        # dbstop = 1
 
         b_F = torch.fft.fft(b, dim=1, norm="ortho")
         G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="ortho").mean(dim=(0)).view(2*self.Ltau, self.Ly, self.Lx)
 
-        return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)
-
-        # Compute the four-point green's function
-        # G_delta_0_G_delta_0  
+        return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
     def G_groundtruth(self, boson):
-        M, _ = self.hmc_sampler.get_M(boson)
-        M_inv = torch.linalg.inv(M)
-        return M_inv  # [Lx*Ly*Ltau, Lx*Ly*Ltau]
+        M, _ = self.hmc_sampler.get_M_batch(boson)
+        M_inv = torch.linalg.inv(M[0])
+        return M_inv  # [Ltau * Ly * Lx, Ltau * Ly * Lx]
+
+    def G_delta_0_groundtruth(self, M_inv):
+        """
+        Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
+        result[i, d] = G[idx, i], with periodic boundary conditions.
+
+        Returns:
+            result: [N, N] tensor, result[i, d] = G[(i+d)%N, i]
+        """
+        G = M_inv  # [N, N]: N = Ltau * Ly * Lx
+        N = G.shape[0]
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                x, y, tau = i // (self.Ly * self.Ltau), (i // self.Ltau) % self.Ly, i % self.Ltau
+                dx, dy, dtau = d // (self.Ly * self.Ltau), (d // self.Ltau) % self.Ly, d % self.Ltau
+                idx = ((x + dx) % self.Lx) * (self.Ly * self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((tau + dtau) % self.Ltau)
+                result[i, d] = G[idx, i]
+        G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
     def G_delta_0_G_delta_0_groundtruth(self, M_inv):
         """
@@ -182,8 +219,8 @@ class StochaticEstimator:
 
                 result[i, d] = G[idx, i] * G[idx, i]
 
-        GG = result.mean(dim=0) # [Lx * Ly * Ltau]
-        return GG.view(self.Lx, self.Ly, self.Ltau)  # [Ltau, Ly, Lx]
+        GG = result.mean(dim=0) # [Ltau * Ly * Lx]
+        return GG.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
 
 if __name__ == "__main__":  
@@ -197,7 +234,7 @@ if __name__ == "__main__":
 
     se = StochaticEstimator(hmc)
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
-    se.Nrv = 500  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
     # se.test_orthogonality(se.random_vec_bin())
     se.test_orthogonality(se.random_vec_norm())
@@ -208,23 +245,27 @@ if __name__ == "__main__":
     boson = hmc.boson
 
     se.set_eta_G_eta(boson, eta)
-    G1 = se.G_delta_0_G_delta_0()
+    GG_stoch = se.G_delta_0_G_delta_0()
+    G_stoch = se.G_delta_0()
 
     dbstop = 1
 
     # Benchmark with direct inverse of M(boson)
-    G = se.G_groundtruth(boson)
-    G1_gt = se.G_delta_0_G_delta_0_groundtruth(G)
+    G_gt = se.G_groundtruth(boson)
+    GG_gt = se.G_delta_0_G_delta_0_groundtruth(G_gt)
 
     # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=1e-2)
 
-    G1_gt = G1_gt.real
-    G1_gt[G1_gt.abs() < 1e-3] = 0
+    GG_gt = GG_gt.real
+    GG_gt[GG_gt.abs() < 1e-3] = 0
 
-    G1 = G1.real
+    G_gt = G_gt.real
+    G_gt[G_gt.abs() < 1e-3] = 0
+
+    G1 = G_stoch.real
     G1[G1.abs() < 1e-3] = 0
 
-    torch.testing.assert_close(G1, G1_gt, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G1, GG_gt, rtol=1e-2, atol=1e-2)
     
 
 
