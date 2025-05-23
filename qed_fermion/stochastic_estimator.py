@@ -95,27 +95,28 @@ class StochaticEstimator:
         dbstop = 1
 
 
-    def four_point_green_sample(self, boson):
+    def set_eta_G_eta(self, boson, eta):
         """
         Compute the four-point green's function
 
         boson: [bs=1, 2, Lx, Ly, Ltau]
+        eta: [Nrv, Ltau * Ly * Lx]
         """
         # Compute the four-point green's function
         # G_ij ~ (G eta)_i eta_j
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
-        boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1).repeat(self.Nrv, 1)  # [Nrv, Lx * Ly * Ltau]
+        self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
-        self.eta = self.random_vec_bin()  # [Nrv, Lx * Ly * Ltau]
-        
-        psudo_fermion = _C.mh_vec(boson, self.eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
+        boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
+
+        psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
 
         self.G_eta = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson, None)  # [Nrv, Ltau * Ly * Lx]
 
 
     def G_delta_0_G_delta_0(self):
-        eta = self.eta
-        G_eta = self.G_eta
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
         # Build augmented eta and G_eta
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
@@ -124,6 +125,10 @@ class StochaticEstimator:
 
         # Compute the four-point green's function
         # G_delta_0_G_delta_0
+        # Get all unique pairs (s, s_prime) with s < s_prime
+        N = eta_ext.shape[0]
+        s, s_prime = torch.triu_indices(N, N, offset=1)
+
         a = eta_ext[s] * eta_ext[s_prime]
         b = G_eta_ext[s] * G_eta_ext[s_prime]
 
@@ -143,14 +148,24 @@ class StochaticEstimator:
 
 
 
-
 if __name__ == "__main__":  
     hmc = HmcSampler()
+    hmc.bs = 1
+    hmc.reset()
+
     se = StochaticEstimator(hmc)
     
-    se.test_orthogonality(se.random_vec_bin())
+    # se.test_orthogonality(se.random_vec_bin())
 
-    se.test_orthogonality(se.random_vec_norm())
+    # se.test_orthogonality(se.random_vec_norm())
+
+
+    eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+    se.set_eta_G_eta(hmc.boson, eta)
+    G1 = se.G_delta_0_G_delta_0()
+
+    dbstop = 1
+
 
     
 
