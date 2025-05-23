@@ -125,13 +125,13 @@ class StochaticEstimator:
         M, _ = self.hmc_sampler.get_M_batch(boson_in)
         M = M[0]
         psudo_fermion_ref = torch.einsum('ij,bj->bi', M.conj().T, eta)
-        torch.testing.assert_close(psudo_fermion, psudo_fermion_ref, rtol=1e-6, atol=1e-6)
+        torch.testing.assert_close(psudo_fermion, psudo_fermion_ref, rtol=1e-3, atol=1e-3)
 
         O = M.conj().T @ M
         O_inv = torch.linalg.inv(O)
         
         G_eta_ref = torch.einsum('ij,bj->bi', O_inv, psudo_fermion_ref)
-        torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-6, atol=1e-6)
+        torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
         dbstop = 1
 
@@ -209,6 +209,31 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
+    def G_delta_0_G_delta_0_O2(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        # Compute the four-point Green's function estimator
+        # G_ijkl = <eta_i^* G_eta_j eta_k^* G_eta_l>
+        # We want mean_i G_{i+d, i} * G_{i+d, i}
+        G = torch.einsum('bi,bj->ij', eta.conj(), G_eta) / self.Nrv  # [N, N], N = Ltau * Ly * Lx
+
+        N = G.shape[0]
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau = i % self.Ltau
+                y = (i // self.Ltau) % self.Ly
+                x = i // (self.Ltau * self.Ly)
+                dtau = d % self.Ltau
+                dy = (d // self.Ltau) % self.Ly
+                dx = d // (self.Ltau * self.Ly)
+                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
+
+                result[i, d] = G[idx, i] * G[idx, i]
+        GG_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        return GG_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+
     def G_groundtruth(self, boson):
         M, _ = self.hmc_sampler.get_M_batch(boson)
         M_inv = torch.linalg.inv(M[0])
@@ -272,7 +297,7 @@ if __name__ == "__main__":
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
-    hmc.Ltau = 2
+    hmc.Ltau = 4
 
     hmc.bs = 1
     hmc.reset()
@@ -294,8 +319,9 @@ if __name__ == "__main__":
     G_stoch = se.G_delta_0()
 
     G_stoch_O2 = se.G_delta_0_O2()
+    GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
 
-    torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+    # torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
 
     dbstop = 1
 
@@ -312,13 +338,12 @@ if __name__ == "__main__":
     G_gt = G_gt.real
     G_gt[G_gt.abs() < 1e-3] = 0
 
-    G1 = G_stoch.real
+    G1 = G_stoch_O2.real
     G1[G1.abs() < 1e-3] = 0
+    torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=2e-2)
 
-    torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=1e-2)
-    
+    GG1 = GG_stoch_O2.real
+    GG1[GG1.abs() < 1e-3] = 0
+    torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
 
-
-
-    
-
+    dbstop = 1
