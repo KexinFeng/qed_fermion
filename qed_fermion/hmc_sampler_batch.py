@@ -1866,14 +1866,14 @@ class HmcSampler(object):
         :param psi: [bs, Vs*Ltau]
 
         :return Ft: [bs, 2, Lx, Ly, Ltau]
-        :return xi: [bs, Lx*Ly*Ltau]
+        :return xi: [bs, Ltau*Ly*Lx]
         """
         # assert len(boson.shape) == 4 or boson.size(0) == 1
         # if len(boson.shape) == 5:
         #     boson = boson.squeeze(0)
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(self.bs, self.Ltau, -1)
 
-        xi_t, cg_converge_iter, r_err = self.Ot_inv_psi_fast(psi, boson, MhM)  # [bs, Lx*Ly*Ltau]
+        xi_t, cg_converge_iter, r_err = self.Ot_inv_psi_fast(psi, boson, MhM)  # [bs, Lx*Ly*Ltau] 
 
         Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
         xi_t = xi_t.view(self.bs, Ltau, Ly * Lx)
