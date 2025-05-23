@@ -8,6 +8,8 @@ from qed_fermion.hmc_sampler_batch import HmcSampler
 
 if torch.cuda.is_available():
     from qed_fermion import _C 
+import random
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -294,6 +296,11 @@ class StochaticEstimator:
 
 
 if __name__ == "__main__":  
+    # Set random seed for reproducibility
+    torch.manual_seed(42)
+    random.seed(42)
+    np.random.seed(42)
+
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
