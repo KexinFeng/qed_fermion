@@ -256,6 +256,7 @@ class StochaticEstimator:
                 dx = d // (Ltau2 * Ly)
                 
                 idx = ((tau + dtau) % Ltau2) + ((y + dy) % Ly) * Ltau2 + ((x + dx) % self.Lx) * (Ltau2 * Ly)
+                
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [2Ltau * Ly * Lx]
         return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
@@ -321,7 +322,7 @@ class StochaticEstimator:
         M, _ = self.hmc_sampler.get_M_batch(boson)
         M_inv = torch.linalg.inv(M[0])
         return M_inv  # [Ltau * Ly * Lx, Ltau * Ly * Lx]
-
+    
     def G_delta_0_groundtruth(self, M_inv):
         """
         Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
@@ -345,6 +346,44 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+    
+    def G_delta_0_groundtruth_ext(self, M_inv):
+        """
+        Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
+        result[i, d] = G[idx, i], with periodic boundary conditions.
+
+        Returns:
+            result: [N, N] tensor, result[i, d] = G[(i+d)%N, i]
+        """
+        G = M_inv  # [N, N]: N = Ltau * Ly * Lx
+        
+        Ltau2 = 2 * self.Ltau
+        Lx = self.Lx
+        Ly = self.Ly
+
+        # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
+        G = torch.cat([
+            torch.cat([G, -G], dim=1),
+            torch.cat([-G, G], dim=1)
+        ], dim=0)  # [2N, 2N]
+
+        N = G.shape[0]
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau = i % Ltau2
+                y = (i // Ltau2) % Ly
+                x = i // (Ltau2 * Ly)
+
+                dtau = d % Ltau2
+                dy = (d // Ltau2) % Ly
+                dx = d // (Ltau2 * Ly)
+
+                idx = ((tau + dtau) % Ltau2) + ((y + dy) % Ly) * Ltau2 + ((x + dx) % self.Lx) * (Ltau2 * Ly)
+
+                result[i, d] = G[idx, i] 
+        G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
     def G_delta_0_G_delta_0_groundtruth(self, M_inv):
         """
@@ -403,21 +442,22 @@ if __name__ == "__main__":
     boson = hmc.boson
 
     se.set_eta_G_eta(boson, eta)
-    G_gt = se.G_groundtruth(boson)
+    Gij_gt = se.G_groundtruth(boson)
 
     # Test Green
     G_stoch = se.G_delta_0()
     G_stoch_O2 = se.G_delta_0_O2()
-
     torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
-    G_gt = se.G_delta_0_groundtruth(G_gt)
+    
+    G_gt = se.G_delta_0_groundtruth(Gij_gt)
     torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=2e-2)
 
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()
     G_stoch_O2_ext = se.G_delta_0_O2_ext()
-    # torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
-    G_gt_ext = se.G_delta_0_groundtruth_ext(G_gt)
+    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    
+    G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
     torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
 
     dbstop = 1
