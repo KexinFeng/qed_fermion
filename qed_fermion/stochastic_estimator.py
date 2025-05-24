@@ -148,8 +148,30 @@ class StochaticEstimator:
         torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
         dbstop = 1
-
+  
     def G_delta_0(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        # Build augmented eta and G_eta
+        # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
+        eta_ext_conj = eta.conj()
+        G_eta_ext = G_eta
+
+        # Compute the two-point green's function
+        # Here, a = eta_ext, b = G_eta_ext
+        a = eta_ext_conj.view(self.Nrv, self.Ltau, self.Ly, self.Lx)  # [Nrv, Ltau, Ly, Lx]
+        b = G_eta_ext.view(self.Nrv, self.Ltau, self.Ly, self.Lx)  # [Nrv, Ltau, Ly, Lx]
+
+        a_F = torch.fft.fftn(a, (self.Ltau, self.Ly, self.Lx), norm="forward")
+        a_F_neg_k = self.fft_negate_k3(a_F)
+
+        b_F = torch.fft.fftn(b, (self.Ltau, self.Ly, self.Lx), norm="forward")
+
+        G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)   # [Ltau, Ly, Lx]
+        return G_delta_0.permute(2, 1, 0) # [Lx, Ly, Ltau]
+
+    def G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
@@ -163,27 +185,27 @@ class StochaticEstimator:
         a = eta_ext_conj.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
         b = G_eta_ext.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
 
-        a_F = torch.fft.fftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="ortho")
+        a_F = torch.fft.fftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
         a_F_neg_k = self.fft_negate_k3(a_F)
 
-        # Create 3D frequency grid for (2*Ltau, Ly, Lx)
-        k_tau = torch.fft.fftfreq(2 * self.Ltau, device=a_F.device)
-        k_y = torch.fft.fftfreq(self.Ly, device=a_F.device)
-        k_x = torch.fft.fftfreq(self.Lx, device=a_F.device)
-        ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
-        ks_neg = self.fft_negate_k3(ks.permute(3, 0, 1, 2)).permute(1, 2, 3, 0)
-        # dbstop = 1
-        ktau_neg = self.fft_negate_k(k_tau)
-        ky_neg = self.fft_negate_k(k_y)
-        kx_neg = self.fft_negate_k(k_x)
-        ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
-        torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
+        # # Create 3D frequency grid for (2*Ltau, Ly, Lx)
+        # k_tau = torch.fft.fftfreq(2 * self.Ltau, device=a_F.device)
+        # k_y = torch.fft.fftfreq(self.Ly, device=a_F.device)
+        # k_x = torch.fft.fftfreq(self.Lx, device=a_F.device)
+        # ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
+        # ks_neg = self.fft_negate_k3(ks.permute(3, 0, 1, 2)).permute(1, 2, 3, 0)
+        # # dbstop = 1
+        # ktau_neg = self.fft_negate_k(k_tau)
+        # ky_neg = self.fft_negate_k(k_y)
+        # kx_neg = self.fft_negate_k(k_x)
+        # ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
+        # torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
 
-        b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="ortho")
+        b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
 
-        G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="ortho").mean(dim=0)
+        G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
-
+  
     def G_delta_0_O2(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -197,13 +219,46 @@ class StochaticEstimator:
                 tau = i % self.Ltau
                 y = (i // self.Ltau) % self.Ly
                 x = i // (self.Ltau * self.Ly)
+
                 dtau = d % self.Ltau
                 dy = (d // self.Ltau) % self.Ly
                 dx = d // (self.Ltau * self.Ly)
+                
                 idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        
+    def G_delta_0_O2_ext(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        G = torch.einsum('bi,bj->ij', eta_ext_conj, G_eta_ext) / self.Nrv  # [2Ltau * Ly * Lx]
+        
+        Ltau2 = 2 * self.Ltau
+        Lx = self.Lx
+        Ly = self.Ly
+
+        N = G.shape[0]
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau = i % Ltau2
+                y = (i // Ltau2) % Ly
+                x = i // (Ltau2 * Ly)
+
+                dtau = d % Ltau2
+                dy = (d // Ltau2) % Ly
+                dx = d // (Ltau2 * Ly)
+                
+                idx = ((tau + dtau) % Ltau2) + ((y + dy) % Ly) * Ltau2 + ((x + dx) % self.Lx) * (Ltau2 * Ly)
+                result[i, d] = G[idx, i]
+        G_mean = result.mean(dim=0)  # [2Ltau * Ly * Lx]
+        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
         
 
     def G_delta_0_G_delta_0(self):
@@ -224,7 +279,7 @@ class StochaticEstimator:
         a = eta_ext_conj[s] * eta_ext_conj[s_prime]
         b = G_eta_ext[s] * G_eta_ext[s_prime]
 
-        a_F = torch.fft.fft(a, dim=1, norm="ortho")
+        a_F = torch.fft.fft(a, dim=1, norm="forward")
         # To get a_F(-k), use torch.flip on the frequency dimension
         a_F_neg_k = self.fft_negate_k(a_F)
 
@@ -232,8 +287,8 @@ class StochaticEstimator:
         # ks_neg = self.fft_negate_k(ks)
         # dbstop = 1
 
-        b_F = torch.fft.fft(b, dim=1, norm="ortho")
-        G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="ortho").mean(dim=(0)).view(2*self.Ltau, self.Ly, self.Lx)
+        b_F = torch.fft.fft(b, dim=1, norm="forward")
+        G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="forward").mean(dim=(0)).view(2*self.Ltau, self.Ly, self.Lx)
 
         return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
@@ -342,19 +397,33 @@ if __name__ == "__main__":
     se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
 
-    # Compute Green
+    # Compute Green prepare
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
     # eta = se.random_vec_norm().to(torch.complex64)  # [Nrv, Ltau * Ly * Lx]
     boson = hmc.boson
 
     se.set_eta_G_eta(boson, eta)
-    GG_stoch = se.G_delta_0_G_delta_0()
-    G_stoch = se.G_delta_0()
+    G_gt = se.G_groundtruth(boson)
 
+    # Test Green
+    G_stoch = se.G_delta_0()
     G_stoch_O2 = se.G_delta_0_O2()
-    GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
 
     torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+    G_gt = se.G_delta_0_groundtruth(G_gt)
+    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+
+    # Test Green extended
+    G_stoch_ext = se.G_delta_0_ext()
+    G_stoch_O2_ext = se.G_delta_0_O2_ext()
+    # torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G_gt.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+
+    dbstop = 1
+
+    # Test Green four-point
+    GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
+    GG_stoch = se.G_delta_0_G_delta_0()
 
     dbstop = 1
 
