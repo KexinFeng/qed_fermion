@@ -74,7 +74,7 @@ class StochaticEstimator:
 
     @staticmethod
     def fft_negate_k(a_F):
-        return torch.roll(a_F.flip(dims=[1]), shifts=1, dims=1)
+        return torch.roll(a_F.flip(dims=[-1]), shifts=1, dims=-1)
     
     @staticmethod
     def fft_negate_k3(a_F):
@@ -171,8 +171,13 @@ class StochaticEstimator:
         k_y = torch.fft.fftfreq(self.Ly, device=a_F.device)
         k_x = torch.fft.fftfreq(self.Lx, device=a_F.device)
         ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
-        ks_neg = self.fft_negate_k3(ks)
-        dbstop = 1
+        ks_neg = self.fft_negate_k3(ks.permute(3, 0, 1, 2)).permute(1, 2, 3, 0)
+        # dbstop = 1
+        ktau_neg = self.fft_negate_k(k_tau)
+        ky_neg = self.fft_negate_k(k_y)
+        kx_neg = self.fft_negate_k(k_x)
+        ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
+        torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
 
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="ortho")
 
@@ -349,7 +354,7 @@ if __name__ == "__main__":
     G_stoch_O2 = se.G_delta_0_O2()
     GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
 
-    # torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
 
     dbstop = 1
 
