@@ -17,6 +17,8 @@ BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 class DetSign:
+    # https://chatgpt.com/share/683166af-7dc0-8011-b7da-eec66d263eb2
+    
     def __init__(self, hmc_sampler):
         self.hmc = hmc_sampler
         self.green_four = None
