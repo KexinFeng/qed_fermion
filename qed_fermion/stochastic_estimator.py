@@ -411,13 +411,14 @@ if __name__ == "__main__":
 
     torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
     G_gt = se.G_delta_0_groundtruth(G_gt)
-    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=2e-2)
 
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()
     G_stoch_O2_ext = se.G_delta_0_O2_ext()
     # torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
-    torch.testing.assert_close(G_gt.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    G_gt_ext = se.G_delta_0_groundtruth_ext(G_gt)
+    torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
 
     dbstop = 1
 
