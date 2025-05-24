@@ -76,6 +76,18 @@ class StochaticEstimator:
     def fft_negate_k(a_F):
         return torch.roll(a_F.flip(dims=[1]), shifts=1, dims=1)
     
+    @staticmethod
+    def fft_negate_k3(a_F):
+        """
+        Negate the momentum for 3D FFT output tensor a_F.
+        Applies flip and roll on the last 3 dimensions.
+        """
+        # a_F: [..., T, Y, X]
+        a_F = a_F.flip(dims=[-3, -2, -1])
+        a_F = torch.roll(a_F, shifts=(1, 1, 1), dims=(-3, -2, -1))
+        return a_F
+
+
     def test_orthogonality(self, rand_vec):
         """
         Test the orthogonality of the random vectors
@@ -148,14 +160,23 @@ class StochaticEstimator:
 
         # Compute the two-point green's function
         # Here, a = eta_ext, b = G_eta_ext
-        a = eta_ext_conj
-        b = G_eta_ext
+        a = eta_ext_conj.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
+        b = G_eta_ext.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
 
-        a_F = torch.fft.fft(a, dim=1, norm="ortho")
-        a_F_neg_k = self.fft_negate_k(a_F)
-        b_F = torch.fft.fft(b, dim=1, norm="ortho")
+        a_F = torch.fft.fftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="ortho")
+        a_F_neg_k = self.fft_negate_k3(a_F)
 
-        G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="ortho").mean(dim=0).view(2*self.Ltau, self.Ly, self.Lx)
+        # Create 3D frequency grid for (2*Ltau, Ly, Lx)
+        k_tau = torch.fft.fftfreq(2 * self.Ltau, device=a_F.device)
+        k_y = torch.fft.fftfreq(self.Ly, device=a_F.device)
+        k_x = torch.fft.fftfreq(self.Lx, device=a_F.device)
+        ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
+        ks_neg = self.fft_negate_k3(ks)
+        dbstop = 1
+
+        b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="ortho")
+
+        G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="ortho").mean(dim=0)
         return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
 
     def G_delta_0_O2(self):
@@ -304,7 +325,7 @@ if __name__ == "__main__":
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
-    hmc.Ltau = 4
+    hmc.Ltau = 2
 
     hmc.bs = 1
     hmc.reset()
