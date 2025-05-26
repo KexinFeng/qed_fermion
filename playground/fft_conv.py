@@ -4,7 +4,7 @@ import sys
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.utils.util import ravel_multi_index
+from qed_fermion.utils.util import ravel_multi_index, unravel_index
 
 # Set random seed for reproducibility
 torch.manual_seed(42)
@@ -31,8 +31,8 @@ G = torch.einsum('bi,bj->ji', a_flat, b_flat) / a_flat.shape[0]  # [N, N]
 result = torch.empty((N, N), dtype=G.dtype, device=device)
 for i in range(N):
     for d in range(N):
-        tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
-        dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+        tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+        dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
 
         # idx = ((tau + dtau) % Ltau) + ((y + dy) % Ly) * Ltau + ((x + dx) % Lx) * (Ltau * Ly) # bug
         idx = ravel_multi_index(

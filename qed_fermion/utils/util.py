@@ -12,3 +12,15 @@ def ravel_multi_index(multi_index, shape):
         flat_index += multi_index[i] * stride
         stride *= shape[i]
     return flat_index
+
+def unravel_index(flat_index, shape):
+    """
+    flat_index: 1D tensor of flat indices
+    shape: tuple/list of ints
+    Returns: tuple of 1D tensors, as from torch.unravel_index
+    """
+    multi_index = []
+    for dim in reversed(shape):
+        multi_index.append(flat_index % dim)
+        flat_index //= dim
+    return tuple(reversed(multi_index))
