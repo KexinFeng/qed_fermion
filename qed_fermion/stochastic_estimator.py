@@ -150,7 +150,7 @@ class StochaticEstimator:
         dbstop = 1
   
 
-    def test_fourier(self, device):
+    def test_fft_negate_k3(self, device):
         # Create 3D frequency grid for (2*Ltau, Ly, Lx)
         k_tau = torch.fft.fftfreq(2 * self.Ltau, device=device)
         k_y = torch.fft.fftfreq(self.Ly, device=device)
@@ -163,6 +163,7 @@ class StochaticEstimator:
         kx_neg = self.fft_negate_k(k_x)
         ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
         torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
+
 
     def G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -185,6 +186,25 @@ class StochaticEstimator:
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)   # [Ltau, Ly, Lx]
         return G_delta_0.permute(2, 1, 0) # [Lx, Ly, Ltau]
+
+
+    def G_delta_0_numpy(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        a = eta.conj().cpu().numpy().reshape(self.Nrv, self.Ltau, self.Ly, self.Lx)
+        b = G_eta.cpu().numpy().reshape(self.Nrv, self.Ltau, self.Ly, self.Lx)
+
+        # FFT
+        a_F = np.fft.fftn(a, axes=(-3, -2, -1), norm="forward")
+        # Negate k: flip and roll on last 3 dims
+        a_F_neg_k = np.roll(np.flip(a_F, axis=(-3, -2, -1)), shift=1, axis=(-3, -2, -1))
+        b_F = np.fft.fftn(b, axes=(-3, -2, -1), norm="forward")
+
+        G_delta_0 = np.fft.ifftn(a_F_neg_k * b_F, axes=(-3, -2, -1), norm="forward").mean(axis=0)  # [Ltau, Ly, Lx]
+        G_delta_0 = np.transpose(G_delta_0, (2, 1, 0))  # [Lx, Ly, Ltau]
+        return torch.from_numpy(G_delta_0).to(self.eta.device)
+    
 
     def G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -229,7 +249,8 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
-        
+
+
     def G_delta_0_O2_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -262,7 +283,6 @@ class StochaticEstimator:
         G_mean = result.mean(dim=0)  # [2Ltau * Ly * Lx]
         return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
         
-
     def G_delta_0_G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
