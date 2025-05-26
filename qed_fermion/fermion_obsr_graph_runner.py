@@ -16,7 +16,7 @@ class FermionObsrGraphRunner:
         graph_memory_pool=None,
         n_warmups=2
     ):
-        """Capture the force_f_fast function execution as a CUDA graph."""
+        """Capture the get_fermion_obsr function execution as a CUDA graph."""
         input_buffers = {
             "bosons": bosons,
             "eta": eta
@@ -25,6 +25,9 @@ class FermionObsrGraphRunner:
         self.hmc_sampler.max_iter = max_iter
         
         # Warm up
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+
         s = torch.cuda.Stream()
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
@@ -38,6 +41,9 @@ class FermionObsrGraphRunner:
 
         torch.cuda.current_stream().wait_stream(s)
         
+        # Memory
+        start_mem = torch.cuda.memory_allocated()
+
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
@@ -45,10 +51,14 @@ class FermionObsrGraphRunner:
                 input_buffers['bosons'],
                 input_buffers['eta']
             )
+
+        torch.cuda.synchronize()
+        end_mem = torch.cuda.memory_allocated()
+        graph_footage = end_mem - start_mem
+        print(f"get_fermion_obsr CUDA Graph memory footage: {graph_footage / 1024**2:.2f} MB")
     
         self.graph = graph
         self.input_buffers = input_buffers
-        # self.output_buffers['Ft'] = tmp
         self.output_buffers = static_outputs
         
         return graph.pool()

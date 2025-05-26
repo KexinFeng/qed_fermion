@@ -2656,6 +2656,8 @@ class HmcSampler(object):
             self.initialize_force_graph()
 
         if torch.cuda.is_available():
+            # Warm up and clear memory
+            torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
 
         # Measure

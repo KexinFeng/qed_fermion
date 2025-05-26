@@ -25,6 +25,9 @@ class ForceGraphRunner:
         self.hmc_sampler.max_iter = max_iter
         
         # Warm up
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+
         s = torch.cuda.Stream()
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
@@ -39,6 +42,9 @@ class ForceGraphRunner:
 
         torch.cuda.current_stream().wait_stream(s)
         
+        # Memory
+        start_mem = torch.cuda.memory_allocated()
+
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
@@ -47,7 +53,12 @@ class ForceGraphRunner:
                 input_buffers['boson'],
                 None
             )
-        
+
+        torch.cuda.synchronize()
+        end_mem = torch.cuda.memory_allocated()
+        graph_footage = end_mem - start_mem
+        print(f"force_f_fast CUDA Graph memory footage: {graph_footage / 1024**2:.2f} MB")
+    
         self.graph = graph
         self.input_buffers = input_buffers
         # self.output_buffers['Ft'] = tmp
