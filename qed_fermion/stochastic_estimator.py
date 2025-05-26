@@ -166,6 +166,7 @@ class StochaticEstimator:
         ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
         torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=5e-2)
 
+    # -------- FFT methods --------
     def G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -612,11 +613,15 @@ class StochaticEstimator:
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
         return GG.view(Ltau, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
+    # -------- Fermionic obs methods --------
+    def spsm(self):
+        pass
 
-if __name__ == "__main__":  
-    # Set random seed for reproducibility
-    torch.manual_seed(42)
+    def szsz(self):
+        pass
 
+
+def test_green_functions():
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
@@ -652,7 +657,6 @@ if __name__ == "__main__":
     G_gt = se.G_delta_0_groundtruth(Gij_gt)
     torch.testing.assert_close(G_gt.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
 
-
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()
     G_stoch_primitive_ext = se.G_delta_0_primitive_ext()
@@ -687,3 +691,12 @@ if __name__ == "__main__":
  
 
     print("✅ All assertions pass!")
+
+
+if __name__ == "__main__":  
+    # Set random seed for reproducibility
+    torch.manual_seed(42)
+
+    test_green_functions()
+
+    
