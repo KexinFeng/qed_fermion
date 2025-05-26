@@ -112,7 +112,7 @@ class StochaticEstimator:
         print("Max absolute difference from orthogonality (atol):", atol.item())
         return atol
 
-    def set_eta_G_eta(self, boson, eta):
+    def set_eta_G_eta0(self, boson, eta):
         """
         Compute the four-point green's function
 
@@ -150,6 +150,23 @@ class StochaticEstimator:
 
         dbstop = 1
   
+    def set_eta_G_eta(self, boson, eta):
+        Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
+        N = Lx * Ly * Ltau
+        shape = (Ltau, Ly, Lx)
+
+        device = 'cpu' if not torch.cuda.is_available() else 'cuda'
+
+        # Generate sample inputs
+        Nrv = self.Nrv
+        a = torch.randn((Nrv,) + shape, dtype=torch.cfloat, device=device)  # [1, Ltau, Ly, Lx]
+        b = torch.randn((Nrv,) + shape, dtype=torch.cfloat, device=device)
+
+        # Flatten: [1, Ltau, Ly, Lx] -> [1, N]
+        a_flat = a.reshape(Nrv, -1)
+        b_flat = b.reshape(Nrv, -1)
+        self.eta = a_flat.conj()
+        self.G_eta = b_flat
 
     def test_fft_negate_k3(self):
         device = self.device
@@ -191,24 +208,6 @@ class StochaticEstimator:
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)   # [Ltau, Ly, Lx]
         return G_delta_0.permute(2, 1, 0) # [Lx, Ly, Ltau]
 
-
-    def G_delta_0_numpy(self):
-        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
-
-        a = eta.conj().cpu().numpy().reshape(self.Nrv, self.Ltau, self.Ly, self.Lx)
-        b = G_eta.cpu().numpy().reshape(self.Nrv, self.Ltau, self.Ly, self.Lx)
-
-        # FFT
-        a_F = np.fft.fftn(a, axes=(-3, -2, -1), norm="forward")
-        # Negate k: flip and roll on last 3 dims
-        a_F_neg_k = np.roll(np.flip(a_F, axis=(-3, -2, -1)), shift=1, axis=(-3, -2, -1))
-        b_F = np.fft.fftn(b, axes=(-3, -2, -1), norm="forward")
-
-        G_delta_0 = np.fft.ifftn(a_F_neg_k * b_F, axes=(-3, -2, -1), norm="forward").mean(axis=0)  # [Ltau, Ly, Lx]
-        G_delta_0 = np.transpose(G_delta_0, (2, 1, 0))  # [Lx, Ly, Ltau]
-        return torch.from_numpy(G_delta_0).to(self.eta.device).to(self.eta.dtype)  # Convert back to torch tensor
-    
 
     def G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -444,8 +443,6 @@ class StochaticEstimator:
 if __name__ == "__main__":  
     # Set random seed for reproducibility
     torch.manual_seed(42)
-    random.seed(42)
-    np.random.seed(42)
 
     hmc = HmcSampler()
     hmc.Lx = 2
@@ -457,7 +454,7 @@ if __name__ == "__main__":
 
     se = StochaticEstimator(hmc)
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
-    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 1  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
     se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
@@ -481,6 +478,11 @@ if __name__ == "__main__":
     
     G_gt = se.G_delta_0_groundtruth(Gij_gt)
     torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=2e-2)
+
+
+
+
+
 
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()

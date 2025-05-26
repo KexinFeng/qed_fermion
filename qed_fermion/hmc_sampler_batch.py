@@ -1020,9 +1020,10 @@ class HmcSampler(object):
         Draw psudo_fermion psi = M(x0)'R
         :return: [bs, Ltau * Ly * Lx] gaussian tensor
         """
-        R_real = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        R_imag = 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        return (R_real + R_imag).to(dtype=cdtype)
+        # R_real = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
+        # R_imag = 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
+        # return (R_real + R_imag).to(dtype=cdtype)
+        return torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device, dtype=cdtype) / math.sqrt(2)
 
 
     def sin_curl_greens_function_batch(self, boson):
