@@ -200,76 +200,75 @@ class StochaticEstimator:
         a = eta_ext_conj.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
         b = G_eta_ext.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
 
-        # a_F = torch.fft.fftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
-        # a_F_neg_k = self.fft_negate_k3(a_F)
         a_F_neg_k = torch.fft.ifftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="backward")
-
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
 
     def G_delta_0_G_delta_0(self):
-        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        eta_conj = self.eta.conj()  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
-        # Build augmented eta and G_eta
-        # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
-        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
-        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
-
-        # Compute the four-point green's function
-        # G_delta_0_G_delta_0
         # Get all unique pairs (s, s_prime) with s < s_prime
-        N = eta_ext_conj.shape[0]
+        N = eta_conj.shape[0]
         s, s_prime = torch.triu_indices(N, N, offset=1)
+        a = eta_conj[s] * eta_conj[s_prime]
+        b = G_eta[s] * G_eta[s_prime]
 
-        a = eta_ext_conj[s] * eta_ext_conj[s_prime]
-        b = G_eta_ext[s] * G_eta_ext[s_prime]
+        a = a.view(-1, self.Ltau, self.Ly, self.Lx)  # [N, Ltau, Ly, Lx]
+        b = b.view(-1, self.Ltau, self.Ly, self.Lx)  # [N, Ltau, Ly, Lx]
 
-        a_F = torch.fft.fft(a, dim=1, norm="forward")
-        # To get a_F(-k), use torch.flip on the frequency dimension
-        a_F_neg_k = self.fft_negate_k(a_F)
+        a_F_neg_k = torch.fft.ifftn(a, (self.Ltau, self.Ly, self.Lx), norm="backward")
+        b_F = torch.fft.fftn(b, (self.Ltau, self.Ly, self.Lx), norm="forward")
+        G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F,  (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
-        # ks = torch.fft.fftfreq(a_F.shape[1]).view(1, -1)  # [Ltau * Ly * Lx]
-        # ks_neg = self.fft_negate_k(ks)
-        # dbstop = 1
-
-        b_F = torch.fft.fft(b, dim=1, norm="forward")
-        G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="forward").mean(dim=(0)).view(2*self.Ltau, self.Ly, self.Lx)
-
-        return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_delta_0_G_delta_0.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
     def G_delta_0_G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
-        # Build augmented eta and G_eta
-        # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
 
-        # Compute the four-point green's function
-        # G_delta_0_G_delta_0
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_ext_conj.shape[0]
         s, s_prime = torch.triu_indices(N, N, offset=1)
-
         a = eta_ext_conj[s] * eta_ext_conj[s_prime]
         b = G_eta_ext[s] * G_eta_ext[s_prime]
 
         a = a.view(-1, 2*self.Ltau, self.Ly, self.Lx)  # [N, 2Ltau, Ly, Lx]
         b = b.view(-1, 2*self.Ltau, self.Ly, self.Lx)  # [N, 2Ltau, Ly, Lx]
 
-        # a_F = torch.fft.fft(a, dim=1, norm="forward")
-        # # To get a_F(-k), use torch.flip on the frequency dimension
-        # a_F_neg_k = self.fft_negate_k(a_F)
         a_F_neg_k = torch.fft.ifftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="backward")
+        b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
+        G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
-        b_F = torch.fft.fft(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
-        G_delta_0_G_delta_0 = torch.fft.ifft(a_F_neg_k * b_F, dim=1, norm="forward").mean(dim=(0)).view(2*self.Ltau, self.Ly, self.Lx)
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
-        return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+    # def G_delta_delta_G_0_0_ext(self):
+    #     eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+    #     G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+    #     eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
+    #     G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+    #     # Get all unique pairs (s, s_prime) with s < s_prime
+    #     N = eta_ext_conj.shape[0]
+    #     s, s_prime = torch.triu_indices(N, N, offset=1)
+
+    #     a = eta_ext_conj[s] * G_eta_ext[s]
+    #     b = eta_ext_conj[s_prime] * G_eta_ext[s_prime]
+
+    #     a = a.view(-1, 2*self.Ltau, self.Ly, self.Lx)  # [N, 2Ltau, Ly, Lx]
+    #     b = b.view(-1, 2*self.Ltau, self.Ly, self.Lx)  # [N, 2Ltau, Ly, Lx]
+
+    #     a_F_neg_k = torch.fft.ifftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="backward")
+    #     b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
+    #     G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
+
+    #     return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
     # -------- Primitive methods --------
     def G_delta_0_primitive(self):
@@ -351,6 +350,35 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i] * G[idx, i]
         GG_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return GG_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+
+    def G_delta_0_G_delta_0_primitive_ext(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_ext = torch.cat([eta, -eta], dim=1)
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        # Compute the four-point Green's function estimator
+        # G_ijkl = <eta_i^* G_eta_j eta_k^* G_eta_l>
+        # We want mean_i G_{i+d, i} * G_{i+d, i}
+        G = torch.einsum('bi,bj->ji', eta_ext.conj(), G_eta_ext) / self.Nrv  # [N, N], N = Ltau * Ly * Lx
+
+        N = G.shape[0]
+        Ltau, Ly, Lx = 2*self.Ltau, self.Ly, self.Lx
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+                dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
+
+                result[i, d] = G[idx, i] * G[idx, i]
+        GG_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        return GG_mean.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
     # -------- Ground truth methods --------
     def G_groundtruth(self, boson):
@@ -487,6 +515,43 @@ class StochaticEstimator:
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
         return GG.view(Ltau, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
+    # def G_delta_delta_G_0_0_groundtruth_ext(self, M_inv):
+    #     """
+    #     Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
+    #     result[i, d] = G[i+d, i] * G[i+d, i], with periodic boundary conditions.
+
+    #     Returns:
+    #         result: [N, N] tensor, result[i, d] = G[(i+d)%N, i] * G[(i+d)%N, i]
+    #     """
+
+    #     # Compute the four-point green's function using the ground truth
+    #     # G_delta_0_G_delta_0 = mean_i G_{i+d, i} G_{i+d, i}
+    #     G = M_inv # [N, N]
+
+    #     # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
+    #     G = torch.cat([
+    #         torch.cat([G, -G], dim=1),
+    #         torch.cat([-G, G], dim=1)
+    #     ], dim=0)  # [2N, 2N]
+
+    #     N = G.shape[0]
+    #     Ltau, Ly, Lx = 2 * self.Ltau, self.Ly, self.Lx
+    #     result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+    #     for i in range(N):
+    #         for d in range(N):
+    #             tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+    #             dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+
+    #             idx = ravel_multi_index(
+    #                 ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+    #                 (Ltau, Ly, Lx)
+    #             )
+
+    #             result[i, d] = G[idx, idx] * G[i, i]
+
+    #     GG = result.mean(dim=0) # [Ltau * Ly * Lx]
+    #     return GG.view(Ltau, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+
 
 if __name__ == "__main__":  
     # Set random seed for reproducibility
@@ -519,53 +584,35 @@ if __name__ == "__main__":
 
     # Test Green
     G_stoch = se.G_delta_0()
-    G_stoch_O2 = se.G_delta_0_primitive()
-    torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=5e-2)
+    G_stoch_primitive = se.G_delta_0_primitive()
+    torch.testing.assert_close(G_stoch.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
     
     G_gt = se.G_delta_0_groundtruth(Gij_gt)
-    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(G_gt.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
 
 
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()
-    G_stoch_O2_ext = se.G_delta_0_primitive_ext()
-    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
+    G_stoch_primitive_ext = se.G_delta_0_primitive_ext()
+    torch.testing.assert_close(G_stoch_ext.real, G_stoch_primitive_ext.real, rtol=1e-2, atol=5e-2)
 
     G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
-    torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
-
-    dbstop = 1
+    torch.testing.assert_close(G_gt_ext.real, G_stoch_primitive_ext.real, rtol=1e-2, atol=5e-2)
 
     # Test Green four-point
-    GG_stoch_O2 = se.G_delta_0_G_delta_0_primitive()
+    GG_stoch_primitive = se.G_delta_0_G_delta_0_primitive()
+    GG_gt = se.G_delta_0_G_delta_0_groundtruth(Gij_gt)
     GG_stoch = se.G_delta_0_G_delta_0()
+    torch.testing.assert_close(GG_stoch_primitive, GG_gt, rtol=1e-2, atol=2e-2)
+    torch.testing.assert_close(GG_stoch, GG_stoch_primitive, rtol=1e-2, atol=2e-2)
 
-    dbstop = 1
-
-    # Benchmark with direct inverse of M(boson)
-    G = se.G_groundtruth(boson)
-    GG_gt = se.G_delta_0_G_delta_0_groundtruth(G)
-    G_gt = se.G_delta_0_groundtruth(G)
-
-    # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=5e-2)
-
-    GG_gt = GG_gt.real
-    GG_gt[GG_gt.abs() < 1e-3] = 0
-
-    G_gt = G_gt.real
-    G_gt[G_gt.abs() < 1e-3] = 0
-
-    G1 = G_stoch_O2.real
-    G1[G1.abs() < 1e-3] = 0
-    torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=5e-2)
-
-    GG1 = GG_stoch_O2.real
-    GG1[GG1.abs() < 1e-3] = 0
-    torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
-
-    # Test Green four-point exted
+    # Test Green four-point GG_D0D0 extended
     GG_ext = se.G_delta_0_G_delta_0_ext()
+    GG_primitive_ext = se.G_delta_0_G_delta_0_primitive_ext()
     GG_gt_ext = se.G_delta_0_G_delta_0_groundtruth_ext(Gij_gt)
-    torch.testing.assert_close(GG_ext, GG_gt_ext, rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(GG_primitive_ext, GG_gt_ext, rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(GG_primitive_ext, GG_ext, rtol=1e-2, atol=5e-2)
 
-    print("✅ All implementations match!")
+    # Test Green four-point GG_DD00 extended
+
+    print("✅ All assertions pass!")
