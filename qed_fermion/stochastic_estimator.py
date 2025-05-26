@@ -234,8 +234,10 @@ class StochaticEstimator:
     def G_delta_0_O2(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        eta_conj = eta.conj()
+        G_eta = G_eta
 
-        G = torch.einsum('bi,bj->ji', eta.conj(), G_eta) / self.Nrv  # [Ltau * Ly * Lx]
+        G = torch.einsum('bi,bj->ji', eta_conj, G_eta) / self.Nrv  # [Ltau * Ly * Lx]
         
         N = G.shape[0]
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
