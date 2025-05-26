@@ -622,8 +622,11 @@ if __name__ == "__main__":
     hmc.Ly = 2
     hmc.Ltau = 4
 
-    hmc.bs = 1
+    hmc.bs = 2
     hmc.reset()
+    hmc.initialize_boson_pi_flux_matfree()
+    boson = hmc.boson[:1]
+    hmc.bs = 1
 
     se = StochaticEstimator(hmc)
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
@@ -637,7 +640,6 @@ if __name__ == "__main__":
     # Compute Green prepare
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
     # eta = se.random_vec_norm().to(torch.complex64)  # [Nrv, Ltau * Ly * Lx]
-    boson = hmc.boson
 
     se.set_eta_G_eta(boson, eta)
     Gij_gt = se.G_groundtruth(boson)
@@ -670,18 +672,18 @@ if __name__ == "__main__":
     GG_ext = se.G_delta_0_G_delta_0_ext()
     GG_primitive_ext = se.G_delta_0_G_delta_0_primitive_ext()
     GG_gt_ext = se.G_delta_0_G_delta_0_groundtruth_ext(Gij_gt)
-    torch.testing.assert_close(GG_primitive_ext, GG_gt_ext, rtol=1e-2, atol=5e-2)
-    torch.testing.assert_close(GG_primitive_ext, GG_ext, rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(GG_primitive_ext, GG_gt_ext, rtol=1e-2, atol=2e-2)
+    torch.testing.assert_close(GG_primitive_ext, GG_ext, rtol=1e-2, atol=2e-2)
 
     # Test Green four-point GG_DD00 extended
     GG_ext = se.G_delta_delta_G_0_0_ext()
     GG_gt_ext = se.G_delta_delta_G_0_0_groundtruth_ext(Gij_gt)
-    torch.testing.assert_close(GG_gt_ext, GG_ext, rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(GG_gt_ext, GG_ext, rtol=1e-2, atol=2e-2)
 
     # Test Green four-point GG_DD00 extended
     GG_ext = se.G_delta_0_G_0_delta_ext()
     GG_gt_ext = se.G_delta_0_G_0_delta_groundtruth_ext(Gij_gt)
-    torch.testing.assert_close(GG_gt_ext, GG_ext, rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(GG_gt_ext, GG_ext, rtol=1e-2, atol=2e-2)
  
 
     print("✅ All assertions pass!")

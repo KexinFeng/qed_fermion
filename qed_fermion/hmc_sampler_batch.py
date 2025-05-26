@@ -780,6 +780,24 @@ class HmcSampler(object):
         """
         self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs, device=device).view(-1, 1, 1, 1, 1)
 
+    def initialize_boson_pi_flux_matfree(self):
+        """
+        Initialize bosons with random values within each time slice; across the time dimensions, the values are same.
+
+        :return: None
+        """
+        # Construct staggered pi field directly
+        boson_stag = torch.zeros(1, 2, self.Lx, self.Ly, self.Ltau, device=device)
+        for x in range(self.Lx):
+            for y in range(self.Ly):
+                sign = (-1) ** (x + y)
+                boson_stag[:, 0, x, y, :] = sign * torch.pi / 4
+                boson_stag[:, 1, x, y, :] = -sign * torch.pi / 4
+
+        boson_gaussian_noise = torch.randn(self.bs - 1, 2, self.Lx, self.Ly, 1, device=device)
+        variance_levels = torch.linspace(0.02, 0.08, self.bs - 1, device=device).view(-1, 1, 1, 1, 1)
+        random_boson = boson_stag.repeat(self.bs - 1, 1, 1, 1, 1) + boson_gaussian_noise * variance_levels
+        self.boson = torch.cat([random_boson, boson_stag], dim=0)
 
     def initialize_boson(self):
         """
