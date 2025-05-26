@@ -163,8 +163,6 @@ class StochaticEstimator:
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
-        bs = self.boson.shape[0]
-
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
 
         psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
@@ -172,6 +170,7 @@ class StochaticEstimator:
         self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
+        
         print("max_pcg_iter:", cnt[:5])
         print("err:", err[:5])
 
@@ -693,16 +692,17 @@ class StochaticEstimator:
 
     def get_fermion_obsr(self, bosons, eta):
         """
+        bosons: [bs, 2, Ltau, Ly, Lx] tensor of boson fields
         Returns:
             spsm: [Lx, Ly, Ltau] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
             szsz: [Lx, Ly, Ltau] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
-        bs, Lx, Ly, Ltau = boson.shape
+        bs, _, Lx, Ly, Ltau = bosons.shape
         spsm = torch.zeros((bs, Lx, Ly, Ltau), dtype=torch.complex64, device=device)
         szsz = torch.zeros((bs, Lx, Ly, Ltau), dtype=torch.complex64, device=device)
 
         for b in range(bs):
-            boson = bosons[b]
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
             spsm[b] = self.spsm()
@@ -785,7 +785,7 @@ def test_green_functions():
     print("✅ All assertions pass!")
 
 
-def test_green_functions_bs():
+def test_fermion_obsr():
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
@@ -797,7 +797,6 @@ def test_green_functions_bs():
     bosons = hmc.boson
 
     se = StochaticEstimator(hmc)
-    se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
     se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
     # Compute Green prepare
@@ -810,9 +809,9 @@ if __name__ == "__main__":
     # Set random seed for reproducibility
     torch.manual_seed(42)
 
-    test_green_functions()
+    # test_green_functions()
     
-    test_green_functions_bs()
+    test_fermion_obsr()
 
 
     # hmc = HmcSampler()
