@@ -4,6 +4,7 @@ import sys
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index
 
 script_path = os.path.dirname(os.path.abspath(__file__))
@@ -29,25 +30,40 @@ class StochaticEstimator:
     # One method to estimate the four-point green's function: four_point_green
     # One method to compute the obs like spsm szsz, etc.
 
-    def __init__(self, hmc_sampler):
-        self.hmc_sampler = hmc_sampler
+    def __init__(self, hmc):
+        self.hmc_sampler = hmc
         self.Nrv = 10
         self.green_four = None
         self.green_two = None
 
-        self.Lx = hmc_sampler.Lx
-        self.Ly = hmc_sampler.Ly    
-        self.Ltau = hmc_sampler.Ltau
-        self.dtau = hmc_sampler.dtau
+        self.Lx = hmc.Lx
+        self.Ly = hmc.Ly    
+        self.Ltau = hmc.Ltau
+        self.dtau = hmc.dtau
 
-        self.Vs = hmc_sampler.Vs
+        self.Vs = hmc.Vs
 
-        self.use_cuda_graph = hmc_sampler
-        self.device = hmc_sampler.device
+        self.cuda_graph = hmc.cuda_graph
+        self.device = hmc.device
+        
+        self.graph_runner = FermionObsrGraphRunner(self)
+        self.graph_memory_pool = None
 
         # init
         self.hmc_sampler.reset_precon()
-    
+
+        # Capture
+        max_iter = 400
+        if self.cuda_graph:
+            dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
+            dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
+            self.graph_memory_pool = self.graph_runner.capture(dummy_bosons, 
+                                      dummy_eta, 
+                                      max_iter = max_iter,
+                                      graph_memory_pool=self.graph_memory_pool)
+        
+        pass
+
     def random_vec_bin(self):  
         """
         Generate Nrv iid random variables
@@ -170,7 +186,7 @@ class StochaticEstimator:
         self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
-        
+
         print("max_pcg_iter:", cnt[:5])
         print("err:", err[:5])
 
@@ -802,7 +818,10 @@ def test_fermion_obsr():
     # Compute Green prepare
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
 
-    obsr = se.get_fermion_obsr(bosons, eta)
+    if se.cuda_graph:
+        obsr = se.graph_runner(bosons, eta)
+    else:
+        obsr = se.get_fermion_obsr(bosons, eta)
 
 
 if __name__ == "__main__":  
