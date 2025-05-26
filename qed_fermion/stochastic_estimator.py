@@ -188,8 +188,8 @@ class StochaticEstimator:
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
 
-        print("max_pcg_iter:", cnt[:5])
-        print("err:", err[:5])
+        # print("max_pcg_iter:", cnt[:5])
+        # print("err:", err[:5])
 
   
     def test_fft_negate_k3(self):
@@ -804,9 +804,9 @@ def test_green_functions():
 
 def test_fermion_obsr():
     hmc = HmcSampler()
-    hmc.Lx = 2
-    hmc.Ly = 2
-    hmc.Ltau = 4
+    hmc.Lx = 6
+    hmc.Ly = 6
+    hmc.Ltau = 240
 
     hmc.bs = 3
     hmc.reset()
@@ -814,7 +814,7 @@ def test_fermion_obsr():
     bosons = hmc.boson
 
     se = StochaticEstimator(hmc)
-    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
     # Compute Green prepare
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
@@ -827,6 +827,8 @@ def test_fermion_obsr():
     obsr_ref = se.get_fermion_obsr(bosons, eta)
     torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
     
+    print("✅ All assertions pass!")
+
 
 if __name__ == "__main__":  
     # Set random seed for reproducibility

@@ -12,6 +12,7 @@
             "program": "${file}",
             "env": {
                 "debug": "1",
+                "cuda_graph": "1",
                 "CUDA_LAUNCH_BLOCKING": "1",
                 "Lx": "8",
                 "Ltau": "8",

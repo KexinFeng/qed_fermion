@@ -14,7 +14,7 @@ class FermionObsrGraphRunner:
         # cuda_graph control parameters
         max_iter,
         graph_memory_pool=None,
-        n_warmups=2
+        n_warmups=3
     ):
         """Capture the get_fermion_obsr function execution as a CUDA graph."""
         input_buffers = {
@@ -22,7 +22,7 @@ class FermionObsrGraphRunner:
             "eta": eta
         }
 
-        self.hmc_sampler.max_iter = max_iter
+        self.se.hmc_sampler.max_iter, max_iter_copy = max_iter, self.se.hmc_sampler.max_iter
         
         # Warm up
         torch.cuda.empty_cache()
@@ -60,7 +60,8 @@ class FermionObsrGraphRunner:
         self.graph = graph
         self.input_buffers = input_buffers
         self.output_buffers = static_outputs
-        
+
+        self.se.hmc_sampler.max_iter = max_iter_copy
         return graph.pool()
     
     def __call__(
