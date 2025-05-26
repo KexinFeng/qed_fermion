@@ -824,6 +824,9 @@ def test_fermion_obsr():
     else:
         obsr = se.get_fermion_obsr(bosons, eta)
 
+    obsr_ref = se.get_fermion_obsr(bosons, eta)
+    torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
+    
 
 if __name__ == "__main__":  
     # Set random seed for reproducibility
