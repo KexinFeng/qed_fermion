@@ -780,7 +780,7 @@ class HmcSampler(object):
         """
         self.boson = torch.randn(self.bs, 2, self.Lx, self.Ly, self.Ltau, device=device) * torch.linspace(0.1, 0.5, self.bs, device=device).view(-1, 1, 1, 1, 1)
 
-    def initialize_boson_pi_flux_matfree(self):
+    def initialize_boson_pi_flux_randn_matfree(self):
         """
         Initialize bosons with random values within each time slice; across the time dimensions, the values are same.
 

@@ -114,7 +114,7 @@ class StochaticEstimator:
         print("Max absolute difference from orthogonality (atol):", atol.item())
         return atol
 
-    def set_eta_G_eta(self, boson, eta):
+    def set_eta_G_eta_debug(self, boson, eta):
         """
         Compute the four-point green's function
 
@@ -132,9 +132,9 @@ class StochaticEstimator:
 
         psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
 
-        self.hmc_sampler.bs = self.Nrv
+        self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
-        self.hmc_sampler.bs = 1
+        self.hmc_sampler.bs = bs
         print("max_pcg_iter:", cnt[:5])
         print("err:", err[:5])
 
@@ -149,6 +149,31 @@ class StochaticEstimator:
         
         G_eta_ref = torch.einsum('ij,bj->bi', O_inv, psudo_fermion_ref)
         torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
+
+  
+    def set_eta_G_eta(self, boson, eta):
+        """
+        Compute the four-point green's function
+
+        boson: [bs=1, 2, Lx, Ly, Ltau]
+        eta: [Nrv, Ltau * Ly * Lx]
+        """
+        # Compute the four-point green's function
+        # G_ij ~ (G eta)_i eta_j
+        # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
+        self.eta = eta  # [Nrv, Ltau * Ly * Lx]
+
+        bs = self.boson.shape[0]
+
+        boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
+
+        psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
+
+        self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
+        self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
+        self.hmc_sampler.bs = bs
+        print("max_pcg_iter:", cnt[:5])
+        print("err:", err[:5])
 
   
     def test_fft_negate_k3(self):
@@ -615,10 +640,78 @@ class StochaticEstimator:
 
     # -------- Fermionic obs methods --------
     def spsm(self):
-        pass
+        # Observables
+        # !zspsm(imj) = zspsm(imj) + grupc(i,j)*grup(i,j)
+        # ! up-down not the same anymore
+        # zspsm(imj) = zspsm(imj) + chalf * ( grupc(i,j)*grdn(i,j) + grdnc(i,j)*grup(i,j) )
+        # zszsz(imj) = zszsz(imj) + chalf*chalf*( (grupc(i,i)-grdnc(i,i))*(grupc(j,j)-grdnc(j,j)) + ( grupc(i,j)*grup(i,j)+grdnc(i,j)*grdn(i,j) ) )
+
+        # Defs
+        # !grup (i,j) = < c_i c^+_j >
+        # !grupc (i,j) = < c^+_i c_j >
+
+        # ! get grupc
+        # do i = 1, ndim
+        #     do j = 1, ndim
+        #         grupc(j,i) = - grup(i,j)
+        #     end do
+        #     grupc(i,i) = grupc(i,i) + cone
+        # end do
+
+        # do i = 1,ndim
+        # nx_i = list(i,1)
+        # ny_i = list(i,2)
+        # xi = 1.d0
+        # if ( mod(nx_i,2) .ne. mod(ny_i,2) ) xi = -1.d0
+        # do j = 1,ndim
+        #     nx_j = list(j,1)
+        #     ny_j = list(j,2)
+        #     xj = 1.d0
+        #     if ( mod(nx_j,2) .ne. mod(ny_j,2) ) xj = -1.d0
+        #     grdn (i,j) = dcmplx(xi*xj, 0.d0)*dconjg ( grupc(i,j) )
+        #     grdnc(i,j) = dcmplx(xi*xj, 0.d0)*dconjg ( grup (i,j) )
+        # enddo
+        # enddo
+
+        """
+        zsp_i sm_j = <c^+_i c_j><c_i c^+_j> = (delta_ij  - <c_j c^+_i>)<c_i c^+_j>
+        = grupc(i, j) * grup(i, j) = (- grup(j, i) + delta_ij) * grup(i, j)
+        Delta = i - j
+        = - grup(0, D) * grup (D, 0) + grup(0, 0) * delta_{D, 0}
+        = - GG_D00D + G_D0 * delta_{D, 0}
+        """
+        spsm = -self.G_delta_0_G_0_delta_ext()
+        spsm[0, 0, 0] = spsm[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
+        return spsm
 
     def szsz(self):
-        pass
+        # zszsz(imj) = zszsz(imj) + chalf*chalf*( (grupc(i,i)-grdnc(i,i))*(grupc(j,j)-grdnc(j,j)) + ( grupc(i,j)*grup(i,j)+grdnc(i,j)*grdn(i,j) ) )
+        # -> 1/2 * (grupc(i,j) * grup(i,j)) = 1/2 * (- grup(j, i) + delta_ij) * grup(i, j)
+        szsz = -self.G_delta_0_G_0_delta_ext()
+        szsz[0, 0, 0] = szsz[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
+        return 0.5 * szsz
+
+    def get_fermion_obsr(self, bosons, eta):
+        """
+        Returns:
+            spsm: [Lx, Ly, Ltau] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            szsz: [Lx, Ly, Ltau] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+        """
+        bs, Lx, Ly, Ltau = boson.shape
+        spsm = torch.zeros((bs, Lx, Ly, Ltau), dtype=torch.complex64, device=device)
+        szsz = torch.zeros((bs, Lx, Ly, Ltau), dtype=torch.complex64, device=device)
+
+        for b in range(bs):
+            boson = bosons[b]
+
+            self.set_eta_G_eta(boson, eta)
+            spsm[b] = self.spsm()
+            szsz[b] = 0.5 * spsm[b]
+
+        obsr = {}
+        obsr['spsm'] = spsm
+        obsr['szsz'] = szsz
+        return obsr
 
 
 def test_green_functions():
@@ -627,10 +720,10 @@ def test_green_functions():
     hmc.Ly = 2
     hmc.Ltau = 4
 
-    hmc.bs = 2
+    hmc.bs = 3
     hmc.reset()
-    hmc.initialize_boson_pi_flux_matfree()
-    boson = hmc.boson[:1]
+    hmc.initialize_boson_pi_flux_randn_matfree()
+    boson = hmc.boson[1].unsqueeze(0)
     hmc.bs = 1
 
     se = StochaticEstimator(hmc)
@@ -639,14 +732,13 @@ def test_green_functions():
     
     se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
-
     se.test_fft_negate_k3()
 
     # Compute Green prepare
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
     # eta = se.random_vec_norm().to(torch.complex64)  # [Nrv, Ltau * Ly * Lx]
 
-    se.set_eta_G_eta(boson, eta)
+    se.set_eta_G_eta_debug(boson, eta)
     Gij_gt = se.G_groundtruth(boson)
 
     # Test Green
@@ -693,10 +785,51 @@ def test_green_functions():
     print("✅ All assertions pass!")
 
 
+def test_green_functions_bs():
+    hmc = HmcSampler()
+    hmc.Lx = 2
+    hmc.Ly = 2
+    hmc.Ltau = 4
+
+    hmc.bs = 3
+    hmc.reset()
+    hmc.initialize_boson_pi_flux_randn_matfree()
+    bosons = hmc.boson
+
+    se = StochaticEstimator(hmc)
+    se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
+    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    
+    # Compute Green prepare
+    eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+
+    obsr = se.get_fermion_obsr(bosons, eta)
+
+
 if __name__ == "__main__":  
     # Set random seed for reproducibility
     torch.manual_seed(42)
 
     test_green_functions()
-
     
+    test_green_functions_bs()
+
+
+    # hmc = HmcSampler()
+    # hmc.Lx = 2
+    # hmc.Ly = 2
+    # hmc.Ltau = 4
+
+    # hmc.bs = 3
+    # hmc.reset()
+    # hmc.initialize_boson_pi_flux_randn_matfree()
+    # boson = hmc.boson[1].unsqueeze(0)
+    # hmc.bs = 1
+
+    # se = StochaticEstimator(hmc)
+    # se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+
+    # # Compute Green prepare
+    # eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+    # se.set_eta_G_eta(boson, eta)
+
