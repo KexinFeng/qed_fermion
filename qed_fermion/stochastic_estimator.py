@@ -208,7 +208,7 @@ class StochaticEstimator:
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
 
-    def G_delta_0_O2(self):
+    def G_delta_0_primitive(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
         eta_conj = eta.conj()
@@ -232,7 +232,7 @@ class StochaticEstimator:
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
-    def G_delta_0_O2_ext(self):
+    def G_delta_0_primitive_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
@@ -293,7 +293,7 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
 
-    def G_delta_0_G_delta_0_O2(self):
+    def G_delta_0_G_delta_0_primitive(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
@@ -448,7 +448,7 @@ if __name__ == "__main__":
 
     # Test Green
     G_stoch = se.G_delta_0()
-    G_stoch_O2 = se.G_delta_0_O2()
+    G_stoch_O2 = se.G_delta_0_primitive()
     torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=5e-2)
     
     G_gt = se.G_delta_0_groundtruth(Gij_gt)
@@ -457,17 +457,16 @@ if __name__ == "__main__":
 
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()
-    G_stoch_O2_ext = se.G_delta_0_O2_ext()
-    
+    G_stoch_O2_ext = se.G_delta_0_primitive_ext()
+    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
+
     G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
     torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
-
-    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
 
     dbstop = 1
 
     # Test Green four-point
-    GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
+    GG_stoch_O2 = se.G_delta_0_G_delta_0_primitive()
     GG_stoch = se.G_delta_0_G_delta_0()
 
     dbstop = 1
@@ -493,4 +492,8 @@ if __name__ == "__main__":
     GG1[GG1.abs() < 1e-3] = 0
     torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
 
-    print("✅ Both implementations match!")
+    # Test Green four-point exted
+    
+
+
+    print("✅ All implementations match!")
