@@ -50,12 +50,15 @@ class StochaticEstimator:
         
         self.graph_runner = FermionObsrGraphRunner(self)
         self.graph_memory_pool = None
+        self.max_iter = 500
 
         # init
         self.hmc_sampler.reset_precon()
 
+    def init_cuda_graph(self):
+        hmc = self.hmc_sampler
         # Capture
-        max_iter = 500
+        max_iter = self.max_iter
         if self.cuda_graph:
             print("Initializing CUDA graph for get_fermion_obsr...")
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
@@ -256,7 +259,7 @@ class StochaticEstimator:
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_conj.shape[0]
-        s, s_prime = torch.triu_indices(N, N, offset=1)
+        s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
         a = eta_conj[s] * eta_conj[s_prime]
         b = G_eta[s] * G_eta[s_prime]
 
@@ -278,7 +281,7 @@ class StochaticEstimator:
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_ext_conj.shape[0]
-        s, s_prime = torch.triu_indices(N, N, offset=1)
+        s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
         a = eta_ext_conj[s] * eta_ext_conj[s_prime]
         b = G_eta_ext[s] * G_eta_ext[s_prime]
 
@@ -300,7 +303,7 @@ class StochaticEstimator:
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_ext_conj.shape[0]
-        s, s_prime = torch.triu_indices(N, N, offset=1)
+        s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
 
         a = eta_ext_conj[s] * G_eta_ext[s]
         b = eta_ext_conj[s_prime] * G_eta_ext[s_prime]
@@ -323,7 +326,7 @@ class StochaticEstimator:
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_ext_conj.shape[0]
-        s, s_prime = torch.triu_indices(N, N, offset=1)
+        s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
 
         a = eta_ext_conj[s] * G_eta_ext[s_prime]
         b = eta_ext_conj[s_prime] * G_eta_ext[s]
@@ -806,9 +809,9 @@ def test_green_functions():
 
 def test_fermion_obsr():
     hmc = HmcSampler()
-    hmc.Lx = 6
-    hmc.Ly = 6
-    hmc.Ltau = 240
+    hmc.Lx = 20
+    hmc.Ly = 20
+    hmc.Ltau = 800
 
     hmc.bs = 3
     hmc.reset()
@@ -816,8 +819,9 @@ def test_fermion_obsr():
     bosons = hmc.boson
 
     se = StochaticEstimator(hmc)
-    # se.Nrv = 3  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
-    
+    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.init_cuda_graph()
+
     # Compute Green prepare
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
 

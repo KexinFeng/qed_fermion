@@ -54,8 +54,10 @@ class FermionObsrGraphRunner:
 
         torch.cuda.synchronize()
         end_mem = torch.cuda.memory_allocated()
+        peak_mem = torch.cuda.max_memory_allocated()
         graph_footage = end_mem - start_mem
         print(f"get_fermion_obsr CUDA Graph memory footage: {graph_footage / 1024**2:.2f} MB")
+        print(f"get_fermion_obsr CUDA Graph peak memory: {peak_mem / 1024**2:.2f} MB")
     
         self.graph = graph
         self.input_buffers = input_buffers

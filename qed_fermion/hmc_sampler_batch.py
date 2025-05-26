@@ -3037,7 +3037,7 @@ if __name__ == '__main__':
     Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = float(os.environ.get("asym", '0.1'))
+    asym = float(os.environ.get("asym", '4'))
 
     Ltau = int(asym*Lx * 10) # dtau=0.1
     # Ltau = 10 # dtau=0.1
