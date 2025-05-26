@@ -259,7 +259,7 @@ class StochaticEstimator:
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_conj.shape[0]
-        s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
+        s, s_prime = torch.triu_indices(N, N, offset=1, device=self.eta.device)
         a = eta_conj[s] * eta_conj[s_prime]
         b = G_eta[s] * G_eta[s_prime]
 
