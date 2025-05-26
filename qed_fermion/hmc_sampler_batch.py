@@ -236,6 +236,7 @@ class HmcSampler(object):
 
         # Debug
         torch.manual_seed(0)
+        self.device = device
 
         # Initialization
         self.reset()
