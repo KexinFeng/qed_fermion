@@ -149,6 +149,21 @@ class StochaticEstimator:
 
         dbstop = 1
   
+
+    def test_fourier(self, device):
+        # Create 3D frequency grid for (2*Ltau, Ly, Lx)
+        k_tau = torch.fft.fftfreq(2 * self.Ltau, device=device)
+        k_y = torch.fft.fftfreq(self.Ly, device=device)
+        k_x = torch.fft.fftfreq(self.Lx, device=device)
+        ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
+        ks_neg = self.fft_negate_k3(ks.permute(3, 0, 1, 2)).permute(1, 2, 3, 0)
+        # dbstop = 1
+        ktau_neg = self.fft_negate_k(k_tau)
+        ky_neg = self.fft_negate_k(k_y)
+        kx_neg = self.fft_negate_k(k_x)
+        ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
+        torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
+
     def G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -175,7 +190,6 @@ class StochaticEstimator:
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
-        # Build augmented eta and G_eta
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
@@ -188,24 +202,11 @@ class StochaticEstimator:
         a_F = torch.fft.fftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
         a_F_neg_k = self.fft_negate_k3(a_F)
 
-        # # Create 3D frequency grid for (2*Ltau, Ly, Lx)
-        # k_tau = torch.fft.fftfreq(2 * self.Ltau, device=a_F.device)
-        # k_y = torch.fft.fftfreq(self.Ly, device=a_F.device)
-        # k_x = torch.fft.fftfreq(self.Lx, device=a_F.device)
-        # ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
-        # ks_neg = self.fft_negate_k3(ks.permute(3, 0, 1, 2)).permute(1, 2, 3, 0)
-        # # dbstop = 1
-        # ktau_neg = self.fft_negate_k(k_tau)
-        # ky_neg = self.fft_negate_k(k_y)
-        # kx_neg = self.fft_negate_k(k_x)
-        # ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
-        # torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
-
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
-  
+
     def G_delta_0_O2(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -424,7 +425,7 @@ if __name__ == "__main__":
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
-    hmc.Ltau = 2
+    hmc.Ltau = 4
 
     hmc.bs = 1
     hmc.reset()
@@ -455,10 +456,11 @@ if __name__ == "__main__":
     # Test Green extended
     G_stoch_ext = se.G_delta_0_ext()
     G_stoch_O2_ext = se.G_delta_0_O2_ext()
-    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
     
     G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
     torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+
+    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
 
     dbstop = 1
 
