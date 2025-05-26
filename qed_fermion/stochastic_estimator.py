@@ -58,10 +58,11 @@ class StochaticEstimator:
             print("Initializing CUDA graph for get_fermion_obsr...")
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
             dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
-            self.graph_memory_pool = self.graph_runner.capture(dummy_bosons, 
-                                      dummy_eta, 
-                                      max_iter = max_iter,
-                                      graph_memory_pool=self.graph_memory_pool)
+            self.graph_memory_pool = self.graph_runner.capture(
+                                        dummy_bosons, 
+                                        dummy_eta, 
+                                        max_iter = max_iter,
+                                        graph_memory_pool=self.graph_memory_pool)
             print(f"CUDA graph initialization complete")
 
     def random_vec_bin(self):  
