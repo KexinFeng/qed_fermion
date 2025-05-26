@@ -1,10 +1,16 @@
 import torch
+import os 
+import sys
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../')
+
+from qed_fermion.utils.util import ravel_multi_index
 
 # Set random seed for reproducibility
 torch.manual_seed(42)
 
 # Set dimensions
-Lx, Ly, Ltau = 4, 4, 4
+Lx, Ly, Ltau = 2, 4, 6
 N = Lx * Ly * Ltau
 shape = (Ltau, Ly, Lx)
 
@@ -25,15 +31,15 @@ G = torch.einsum('bi,bj->ji', a_flat, b_flat) / a_flat.shape[0]  # [N, N]
 result = torch.empty((N, N), dtype=G.dtype, device=device)
 for i in range(N):
     for d in range(N):
-        tau = i % Ltau
-        y = (i // Ltau) % Ly
-        x = i // (Ltau * Ly)
+        tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+        dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
 
-        dtau = d % Ltau
-        dy = (d // Ltau) % Ly
-        dx = d // (Ltau * Ly)
+        # idx = ((tau + dtau) % Ltau) + ((y + dy) % Ly) * Ltau + ((x + dx) % Lx) * (Ltau * Ly) # bug
+        idx = ravel_multi_index(
+            ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+            (Ltau, Ly, Lx)
+        )
 
-        idx = ((tau + dtau) % Ltau) + ((y + dy) % Ly) * Ltau + ((x + dx) % Lx) * (Ltau * Ly)
         result[i, d] = G[idx, i]
 G_mean_LHS = result.mean(dim=0).view(Ltau, Ly, Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
 

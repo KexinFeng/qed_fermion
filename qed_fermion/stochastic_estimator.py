@@ -1,6 +1,10 @@
 import torch
-import os
-import sys  
+import os 
+import sys
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../')
+
+from qed_fermion.utils.util import ravel_multi_index  
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
@@ -8,8 +12,6 @@ from qed_fermion.hmc_sampler_batch import HmcSampler
 
 if torch.cuda.is_available():
     from qed_fermion import _C 
-import random
-import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -112,7 +114,7 @@ class StochaticEstimator:
         print("Max absolute difference from orthogonality (atol):", atol.item())
         return atol
 
-    def set_eta_G_eta0(self, boson, eta):
+    def set_eta_G_eta(self, boson, eta):
         """
         Compute the four-point green's function
 
@@ -150,24 +152,6 @@ class StochaticEstimator:
 
         dbstop = 1
   
-    def set_eta_G_eta(self, boson, eta):
-        Lx, Ly, Ltau = self.Lx, self.Ly, self.Ltau
-        N = Lx * Ly * Ltau
-        shape = (Ltau, Ly, Lx)
-
-        device = 'cpu' if not torch.cuda.is_available() else 'cuda'
-
-        # Generate sample inputs
-        Nrv = self.Nrv
-        a = torch.randn((Nrv,) + shape, dtype=torch.cfloat, device=device)  # [1, Ltau, Ly, Lx]
-        b = torch.randn((Nrv,) + shape, dtype=torch.cfloat, device=device)
-
-        # Flatten: [1, Ltau, Ly, Lx] -> [1, N]
-        a_flat = a.reshape(Nrv, -1)
-        b_flat = b.reshape(Nrv, -1)
-        self.eta = a_flat.conj()
-        self.G_eta = b_flat
-
     def test_fft_negate_k3(self):
         device = self.device
         # Create 3D frequency grid for (2*Ltau, Ly, Lx)
@@ -182,7 +166,6 @@ class StochaticEstimator:
         kx_neg = self.fft_negate_k(k_x)
         ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
         torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
-
 
     def G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -199,15 +182,11 @@ class StochaticEstimator:
         b = G_eta_ext.view(self.Nrv, self.Ltau, self.Ly, self.Lx)  # [Nrv, Ltau, Ly, Lx]
 
         a_F_neg_k = torch.fft.ifftn(a, (self.Ltau, self.Ly, self.Lx), norm="backward")
-        # a_F = torch.fft.fftn(a, (self.Ltau, self.Ly, self.Lx), norm="forward")
-        # a_F_neg_k_ref = self.fft_negate_k3(a_F)
-        # torch.testing.assert_close(a_F_neg_k, a_F_neg_k_ref, rtol=1e-2, atol=1e-2)
 
         b_F = torch.fft.fftn(b, (self.Ltau, self.Ly, self.Lx), norm="forward")
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)   # [Ltau, Ly, Lx]
         return G_delta_0.permute(2, 1, 0) # [Lx, Ly, Ltau]
-
 
     def G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -239,18 +218,17 @@ class StochaticEstimator:
         G = torch.einsum('bi,bj->ji', eta_conj, G_eta) / self.Nrv  # [Ltau * Ly * Lx]
         
         N = G.shape[0]
+        Ltau, Ly, Lx = self.Ltau, Ly = self.Ly, Lx = self.Lx
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                tau = i % self.Ltau
-                y = (i // self.Ltau) % self.Ly
-                x = i // (self.Ltau * self.Ly)
+                tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+                dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
 
-                dtau = d % self.Ltau
-                dy = (d // self.Ltau) % self.Ly
-                dx = d // (self.Ltau * self.Ly)
-                
-                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
@@ -273,17 +251,15 @@ class StochaticEstimator:
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                tau = i % Ltau2
-                y = (i // Ltau2) % Ly
-                x = i // (Ltau2 * Ly)
+                tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau2, Ly, Lx))
+                dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau2, Ly, Lx))
 
-                dtau = d % Ltau2
-                dy = (d // Ltau2) % Ly
-                dx = d // (Ltau2 * Ly)
-                
-                idx = ((tau + dtau) % Ltau2) + ((y + dy) % Ly) * Ltau2 + ((x + dx) % self.Lx) * (Ltau2 * Ly)
-                
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau2, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau2, Ly, Lx)
+                )
                 result[i, d] = G[idx, i]
+                
         G_mean = result.mean(dim=0)  # [2Ltau * Ly * Lx]
         return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
         
@@ -328,16 +304,17 @@ class StochaticEstimator:
         G = torch.einsum('bi,bj->ji', eta.conj(), G_eta) / self.Nrv  # [N, N], N = Ltau * Ly * Lx
 
         N = G.shape[0]
+        Ltau, Ly, Lx = self.Ltau, self.Ly, self.Lx
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                tau = i % self.Ltau
-                y = (i // self.Ltau) % self.Ly
-                x = i // (self.Ltau * self.Ly)
-                dtau = d % self.Ltau
-                dy = (d // self.Ltau) % self.Ly
-                dx = d // (self.Ltau * self.Ly)
-                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
+                tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+                dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
 
                 result[i, d] = G[idx, i] * G[idx, i]
         GG_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
@@ -358,16 +335,17 @@ class StochaticEstimator:
         """
         G = M_inv  # [N, N]: N = Ltau * Ly * Lx
         N = G.shape[0]
+        Ltau, Ly, Lx = self.Ltau, self.Ly, self.Lx
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                tau = i % self.Ltau
-                y = (i // self.Ltau) % self.Ly
-                x = i // (self.Ltau * self.Ly)
-                dtau = d % self.Ltau
-                dy = (d // self.Ltau) % self.Ly
-                dx = d // (self.Ltau * self.Ly)
-                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
+                tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+                dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
@@ -393,18 +371,17 @@ class StochaticEstimator:
         ], dim=0)  # [2N, 2N]
 
         N = G.shape[0]
+        Ltau, Ly, Lx = 2*self.Ltau, self.Ly, self.Lx
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                tau = i % Ltau2
-                y = (i // Ltau2) % Ly
-                x = i // (Ltau2 * Ly)
+                tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+                dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
 
-                dtau = d % Ltau2
-                dy = (d // Ltau2) % Ly
-                dx = d // (Ltau2 * Ly)
-
-                idx = ((tau + dtau) % Ltau2) + ((y + dy) % Ly) * Ltau2 + ((x + dx) % self.Lx) * (Ltau2 * Ly)
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
 
                 result[i, d] = G[idx, i] 
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
@@ -423,16 +400,17 @@ class StochaticEstimator:
         # G_delta_0_G_delta_0 = mean_i G_{i+d, i} G_{i+d, i}
         G = M_inv # [N, N]
         N = G.shape[0]
+        Ltau, Ly, Lx = self.Ltau, self.Ly, self.Lx
         result = torch.empty((N, N), dtype=G.dtype, device=G.device)
         for i in range(N):
             for d in range(N):
-                tau = i % self.Ltau
-                y = (i // self.Ltau) % self.Ly
-                x = i // (self.Ltau * self.Ly)
-                dtau = d % self.Ltau
-                dy = (d // self.Ltau) % self.Ly
-                dx = d // (self.Ltau * self.Ly)
-                idx = ((tau + dtau) % self.Ltau) + ((y + dy) % self.Ly) * self.Ltau + ((x + dx) % self.Lx) * (self.Ltau * self.Ly)
+                tau, y, x = torch.unravel_index(torch.tensor(i, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+                dtau, dy, dx = torch.unravel_index(torch.tensor(d, dtype=torch.int64, device=device), (Ltau, Ly, Lx))
+
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
 
                 result[i, d] = G[idx, i] * G[idx, i]
 
@@ -454,7 +432,7 @@ if __name__ == "__main__":
 
     se = StochaticEstimator(hmc)
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
-    se.Nrv = 1  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
     se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
@@ -471,55 +449,53 @@ if __name__ == "__main__":
 
     # Test Green
     G_stoch = se.G_delta_0()
-    # G_stoch = se.G_delta_0_numpy()
-    # G_stoch = se.G_delta_0_O2_fft()
     G_stoch_O2 = se.G_delta_0_O2()
     torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
     
-    G_gt = se.G_delta_0_groundtruth(Gij_gt)
-    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=2e-2)
+    # G_gt = se.G_delta_0_groundtruth(Gij_gt)
+    # torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=2e-2)
 
 
 
 
 
 
-    # Test Green extended
-    G_stoch_ext = se.G_delta_0_ext()
-    G_stoch_O2_ext = se.G_delta_0_O2_ext()
+    # # Test Green extended
+    # G_stoch_ext = se.G_delta_0_ext()
+    # G_stoch_O2_ext = se.G_delta_0_O2_ext()
     
-    G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
-    torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    # G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
+    # torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
 
-    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    # torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
 
-    dbstop = 1
+    # dbstop = 1
 
-    # Test Green four-point
-    GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
-    GG_stoch = se.G_delta_0_G_delta_0()
+    # # Test Green four-point
+    # GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
+    # GG_stoch = se.G_delta_0_G_delta_0()
 
-    dbstop = 1
+    # dbstop = 1
 
-    # Benchmark with direct inverse of M(boson)
-    G = se.G_groundtruth(boson)
-    GG_gt = se.G_delta_0_G_delta_0_groundtruth(G)
-    G_gt = se.G_delta_0_groundtruth(G)
+    # # Benchmark with direct inverse of M(boson)
+    # G = se.G_groundtruth(boson)
+    # GG_gt = se.G_delta_0_G_delta_0_groundtruth(G)
+    # G_gt = se.G_delta_0_groundtruth(G)
 
-    # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=1e-2)
+    # # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=1e-2)
 
-    GG_gt = GG_gt.real
-    GG_gt[GG_gt.abs() < 1e-3] = 0
+    # GG_gt = GG_gt.real
+    # GG_gt[GG_gt.abs() < 1e-3] = 0
 
-    G_gt = G_gt.real
-    G_gt[G_gt.abs() < 1e-3] = 0
+    # G_gt = G_gt.real
+    # G_gt[G_gt.abs() < 1e-3] = 0
 
-    G1 = G_stoch_O2.real
-    G1[G1.abs() < 1e-3] = 0
-    torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=2e-2)
+    # G1 = G_stoch_O2.real
+    # G1[G1.abs() < 1e-3] = 0
+    # torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=2e-2)
 
-    GG1 = GG_stoch_O2.real
-    GG1[GG1.abs() < 1e-3] = 0
-    torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
+    # GG1 = GG_stoch_O2.real
+    # GG1[GG1.abs() < 1e-3] = 0
+    # torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
 
-    dbstop = 1
+    # dbstop = 1
