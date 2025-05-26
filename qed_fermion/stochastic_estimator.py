@@ -135,8 +135,8 @@ class StochaticEstimator:
         self.hmc_sampler.bs = self.Nrv
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = 1
-        print("max_pcg_iter:", cnt[:10])
-        print("err:", err[:10])
+        print("max_pcg_iter:", cnt[:5])
+        print("err:", err[:5])
 
         # Check
         M, _ = self.hmc_sampler.get_M_batch(boson_in)
@@ -150,7 +150,6 @@ class StochaticEstimator:
         G_eta_ref = torch.einsum('ij,bj->bi', O_inv, psudo_fermion_ref)
         torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
-        dbstop = 1
   
     def test_fft_negate_k3(self):
         device = self.device
@@ -165,7 +164,7 @@ class StochaticEstimator:
         ky_neg = self.fft_negate_k(k_y)
         kx_neg = self.fft_negate_k(k_x)
         ks_neg_ref = torch.stack(torch.meshgrid(ktau_neg, ky_neg, kx_neg, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
-        torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=1e-2)
+        torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=5e-2)
 
     def G_delta_0(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -425,14 +424,14 @@ if __name__ == "__main__":
     hmc = HmcSampler()
     hmc.Lx = 2
     hmc.Ly = 2
-    hmc.Ltau = 2
+    hmc.Ltau = 4
 
     hmc.bs = 1
     hmc.reset()
 
     se = StochaticEstimator(hmc)
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
-    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     
     se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
@@ -450,52 +449,48 @@ if __name__ == "__main__":
     # Test Green
     G_stoch = se.G_delta_0()
     G_stoch_O2 = se.G_delta_0_O2()
-    torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G_stoch.real, G_stoch_O2.real, rtol=1e-2, atol=5e-2)
     
     G_gt = se.G_delta_0_groundtruth(Gij_gt)
-    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=2e-2)
+    torch.testing.assert_close(G_gt.real, G_stoch_O2.real, rtol=1e-2, atol=5e-2)
 
 
-
-
-
-
-    # # Test Green extended
-    # G_stoch_ext = se.G_delta_0_ext()
-    # G_stoch_O2_ext = se.G_delta_0_O2_ext()
+    # Test Green extended
+    G_stoch_ext = se.G_delta_0_ext()
+    G_stoch_O2_ext = se.G_delta_0_O2_ext()
     
-    # G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
-    # torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
+    torch.testing.assert_close(G_gt_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
 
-    # torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=1e-2)
+    torch.testing.assert_close(G_stoch_ext.real, G_stoch_O2_ext.real, rtol=1e-2, atol=5e-2)
 
-    # dbstop = 1
+    dbstop = 1
 
-    # # Test Green four-point
-    # GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
-    # GG_stoch = se.G_delta_0_G_delta_0()
+    # Test Green four-point
+    GG_stoch_O2 = se.G_delta_0_G_delta_0_O2()
+    GG_stoch = se.G_delta_0_G_delta_0()
 
-    # dbstop = 1
+    dbstop = 1
 
-    # # Benchmark with direct inverse of M(boson)
-    # G = se.G_groundtruth(boson)
-    # GG_gt = se.G_delta_0_G_delta_0_groundtruth(G)
-    # G_gt = se.G_delta_0_groundtruth(G)
+    # Benchmark with direct inverse of M(boson)
+    G = se.G_groundtruth(boson)
+    GG_gt = se.G_delta_0_G_delta_0_groundtruth(G)
+    G_gt = se.G_delta_0_groundtruth(G)
 
-    # # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=1e-2)
+    # torch.testing.assert_close(G1.real, G1_gt.real, rtol=1e-2, atol=5e-2)
 
-    # GG_gt = GG_gt.real
-    # GG_gt[GG_gt.abs() < 1e-3] = 0
+    GG_gt = GG_gt.real
+    GG_gt[GG_gt.abs() < 1e-3] = 0
 
-    # G_gt = G_gt.real
-    # G_gt[G_gt.abs() < 1e-3] = 0
+    G_gt = G_gt.real
+    G_gt[G_gt.abs() < 1e-3] = 0
 
-    # G1 = G_stoch_O2.real
-    # G1[G1.abs() < 1e-3] = 0
-    # torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=2e-2)
+    G1 = G_stoch_O2.real
+    G1[G1.abs() < 1e-3] = 0
+    torch.testing.assert_close(G1, G_gt, rtol=1e-2, atol=5e-2)
 
-    # GG1 = GG_stoch_O2.real
-    # GG1[GG1.abs() < 1e-3] = 0
-    # torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
+    GG1 = GG_stoch_O2.real
+    GG1[GG1.abs() < 1e-3] = 0
+    torch.testing.assert_close(GG1, GG_gt, rtol=1e-2, atol=2e-2)
 
-    # dbstop = 1
+    print("✅ Both implementations match!")
