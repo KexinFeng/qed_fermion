@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 import numpy as np
-import math
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
