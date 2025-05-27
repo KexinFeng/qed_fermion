@@ -2662,10 +2662,9 @@ class HmcSampler(object):
         # Warm up measure
         self.reset_precon()
         if self.cuda_graph:
-            self.init_stochastic_estimator()
-
             self.initialize_force_graph()
             # self.initialize_metropolis_graph()
+            self.init_stochastic_estimator()    
 
         if torch.cuda.is_available():
             # Warm up and clear memory

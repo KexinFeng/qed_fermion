@@ -53,7 +53,8 @@ class StochaticEstimator:
         self.max_iter = 500
 
         # init
-        self.hmc_sampler.reset_precon()
+        if hmc.precon is None:
+            hmc.reset_precon()
 
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
