@@ -32,7 +32,7 @@ class StochaticEstimator:
 
     def __init__(self, hmc, cuda_graph_se):
         self.hmc_sampler = hmc
-        self.Nrv = 5
+        self.Nrv = 10
         self.green_four = None
         self.green_two = None
 

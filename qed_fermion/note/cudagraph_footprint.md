@@ -83,7 +83,7 @@ aysm = 4
 max_iter = 200
 
 max_iter_se = 200
-Nrv = 5
+Nrv = 10
 
 L = 6: 1463.75 MB
 After setting precon: NVML Used: 1003.75 MB, diff: 24.00 MB
@@ -135,5 +135,49 @@ fermion_obsr CUDA Graph diff: 104.00 MB
 get_fermion_obsr CUDA graph initialization complete
 
 After init se_graph: NVML Used: 5683.75 MB, diff: 1352.00 MB
+
+L = 22: 7501 MB
+After setting precon: NVML Used: 1433.75 MB, diff: 434.00 MB
+
+Initializing CUDA graph for force_f_fast...
+Capturing CUDA graph for max_iter=200 (1/1)...
+force_f CUDA Graph diff: 3808.00 MB
+
+force_f CUDA graph initialization complete for batch sizes: [200]
+After init force_f_graph: NVML Used: 5091.75 MB, diff: 3658.00 MB
+
+Initializing CUDA graph for get_fermion_obsr...
+fermion_obsr CUDA Graph diff: 124.00 MB
+
+get_fermion_obsr CUDA graph initialization complete
+
+After init se_graph: NVML Used: 7501.75 MB, diff: 2410.00 MB
+
+
+### cuda graph mem with Nrv
+bs = 2
+aysm = 4
+max_iter = 200
+
+max_iter_se = 200
+Nrv = 10
+
+L = 12: 3623.75 MB
+After setting precon: NVML Used: 1067.75 MB, diff: 68.00 MB
+
+Initializing CUDA graph for force_f_fast...
+Capturing CUDA graph for max_iter=200 (1/1)...
+force_f CUDA Graph diff: 2084.00 MB
+
+force_f CUDA graph initialization complete for batch sizes: [200]
+After init force_f_graph: NVML Used: 3163.75 MB, diff: 2096.00 MB
+
+Initializing CUDA graph for get_fermion_obsr...
+fermion_obsr CUDA Graph diff: 88.00 MB
+
+get_fermion_obsr CUDA graph initialization complete
+
+After init se_graph: NVML Used: 3623.75 MB, diff: 460.00 MB
+
 
 

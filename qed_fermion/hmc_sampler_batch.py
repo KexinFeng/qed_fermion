@@ -293,9 +293,7 @@ class HmcSampler(object):
 
     def init_stochastic_estimator(self):
         self.se = StochaticEstimator(self, cuda_graph_se=True)
-        self.se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
         self.se.init_cuda_graph()
-        
     
     def reset_precon(self):
         # Check if preconditioner file exists
@@ -3084,7 +3082,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '6'))
+    Lx = int(os.getenv("L", '12'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
     asym = float(os.environ.get("asym", '4'))
