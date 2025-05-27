@@ -949,17 +949,17 @@ def test_fermion_obsr():
 
     # Linearize
     spsm_k_mean = spsm_k.mean(dim=(0))  # [bs, Lx, Ly]
-    spsm_k_mean_real = spsm_k_mean.permute((0, 2, 1)).reshape(bs, -1)  # Ly*Lx
+    spsm_k_mean = spsm_k_mean.permute((0, 2, 1)).reshape(bs, -1)  # Ly*Lx
     ks = ks.permute((1, 0, 2)).reshape(-1, 2)  # Ly*Lx, but displayed as (kx, ky)
     print("ks (flattened):", ks)
 
     for b in range(bs):
-        print(f"spsm_k_mean_real (flattened) bid:{b}: ", spsm_k_mean_real[b])
+        print(f"spsm_k_mean (flattened) bid:{b}: ", spsm_k_mean[b])
 
     output_dir = os.path.join(script_path, "post_processors/fermi_bench")
     os.makedirs(output_dir, exist_ok=True)
     for b in range(bs):
-        data = torch.stack([ks[:, 0], ks[:, 1], spsm_k_mean_real[b]], dim=1).cpu().numpy()
+        data = torch.stack([ks[:, 0], ks[:, 1], spsm_k_mean[b]], dim=1).cpu().numpy()
         output_file = os.path.join(output_dir, f"spsm_k_b{b}.txt")
         # Save as text, columns: kx, ky, spsm
         np.savetxt(output_file, data, fmt="%.8f", comments='')
