@@ -86,13 +86,41 @@ def test_fermion_obsr():
     hmc = HmcSampler()
     hmc.Lx = 6
     hmc.Ly = 6
+    hmc.Ltau = 240
+
+    hmc.bs = 2
+    hmc.reset()
+    hmc.initialize_boson_pi_flux_randn_matfree()
+
+    se = StochaticEstimator(hmc, cuda_graph_se=True)
+    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.init_cuda_graph()
+
+    # Compute Green prepare
+    eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+
+    bosons = hmc.boson
+    if se.cuda_graph:
+        obsr = se.graph_runner(bosons, eta)
+    else:
+        obsr = se.get_fermion_obsr(bosons, eta)
+
+    obsr_ref = se.get_fermion_obsr(bosons, eta)
+    torch.testing.assert_close(obsr['spsm_r'], obsr_ref['spsm_r'], rtol=1e-2, atol=5e-2)
+    print()
+
+
+def test_fermion_obsr_write():
+    hmc = HmcSampler()
+    hmc.Lx = 6
+    hmc.Ly = 6
     hmc.Ltau = 10
 
     hmc.bs = 5
     hmc.reset()
     hmc.initialize_boson_pi_flux_randn_matfree()
 
-    se = StochaticEstimator(hmc)
+    se = StochaticEstimator(hmc, cuda_graph_se=True)
     se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     se.init_cuda_graph()
 
@@ -181,6 +209,7 @@ def test_fermion_obsr():
 
 
 if __name__ == "__main__":
-    test_green_functions()
+    # test_green_functions()
+    # test_fermion_obsr_write()
     test_fermion_obsr()
     print("All tests completed successfully!")
