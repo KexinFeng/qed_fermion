@@ -809,11 +809,11 @@ def test_green_functions():
 
 def test_fermion_obsr():
     hmc = HmcSampler()
-    hmc.Lx = 20
-    hmc.Ly = 20
-    hmc.Ltau = 800
+    hmc.Lx = 6
+    hmc.Ly = 6
+    hmc.Ltau = 10
 
-    hmc.bs = 3
+    hmc.bs = 5
     hmc.reset()
     hmc.initialize_boson_pi_flux_randn_matfree()
     bosons = hmc.boson
@@ -832,6 +832,10 @@ def test_fermion_obsr():
 
     obsr_ref = se.get_fermion_obsr(bosons, eta)
     torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
+
+    # Benchmark vs dqmc
+
+
     
     print("✅ All assertions pass!")
 
