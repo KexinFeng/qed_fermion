@@ -93,7 +93,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 4 if torch.cuda.is_available() else 1
+        self.bs = 2 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
@@ -154,7 +154,7 @@ class HmcSampler(object):
         self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Lx, self.Ly, dtype=dtype)
 
         # boson_seq
-        self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device='cpu', dtype=dtype)
+        # self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device='cpu', dtype=dtype)
 
         # Leapfrog
         self.debug_pde = False
@@ -235,6 +235,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [200, 400]
+        self._MAX_ITERS_TO_CAPTURE = [200]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
@@ -2851,10 +2852,10 @@ class HmcSampler(object):
         file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(res, data_folder, file_name)  
 
-        # Save stream data
-        data_folder = script_path + "/check_points/hmc_check_point_bench/"
-        file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
-        self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
+        # # Save stream data
+        # data_folder = script_path + "/check_points/hmc_check_point_bench/"
+        # file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
+        # self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
 
         return G_avg, G_std
 
