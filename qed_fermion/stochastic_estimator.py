@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import os 
 import sys
@@ -723,11 +724,11 @@ class StochaticEstimator:
 
         spsm: [1, Lkx, Lky]
         """
-        spsm = -self.G_delta_0_G_0_delta_ext()[:1]  # [Ltau, Ly, Lx]
-        spsm[0, 0, 0] += self.G_delta_0_ext()[0, 0, 0]
+        spsm = -self.G_delta_0_G_0_delta_ext()[0]  # [Ly, Lx]
+        spsm[0, 0] += self.G_delta_0_ext()[0, 0, 0]
         spsm = spsm.real
-        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [1, Ly, Lx]
-        spsm_k = self.reorder_fft_grid2(spsm_k).permute(0, 2, 1)  # [1, Lx, Ly]
+        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        spsm_k = self.reorder_fft_grid2(spsm_k).permute(1, 0)  # [Lx, Ly]
         return spsm_k
 
     def szsz(self):
@@ -746,14 +747,16 @@ class StochaticEstimator:
             szsz: [bs, Ltau=1, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        spsm = torch.zeros((bs, 1, Lx, Ly), dtype=self.cdtype, device=self.device)
-        szsz = torch.zeros((bs, 1, Lx, Ly), dtype=self.cdtype, device=self.device)
+        spsm = torch.zeros((bs, Lx, Ly), dtype=self.cdtype, device=self.device)
+        szsz = torch.zeros((bs, Lx, Ly), dtype=self.cdtype, device=self.device)
         
         ky = torch.fft.fftfreq(self.Ly)
         kx = torch.fft.fftfreq(self.Lx)
         ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, 2]
+        
         ks = ks.permute(2, 0, 1)  # [2, Ly, Lx]
         ks_ordered = self.reorder_fft_grid2(ks).permute(2, 1, 0)  # [Lx, Ly, 2]
+        ks_ordered = torch.flip(ks_ordered, dims=[-1])  # [Lx, Ly, 2]
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
@@ -850,7 +853,7 @@ def test_fermion_obsr():
     hmc.initialize_boson_pi_flux_randn_matfree()
 
     se = StochaticEstimator(hmc)
-    se.Nrv = 20  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     se.init_cuda_graph()
 
     # Compute Green prepare
@@ -904,7 +907,7 @@ def test_fermion_obsr():
     # Write result to file
 
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
-    spsm = torch.zeros((len(filtered_seq), bs, 1, Lx, Ly), dtype=hmc.cdtype)
+    spsm = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.cdtype)
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
 
@@ -917,11 +920,22 @@ def test_fermion_obsr():
     ks = obsr['ks']  # [Lx, Ly, 2]
 
     # Linearize
-    spsm_mean = spsm.mean(dim=(0, 1, 2))  # [Lx, Ly]
-    spsm_mean = spsm_mean.permute((1, 0)).view(-1)  # Ly*Lx
-    ks = ks.permute((1, 0, 2)).view(-1, 2)  # Ly*Lx, but displayed as (kx, ky)
-    print("spsm_mean (flattened):", spsm_mean)
+    spsm_mean = spsm.mean(dim=(0))  # [bs, Lx, Ly]
+    spsm_mean = spsm_mean.permute((0, 2, 1)).reshape(bs, -1)  # Ly*Lx
+    ks = ks.permute((1, 0, 2)).reshape(-1, 2)  # Ly*Lx, but displayed as (kx, ky)
     print("ks (flattened):", ks)
+
+    for b in range(bs):
+        print(f"spsm_mean (flattened) bid:{b}: ", spsm_mean[b].real)
+
+    output_dir = os.path.join(script_path, "post_processors/fermi_bench")
+    os.makedirs(output_dir, exist_ok=True)
+    for b in range(bs):
+        data = torch.stack([ks[:, 0], ks[:, 1], spsm_mean[b].real], dim=1).cpu().numpy()
+        output_file = os.path.join(output_dir, f"spsm_k_b{b}.txt")
+        # Save as text, columns: kx, ky, spsm
+        np.savetxt(output_file, data, fmt="%.8f", comments='')
+        print(f"Saved: {output_file}")
 
     print("✅ All assertions pass!")
 
