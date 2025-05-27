@@ -13,8 +13,6 @@ import os
 import matlab.engine
 import concurrent.futures
 
-from qed_fermion.stochastic_estimator import StochaticEstimator
-
 # matplotlib.use('MacOSX')
 plt.ion()
 import scipy.sparse as sp
@@ -29,6 +27,7 @@ if torch.cuda.is_available():
 from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
 from qed_fermion.force_graph_runner import ForceGraphRunner
+from qed_fermion.stochastic_estimator import StochaticEstimator
 
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
