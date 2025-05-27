@@ -181,11 +181,12 @@ if __name__ == '__main__':
 
     Js = [1.0, 1.5, 2.0, 2.5, 3.0]
     Js = [0.5, 1.0, 3.0]
+    Js = [0.5]
 
     bs = 5
 
     part_size = 500
-    start = 2000
+    start = 5980
     end = 6000
     num_parts = math.ceil((end - start )/ part_size)
 
@@ -199,7 +200,7 @@ if __name__ == '__main__':
         for J in Js:
             for bid in range(bs):
                 for part_id in range(num_parts):
-                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run4/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
+                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     os.makedirs(output_folder, exist_ok=True)
 
                     hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs1_Jtau_{J:.2g}_K_1_dtau_0.1_step_6000.pt"
@@ -210,7 +211,7 @@ if __name__ == '__main__':
         for J in Js:
             for bid in range(bs):
                 for part_id in range(num_parts):
-                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run4/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
+                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     clear(output_folder)
                     execute_bash_scripts(output_folder)
 

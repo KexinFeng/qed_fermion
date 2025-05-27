@@ -710,7 +710,7 @@ class StochaticEstimator:
         # -> 1/2 * (grupc(i,j) * grup(i,j)) = 1/2 * (- grup(j, i) + delta_ij) * grup(i, j)
         szsz = -self.G_delta_0_G_0_delta_ext()
         szsz[0, 0, 0] = szsz[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
-        return 0.5 * szsz
+        return 0.5 * szsz.real
 
     def get_fermion_obsr(self, bosons, eta):
         """
@@ -816,24 +816,69 @@ def test_fermion_obsr():
     hmc.bs = 5
     hmc.reset()
     hmc.initialize_boson_pi_flux_randn_matfree()
-    bosons = hmc.boson
 
-    se = StochaticEstimator(hmc)
-    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
-    se.init_cuda_graph()
+    # se = StochaticEstimator(hmc)
+    # se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    # se.init_cuda_graph()
 
-    # Compute Green prepare
-    eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+    # # Compute Green prepare
+    # eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
 
-    if se.cuda_graph:
-        obsr = se.graph_runner(bosons, eta)
-    else:
-        obsr = se.get_fermion_obsr(bosons, eta)
+    # bosons = hmc.boson
+    # if se.cuda_graph:
+    #     obsr = se.graph_runner(bosons, eta)
+    # else:
+    #     obsr = se.get_fermion_obsr(bosons, eta)
 
-    obsr_ref = se.get_fermion_obsr(bosons, eta)
-    torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
+    # obsr_ref = se.get_fermion_obsr(bosons, eta)
+    # torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
 
-    # Benchmark vs dqmc
+    # ---------- Benchmark vs dqmc ---------- #
+    Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
+    J = 0.5
+    bs = 5
+    assert bs == hmc.bs, "Batch size mismatch."
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
+
+    # Parse to get specifics
+    path_parts = hmc_filename.split('/')
+    filename = path_parts[-1]
+    filename_parts = filename.split('_')
+    specifics = '_'.join(filename_parts[1:]).replace('.pt', '')
+    print(f"Parsed specifics: {specifics}")
+
+    parts = hmc_filename.split('_')
+    jtau_index = parts.index('Jtau')  # Find position of 'Jtau'
+    jtau_value = float(parts[jtau_index + 1])   # Get the next element
+    
+    # Load and write
+    # [seq, Ltau * Ly * Lx * 2]
+    boson_seq = torch.load(input_folder + hmc_filename)
+    # boson_seq = boson_seq.to(device='mps', dtype=torch.float32)
+    print(f'Loaded: {input_folder + hmc_filename}')        
+    
+    # Extract Nstep and Nstep_local from filenames
+    # hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+    # end = int(hmc_match.group(1))
+    end = 6000
+
+    start = 5980
+    sample_step = 1
+    seq_idx = set(list(range(start, end, sample_step)))
+
+    # Write result to file
+
+    filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
+    spsm = torch.zeros((len(filtered_seq), bs), dtype=hmc.dtype)
+    for i, boson in filtered_seq:
+        print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
+        dbstop = 1
+        # if se.cuda_graph:
+        #     obsr = se.graph_runner(bosons, eta)
+        # else:
+        #     obsr = se.get_fermion_obsr(bosons, eta)
+        # spsm[i] = obsr['spsm']
 
 
     
