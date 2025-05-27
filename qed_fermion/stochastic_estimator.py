@@ -681,7 +681,7 @@ class StochaticEstimator:
 
 
     # -------- Fermionic obs methods --------
-    def spsm(self):
+    def spsm_k(self):
         # Observables
         # !zspsm(imj) = zspsm(imj) + grupc(i,j)*grup(i,j)
         # ! up-down not the same anymore
@@ -722,11 +722,11 @@ class StochaticEstimator:
         = - grup(0, D) * grup (D, 0) + grup(0, 0) * delta_{D, 0}
         = - GG_D00D + G_D0 * delta_{D, 0}
 
-        spsm: [1, Lkx, Lky]
+        spsm: [Lkx, Lky]
         """
         spsm = -self.G_delta_0_G_0_delta_ext()[0]  # [Ly, Lx]
         spsm[0, 0] += self.G_delta_0_ext()[0, 0, 0]
-        spsm = spsm.real
+        # spsm = spsm.real
         spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         spsm_k = self.reorder_fft_grid2(spsm_k).permute(1, 0)  # [Lx, Ly]
         return spsm_k
@@ -761,7 +761,7 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
-            spsm[b] = self.spsm()
+            spsm[b] = self.spsm_k()
             szsz[b] = 0.5 * spsm[b]
 
         obsr = {}
