@@ -740,7 +740,7 @@ class StochaticEstimator:
     def get_fermion_obsr(self, bosons, eta):
         """
         bosons: [bs, 2, Ltau, Ly, Lx] tensor of boson fields
-        
+
         Returns:
             spsm: [bs, Ltau=1, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
             szsz: [bs, Ltau=1, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
@@ -850,7 +850,7 @@ def test_fermion_obsr():
     hmc.initialize_boson_pi_flux_randn_matfree()
 
     se = StochaticEstimator(hmc)
-    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 20  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
     se.init_cuda_graph()
 
     # Compute Green prepare
@@ -872,6 +872,7 @@ def test_fermion_obsr():
     bs = 5
     assert bs == hmc.bs, "Batch size mismatch."
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    input_folder = "/users/4/fengx463/hmc/qed_fermion/qed_fermion/post_processors/fermi_bench/"
     hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
 
     # Parse to get specifics
@@ -896,14 +897,14 @@ def test_fermion_obsr():
     # end = int(hmc_match.group(1))
     end = 6000
 
-    start = 5995
+    start = 5999
     sample_step = 1
     seq_idx = set(list(range(start, end, sample_step)))
 
     # Write result to file
 
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
-    spsm = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.dtype)
+    spsm = torch.zeros((len(filtered_seq), bs, 1, Lx, Ly), dtype=hmc.cdtype)
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
 
@@ -911,8 +912,17 @@ def test_fermion_obsr():
             obsr = se.graph_runner(bosons, eta)
         else:
             obsr = se.get_fermion_obsr(bosons, eta)
-        spsm[i] = obsr['spsm']
+        spsm[i-start] = obsr['spsm']
     
+    ks = obsr['ks']  # [Lx, Ly, 2]
+
+    # Linearize
+    spsm_mean = spsm.mean(dim=(0, 1, 2))  # [Lx, Ly]
+    spsm_mean = spsm_mean.permute((1, 0)).view(-1)  # Ly*Lx
+    ks = ks.permute((1, 0, 2)).view(-1, 2)  # Ly*Lx, but displayed as (kx, ky)
+    print("spsm_mean (flattened):", spsm_mean)
+    print("ks (flattened):", ks)
+
     print("✅ All assertions pass!")
 
 
