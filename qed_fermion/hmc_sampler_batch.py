@@ -291,7 +291,7 @@ class HmcSampler(object):
         print(f"force_f CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
     def init_stochastic_estimator(self):
-        self.se = StochaticEstimator(self)
+        self.se = StochaticEstimator(self, cuda_graph_se=False)
         self.se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
         self.se.init_cuda_graph()
         
@@ -2669,7 +2669,8 @@ class HmcSampler(object):
         if torch.cuda.is_available():
             # Warm up and clear memory
             # torch.cuda.empty_cache()
-            torch.cuda.reset_peak_memory_stats()
+            # torch.cuda.reset_peak_memory_stats()
+            pass
 
         # Measure
         # fig = plt.figure()
@@ -2700,7 +2701,10 @@ class HmcSampler(object):
 
             # Fermion
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-            obsr = self.se.graph_runner(boson, eta)
+            if self.se.cuda_graph:
+                obsr = self.se.graph_runner(boson, eta)
+            else:
+                obsr = self.se.get_observable(boson, eta)
 
             spsm_r = obsr['spsm_r']  # [bs, Lx, Ly]
             spsm_k_abs = obsr['spsm_k_abs']  # [bs, Lx, Ly]   

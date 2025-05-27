@@ -30,7 +30,7 @@ class StochaticEstimator:
     # One method to estimate the four-point green's function: four_point_green
     # One method to compute the obs like spsm szsz, etc.
 
-    def __init__(self, hmc):
+    def __init__(self, hmc, cuda_graph_se):
         self.hmc_sampler = hmc
         self.Nrv = 10
         self.green_four = None
@@ -43,7 +43,7 @@ class StochaticEstimator:
 
         self.Vs = hmc.Vs
 
-        self.cuda_graph = hmc.cuda_graph
+        self.cuda_graph = cuda_graph_se
         self.device = hmc.device
         self.dtype = hmc.dtype
         self.cdtype = hmc.cdtype
@@ -58,15 +58,16 @@ class StochaticEstimator:
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
         # Capture
-        print("Initializing CUDA graph for get_fermion_obsr...")
-        dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
-        dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
-        self.graph_memory_pool = self.graph_runner.capture(
-                                    dummy_bosons, 
-                                    dummy_eta, 
-                                    max_iter = self.max_iter,
-                                    graph_memory_pool=self.graph_memory_pool)
-        print(f"get_fermion_obsr CUDA graph initialization complete")
+        if self.cuda_graph:
+            print("Initializing CUDA graph for get_fermion_obsr...")
+            dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
+            dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
+            self.graph_memory_pool = self.graph_runner.capture(
+                                        dummy_bosons, 
+                                        dummy_eta, 
+                                        max_iter = self.max_iter,
+                                        graph_memory_pool=self.graph_memory_pool)
+            print(f"get_fermion_obsr CUDA graph initialization complete")
 
     def random_vec_bin(self):  
         """
