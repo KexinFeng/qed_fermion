@@ -53,7 +53,7 @@ class StochaticEstimator:
         self.max_iter = 500
 
         # init
-        if hmc.precon is None:
+        if hmc.precon_csr is None:
             hmc.reset_precon()
 
     def init_cuda_graph(self):
@@ -69,6 +69,7 @@ class StochaticEstimator:
                                         max_iter = self.max_iter,
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
+            print('')
 
     def random_vec_bin(self):  
         """

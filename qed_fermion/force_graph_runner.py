@@ -25,7 +25,7 @@ class ForceGraphRunner:
         self.hmc_sampler.max_iter = max_iter
         
         # Warm up
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
 
         s = torch.cuda.Stream()
@@ -58,8 +58,9 @@ class ForceGraphRunner:
         end_mem = torch.cuda.memory_allocated()
         peak_mem = torch.cuda.max_memory_allocated()
         graph_footage = end_mem - start_mem
-        print(f"get_fermion_obsr CUDA Graph memory footage: {graph_footage / 1024**2:.2f} MB")
-        print(f"get_fermion_obsr CUDA Graph peak memory: {peak_mem / 1024**2:.2f} MB")
+        print(f"Force_F CUDA Graph memory footage: {graph_footage / 1024**2:.2f} MB")
+        print(f"Force_F CUDA Graph peak memory: {peak_mem / 1024**2:.2f} MB")
+        print('')
     
         self.graph = graph
         self.input_buffers = input_buffers
