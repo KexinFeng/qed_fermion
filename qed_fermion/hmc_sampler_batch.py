@@ -2662,9 +2662,10 @@ class HmcSampler(object):
         # Warm up measure
         self.reset_precon()
         if self.cuda_graph:
+            self.init_stochastic_estimator()
+
             self.initialize_force_graph()
             # self.initialize_metropolis_graph()
-            self.init_stochastic_estimator()
 
         if torch.cuda.is_available():
             # Warm up and clear memory
@@ -2701,10 +2702,10 @@ class HmcSampler(object):
 
             # Fermion
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-            if self.se.cuda_graph:
+            if self.se.cuda_graph_se:
                 obsr = self.se.graph_runner(boson, eta)
             else:
-                obsr = self.se.get_observable(boson, eta)
+                obsr = self.se.get_fermion_obsr(boson, eta)
 
             spsm_r = obsr['spsm_r']  # [bs, Lx, Ly]
             spsm_k_abs = obsr['spsm_k_abs']  # [bs, Lx, Ly]   
