@@ -740,9 +740,10 @@ class StochaticEstimator:
     def get_fermion_obsr(self, bosons, eta):
         """
         bosons: [bs, 2, Ltau, Ly, Lx] tensor of boson fields
+        
         Returns:
-            spsm: [Ltau, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
-            szsz: [Ltau, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+            spsm: [bs, Ltau=1, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            szsz: [bs, Ltau=1, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
         spsm = torch.zeros((bs, 1, Lx, Ly), dtype=self.cdtype, device=self.device)
@@ -902,17 +903,15 @@ def test_fermion_obsr():
     # Write result to file
 
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
-    spsm = torch.zeros((len(filtered_seq), bs), dtype=hmc.dtype)
+    spsm = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.dtype)
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
-        dbstop = 1
-        # if se.cuda_graph:
-        #     obsr = se.graph_runner(bosons, eta)
-        # else:
-        #     obsr = se.get_fermion_obsr(bosons, eta)
-        # spsm[i] = obsr['spsm']
 
-
+        if se.cuda_graph:
+            obsr = se.graph_runner(bosons, eta)
+        else:
+            obsr = se.get_fermion_obsr(bosons, eta)
+        spsm[i] = obsr['spsm']
     
     print("✅ All assertions pass!")
 
