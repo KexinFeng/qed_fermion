@@ -147,7 +147,7 @@ def test_fermion_obsr():
     # Write result to file
 
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
-    spsm_k = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.cdtype)
+    spsm_k = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.dtype)
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
 

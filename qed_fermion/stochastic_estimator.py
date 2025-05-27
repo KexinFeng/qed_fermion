@@ -33,8 +33,7 @@ class StochaticEstimator:
     def __init__(self, hmc):
         self.hmc_sampler = hmc
         self.Nrv = 10
-        self.green_four = None
-        self.green_two = None
+        self.max_iter = 500
 
         self.Lx = hmc.Lx
         self.Ly = hmc.Ly    
@@ -50,7 +49,6 @@ class StochaticEstimator:
         
         self.graph_runner = FermionObsrGraphRunner(self)
         self.graph_memory_pool = None
-        self.max_iter = 500
 
         # init
         self.hmc_sampler.reset_precon()
