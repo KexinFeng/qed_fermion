@@ -715,14 +715,16 @@ class StochaticEstimator:
         = - grup(0, D) * grup (D, 0) + grup(0, 0) * delta_{D, 0}
         = - GG_D00D + G_D0 * delta_{D, 0}
 
-        spsm: [1, Lky, Lkx]
+        spsm: [1, Lkx, Lky]
         """
         spsm = -self.G_delta_0_G_0_delta_ext()[:1]  # [Ltau, Ly, Lx]
         spsm[0, 0, 0] += self.G_delta_0_ext()[0, 0, 0]
         spsm = spsm.real
-        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [1, Ly, Lx]
-        ks = torch.fft.fftfreq(self.Ly, self.Lx)
-        return spsm
+        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [1, Lx, Ly]
+        ky = torch.fft.fftfreq(self.Ly)
+        kx = torch.fft.fftfreq(self.Lx)
+        ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1)
+        return spsm_k
 
     def szsz(self):
         # zszsz(imj) = zszsz(imj) + chalf*chalf*( (grupc(i,i)-grdnc(i,i))*(grupc(j,j)-grdnc(j,j)) + ( grupc(i,j)*grup(i,j)+grdnc(i,j)*grdn(i,j) ) )
@@ -739,8 +741,8 @@ class StochaticEstimator:
             szsz: [Ltau, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        spsm = torch.zeros((bs, Ltau, Ly, Lx), dtype=self.cdtype, device=self.device)
-        szsz = torch.zeros((bs, Ltau, Ly, Lx), dtype=self.cdtype, device=self.device)
+        spsm = torch.zeros((bs, 1, Ly, Lx), dtype=self.cdtype, device=self.device)
+        szsz = torch.zeros((bs, 1, Ly, Lx), dtype=self.cdtype, device=self.device)
 
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
@@ -836,21 +838,21 @@ def test_fermion_obsr():
     hmc.reset()
     hmc.initialize_boson_pi_flux_randn_matfree()
 
-    # se = StochaticEstimator(hmc)
-    # se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
-    # se.init_cuda_graph()
+    se = StochaticEstimator(hmc)
+    se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.init_cuda_graph()
 
-    # # Compute Green prepare
-    # eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+    # Compute Green prepare
+    eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
 
-    # bosons = hmc.boson
-    # if se.cuda_graph:
-    #     obsr = se.graph_runner(bosons, eta)
-    # else:
-    #     obsr = se.get_fermion_obsr(bosons, eta)
+    bosons = hmc.boson
+    if se.cuda_graph:
+        obsr = se.graph_runner(bosons, eta)
+    else:
+        obsr = se.get_fermion_obsr(bosons, eta)
 
-    # obsr_ref = se.get_fermion_obsr(bosons, eta)
-    # torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
+    obsr_ref = se.get_fermion_obsr(bosons, eta)
+    torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
 
     # ---------- Benchmark vs dqmc ---------- #
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
