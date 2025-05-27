@@ -186,7 +186,7 @@ if __name__ == '__main__':
     bs = 5
 
     part_size = 500
-    start = 5980
+    start = 5995
     end = 6000
     num_parts = math.ceil((end - start )/ part_size)
 

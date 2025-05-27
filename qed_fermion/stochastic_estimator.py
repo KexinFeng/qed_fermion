@@ -232,7 +232,7 @@ class StochaticEstimator:
         b_F = torch.fft.fftn(b, (self.Ltau, self.Ly, self.Lx), norm="forward")
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)   # [Ltau, Ly, Lx]
-        return G_delta_0.permute(2, 1, 0) # [Lx, Ly, Ltau]
+        return G_delta_0
 
     def G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -251,7 +251,7 @@ class StochaticEstimator:
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
-        return G_delta_0[:self.Ltau].permute(2, 1, 0) # [Lx, Ly, Ltau]
+        return G_delta_0[:self.Ltau]
 
     def G_delta_0_G_delta_0(self):
         eta_conj = self.eta.conj()  # [Nrv, Ltau * Ly * Lx]
@@ -270,7 +270,8 @@ class StochaticEstimator:
         b_F = torch.fft.fftn(b, (self.Ltau, self.Ly, self.Lx), norm="forward")
         G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F,  (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
-        return G_delta_0_G_delta_0.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_delta_0_G_delta_0.view(self.Ltau, self.Ly, self.Lx)
+
 
     def G_delta_0_G_delta_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -292,7 +293,8 @@ class StochaticEstimator:
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
         G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
-        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
 
     def G_delta_delta_G_0_0_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -315,7 +317,8 @@ class StochaticEstimator:
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
         G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
-        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
 
     def G_delta_0_G_0_delta_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -338,7 +341,8 @@ class StochaticEstimator:
         b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
         G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
-        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
 
     # -------- Primitive methods --------
     def G_delta_0_primitive(self):
@@ -363,7 +367,8 @@ class StochaticEstimator:
                 )
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
-        return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_mean.view(self.Ltau, self.Ly, self.Lx)
+
 
     def G_delta_0_primitive_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -393,7 +398,8 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i]
                 
         G_mean = result.mean(dim=0)  # [2Ltau * Ly * Lx]
-        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
+
 
     def G_delta_0_G_delta_0_primitive(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -419,7 +425,8 @@ class StochaticEstimator:
 
                 result[i, d] = G[idx, i] * G[idx, i]
         GG_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
-        return GG_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return GG_mean.view(self.Ltau, self.Ly, self.Lx)
+
 
     def G_delta_0_G_delta_0_primitive_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -448,7 +455,8 @@ class StochaticEstimator:
 
                 result[i, d] = G[idx, i] * G[idx, i]
         GG_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
-        return GG_mean.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return GG_mean.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
 
     # -------- Ground truth methods --------
     def G_groundtruth(self, boson):
@@ -479,7 +487,8 @@ class StochaticEstimator:
                 )
                 result[i, d] = G[idx, i]
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
-        return G_mean.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_mean.view(self.Ltau, self.Ly, self.Lx)
+
     
     def G_delta_0_groundtruth_ext(self, M_inv):
         """
@@ -516,7 +525,8 @@ class StochaticEstimator:
 
                 result[i, d] = G[idx, i] 
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
-        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
+
 
     def G_delta_0_G_delta_0_groundtruth(self, M_inv):
         """
@@ -546,7 +556,8 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i] * G[idx, i]
 
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
-        return GG.view(self.Ltau, self.Ly, self.Lx).permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return GG.view(self.Ltau, self.Ly, self.Lx)
+
 
     def G_delta_0_G_delta_0_groundtruth_ext(self, M_inv):
         """
@@ -583,7 +594,8 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i] * G[idx, i]
 
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
-        return GG.view(Ltau, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return GG.view(Ltau, Ly, Lx)[:self.Ltau]
+
 
     def G_delta_delta_G_0_0_groundtruth_ext(self, M_inv):
         """
@@ -620,7 +632,8 @@ class StochaticEstimator:
                 result[i, d] = G[idx, idx] * G[i, i]
 
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
-        return GG.view(Ltau, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return GG.view(Ltau, Ly, Lx)[:self.Ltau]
+
 
     def G_delta_0_G_0_delta_groundtruth_ext(self, M_inv):
         """
@@ -657,7 +670,8 @@ class StochaticEstimator:
                 result[i, d] = G[idx, i] * G[i, idx]
 
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
-        return GG.view(Ltau, Ly, Lx)[:self.Ltau].permute(2, 1, 0)  # [Lx, Ly, Ltau]
+        return GG.view(Ltau, Ly, Lx)[:self.Ltau]
+
 
     # -------- Fermionic obs methods --------
     def spsm(self):
@@ -700,9 +714,14 @@ class StochaticEstimator:
         Delta = i - j
         = - grup(0, D) * grup (D, 0) + grup(0, 0) * delta_{D, 0}
         = - GG_D00D + G_D0 * delta_{D, 0}
+
+        spsm: [1, Lky, Lkx]
         """
-        spsm = -self.G_delta_0_G_0_delta_ext()
-        spsm[0, 0, 0] = spsm[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
+        spsm = -self.G_delta_0_G_0_delta_ext()[:1]  # [Ltau, Ly, Lx]
+        spsm[0, 0, 0] += self.G_delta_0_ext()[0, 0, 0]
+        spsm = spsm.real
+        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [1, Ly, Lx]
+        ks = torch.fft.fftfreq(self.Ly, self.Lx)
         return spsm
 
     def szsz(self):
@@ -710,18 +729,18 @@ class StochaticEstimator:
         # -> 1/2 * (grupc(i,j) * grup(i,j)) = 1/2 * (- grup(j, i) + delta_ij) * grup(i, j)
         szsz = -self.G_delta_0_G_0_delta_ext()
         szsz[0, 0, 0] = szsz[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
-        return 0.5 * szsz.real
+        return 0.5 * szsz
 
     def get_fermion_obsr(self, bosons, eta):
         """
         bosons: [bs, 2, Ltau, Ly, Lx] tensor of boson fields
         Returns:
-            spsm: [Lx, Ly, Ltau] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
-            szsz: [Lx, Ly, Ltau] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+            spsm: [Ltau, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            szsz: [Ltau, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        spsm = torch.zeros((bs, Lx, Ly, Ltau), dtype=self.cdtype, device=self.device)
-        szsz = torch.zeros((bs, Lx, Ly, Ltau), dtype=self.cdtype, device=self.device)
+        spsm = torch.zeros((bs, Ltau, Ly, Lx), dtype=self.cdtype, device=self.device)
+        szsz = torch.zeros((bs, Ltau, Ly, Lx), dtype=self.cdtype, device=self.device)
 
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
@@ -863,7 +882,7 @@ def test_fermion_obsr():
     # end = int(hmc_match.group(1))
     end = 6000
 
-    start = 5980
+    start = 5995
     sample_step = 1
     seq_idx = set(list(range(start, end, sample_step)))
 
