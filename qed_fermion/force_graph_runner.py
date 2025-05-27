@@ -1,4 +1,10 @@
 import torch
+import os
+import sys
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../')
+
+from qed_fermion.utils.util import device_mem
 
 class ForceGraphRunner:
     def __init__(self, hmc_sampler):
@@ -27,6 +33,7 @@ class ForceGraphRunner:
         # Warm up
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
 
         s = torch.cuda.Stream()
         s.wait_stream(torch.cuda.current_stream())
@@ -41,10 +48,9 @@ class ForceGraphRunner:
             s.synchronize()
 
         torch.cuda.current_stream().wait_stream(s)
-        
-        # Memory
-        start_mem = torch.cuda.memory_allocated()
 
+        start_mem = device_mem()[1]
+        
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
@@ -54,13 +60,8 @@ class ForceGraphRunner:
                 None
             )
 
-        torch.cuda.synchronize()
-        end_mem = torch.cuda.memory_allocated()
-        peak_mem = torch.cuda.max_memory_allocated()
-        graph_footage = end_mem - start_mem
-        print(f"Force_F CUDA Graph memory footage: {graph_footage / 1024**2:.2f} MB")
-        print(f"Force_F CUDA Graph peak memory: {peak_mem / 1024**2:.2f} MB")
-        print('')
+        end_mem = device_mem()[1]   
+        print(f"force_f CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
     
         self.graph = graph
         self.input_buffers = input_buffers
@@ -83,7 +84,6 @@ class ForceGraphRunner:
         self.input_buffers['psi'].copy_(psi)
         self.input_buffers['boson'].copy_(boson)
 
-        
         # Replay the graph
         self.graph.replay()
         

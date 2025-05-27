@@ -1,5 +1,16 @@
 import torch
 
+import pynvml
+pynvml.nvmlInit()
+handle = pynvml.nvmlDeviceGetHandleByIndex(torch.cuda.current_device())
+
+def device_mem():
+    if torch.cuda.is_available():
+        info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        return f"NVML Used: {info.used / 1024**2:.2f} MB", info.used / 1024**2
+    else:
+        return "no cuda"
+
 def ravel_multi_index(multi_index, shape):
     """
     multi_index: tuple of 1D tensors, as from torch.unravel_index

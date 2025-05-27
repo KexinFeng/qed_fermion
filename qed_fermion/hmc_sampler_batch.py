@@ -28,6 +28,7 @@ from qed_fermion.utils.coupling_mat3 import initialize_curl_mat
 from qed_fermion.post_processors.load_write2file_convert import time_execution
 from qed_fermion.force_graph_runner import ForceGraphRunner
 from qed_fermion.stochastic_estimator import StochaticEstimator
+from qed_fermion.utils.util import device_mem
 
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
@@ -80,7 +81,6 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
 
 executor = None
-
 def initialize_executor():
     global executor
     if executor is None:
@@ -93,7 +93,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2 if torch.cuda.is_available() else 1
+        self.bs = 4 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
@@ -2660,17 +2660,29 @@ class HmcSampler(object):
         self.S_tau_list[-1] = self.action_boson_tau_cmp(self.boson)
 
         # Warm up measure
-        self.reset_precon()
-        if self.cuda_graph:
-            self.initialize_force_graph()
-            # self.initialize_metropolis_graph()
-            self.init_stochastic_estimator()    
-
         if torch.cuda.is_available():
             # Warm up and clear memory
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
-            pass
+            torch.cuda.synchronize()
+        
+        d_mem_str, d_mem0 = device_mem()
+        print("Initial device memory: ", d_mem_str)
+        print('')
+
+        self.reset_precon()
+        d_mem_str, d_mem1 = device_mem()
+        print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
+
+        if self.cuda_graph:
+            self.initialize_force_graph()
+            d_mem_str, d_mem2 = device_mem()
+            print(f"After init force_f_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+
+            # self.initialize_metropolis_graph()
+            self.init_stochastic_estimator()  
+            d_mem_str, d_mem3 = device_mem()
+            print(f"After init se_graph: {d_mem_str}, diff: {d_mem3 - d_mem2:.2f} MB\n") 
 
         # Measure
         # fig = plt.figure()
