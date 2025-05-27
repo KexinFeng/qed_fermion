@@ -232,7 +232,7 @@ class HmcSampler(object):
         # CUDA Graph for force_f_fast
         self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
         self.force_graph_runners = {}
-        self.force_graph_memory_pool = None
+        self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [200, 400]
         if self.cuda_graph:
@@ -281,14 +281,14 @@ class HmcSampler(object):
                 dummy_psi,
                 dummy_boson,
                 max_iter,
-                self.force_graph_memory_pool
+                self.graph_memory_pool
             )
             
             # Store the graph runner and memory pool
             self.force_graph_runners[max_iter] = graph_runner
-            self.force_graph_memory_pool = graph_memory_pool
+            self.graph_memory_pool = graph_memory_pool
                 
-        print(f"CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+        print(f"force_f CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
     def init_stochastic_estimator(self):
         self.se = StochaticEstimator(self)
@@ -2662,13 +2662,13 @@ class HmcSampler(object):
         # Warm up measure
         self.reset_precon()
         if self.cuda_graph:
-            # self.initialize_force_graph()
-            self.initialize_metropolis_graph()
+            self.initialize_force_graph()
+            # self.initialize_metropolis_graph()
             self.init_stochastic_estimator()
 
         if torch.cuda.is_available():
             # Warm up and clear memory
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
 
         # Measure
@@ -2692,6 +2692,7 @@ class HmcSampler(object):
             #     boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()
 
             boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
+
             # self.threshold_queue.append(threshold)
             if mass_mode != 0:
                 self.apply_sigma_hat_cpu(i)

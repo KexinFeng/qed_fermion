@@ -25,7 +25,7 @@ class FermionObsrGraphRunner:
         self.se.hmc_sampler.max_iter, max_iter_copy = max_iter, self.se.hmc_sampler.max_iter
         
         # Warm up
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
 
         s = torch.cuda.Stream()
