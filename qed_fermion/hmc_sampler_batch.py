@@ -151,6 +151,7 @@ class HmcSampler(object):
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
+        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Lx, self.Ly, dtype=dtype)
         self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Lx, self.Ly, dtype=dtype)
 
         # boson_seq
@@ -2724,7 +2725,7 @@ class HmcSampler(object):
                 self.delta_t_list[i] = delta_t_cpu
                 # self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
                 self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
-                self.spsm_k_abs_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
+                self.spsm_k_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
                 if mass_mode != 0:
                     self.update_sigma_hat_cpu(boson_cpu, i)                
                 return i  # Return the step index for identification
