@@ -1,13 +1,12 @@
 import torch
 
-
 def reorder_fft_grid(tensor2d):
     """Reorder the last two axes of a tensor from FFT-style to ascending momentum order."""
     Ny, Nx = tensor2d.shape[-2], tensor2d.shape[-1]
     return torch.roll(tensor2d, shifts=(Ny // 2, Nx // 2), dims=(-2, -1))
 
 # Set grid size
-Ny, Nx = 4, 4
+Ny, Nx = 6, 6
 
 # Create a 2D grid of momentum coordinates (as from fftfreq)
 ky = torch.fft.fftfreq(Ny)  # e.g., [0, 1/6, 2/6, -3/6, -2/6, -1/6]
