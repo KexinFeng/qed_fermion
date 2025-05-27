@@ -34,6 +34,9 @@ for bid in range(bs):
         atol=3e-2, 
         rtol=0
     )
+    print(f"Assertion passed for batch id {bid}")
+    max_abs_diff = np.max(np.abs(data[:, 2] - data2[:, 2]))
+    print(f"Max abs diff for batch id {bid}: {max_abs_diff}")
 
 
 
