@@ -13,6 +13,8 @@ import os
 import matlab.engine
 import concurrent.futures
 
+from qed_fermion.stochastic_estimator import StochaticEstimator
+
 # matplotlib.use('MacOSX')
 plt.ion()
 import scipy.sparse as sp
@@ -286,6 +288,11 @@ class HmcSampler(object):
                 
         print(f"CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
+    def init_stochastic_estimator(self):
+        self.se = StochaticEstimator(self)
+        self.se.Nrv = 10  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+        self.se.init_cuda_graph()
+        
     
     def reset_precon(self):
         # Check if preconditioner file exists
@@ -2654,6 +2661,7 @@ class HmcSampler(object):
         self.reset_precon()
         if self.cuda_graph:
             self.initialize_force_graph()
+            self.init_stochastic_estimator()
 
         if torch.cuda.is_available():
             # Warm up and clear memory
@@ -2676,8 +2684,15 @@ class HmcSampler(object):
                 self.apply_sigma_hat_cpu(i)
             self.adjust_delta_t()
 
+            # Fermion
+            eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+            obsr = self.se.graph_runner(boson, eta)
+
+            spsm = obsr['spsm'] # [bs, Lx, Ly]
+            # ks = obsr['ks']  # [Lx, Ly, 2]      
+
             # Define CPU computations to run asynchronously
-            def async_cpu_computations(i, boson_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+            def async_cpu_computations(i, boson_cpu, spsm_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
                 # Update metrics
                 self.accp_list[i] = accp_cpu
                 self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -2694,7 +2709,8 @@ class HmcSampler(object):
                 self.cg_iter_list[i] = cg_converge_iter_cpu
                 self.cg_r_err_list[i] = cg_r_err_cpu
                 self.delta_t_list[i] = delta_t_cpu
-                self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
+                # self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
+                self.spsm_list[i] = spsm_cpu  # [bs, Lx, Ly] 
                 if mass_mode != 0:
                     self.update_sigma_hat_cpu(boson_cpu, i)                
                 return i  # Return the step index for identification
@@ -2704,6 +2720,7 @@ class HmcSampler(object):
                 async_cpu_computations, 
                 i, 
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
+                spsm.cpu() if spsm.is_cuda else spsm.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone(), 
                 cg_r_err.cpu() if cg_r_err.is_cuda else cg_r_err.clone(), 

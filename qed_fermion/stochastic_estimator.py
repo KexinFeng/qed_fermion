@@ -915,7 +915,7 @@ def test_fermion_obsr():
             obsr = se.graph_runner(bosons, eta)
         else:
             obsr = se.get_fermion_obsr(bosons, eta)
-        spsm[i-start] = obsr['spsm']
+        spsm[i-start] = obsr['spsm']  # [bs, Lx, Ly]
     
     ks = obsr['ks']  # [Lx, Ly, 2]
 
