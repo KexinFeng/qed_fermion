@@ -225,6 +225,7 @@ class HmcSampler(object):
         self.max_iter = 1000
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
         self.precon = None
+        self.precon_csr = None
         self.plt_cg = False
         self.verbose_cg = False
         self.use_cuda_kernel = torch.cuda.is_available()

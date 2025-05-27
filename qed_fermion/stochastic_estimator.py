@@ -30,9 +30,9 @@ class StochaticEstimator:
     # One method to estimate the four-point green's function: four_point_green
     # One method to compute the obs like spsm szsz, etc.
 
-    def __init__(self, hmc, cuda_graph_se):
+    def __init__(self, hmc, cuda_graph_se=False):
         self.hmc_sampler = hmc
-        self.Nrv = 10
+        self.Nrv = 20
         self.green_four = None
         self.green_two = None
 
@@ -164,7 +164,7 @@ class StochaticEstimator:
         self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
         self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
-        print("max_pcg_iter:", cnt[:5] if not self.hmc_sampler.cuda_graph else "cuda_graph on")
+        print("max_pcg_iter:", cnt[:5] if not self.hmc_sampler.cuda_graph else "cuda_graph_on")
         print("err:", err[:5])
 
         # Check

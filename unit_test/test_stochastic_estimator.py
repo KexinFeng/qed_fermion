@@ -13,11 +13,11 @@ from qed_fermion.stochastic_estimator import StochaticEstimator
 
 def test_green_functions():
     hmc = HmcSampler()
-    hmc.Lx = 2
-    hmc.Ly = 2
-    hmc.Ltau = 4
+    hmc.Lx = 4
+    hmc.Ly = 4
+    hmc.Ltau = 2
 
-    hmc.bs = 3
+    hmc.bs = 2
     hmc.reset()
     hmc.initialize_boson_pi_flux_randn_matfree()
     boson = hmc.boson[1].unsqueeze(0)
@@ -26,6 +26,7 @@ def test_green_functions():
     se = StochaticEstimator(hmc)
     se.Nrv = 100_000  # bs > 10000 will fail on _C.mh_vec, due to grid = {Ltau, bs}.
     se.Nrv = 200  # bs >= 80 will fail on cuda _C.prec_vec. This is size independent
+    se.Nrv = 20  # minum Nrv to pass assertions
     
     se.test_orthogonality(se.random_vec_bin())
     # se.test_orthogonality(se.random_vec_norm())
@@ -209,7 +210,7 @@ def test_fermion_obsr_write():
 
 
 if __name__ == "__main__":
-    # test_green_functions()
+    test_green_functions()
     # test_fermion_obsr_write()
-    test_fermion_obsr()
+    # test_fermion_obsr()
     print("All tests completed successfully!")

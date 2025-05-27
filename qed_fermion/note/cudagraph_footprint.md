@@ -160,8 +160,9 @@ aysm = 4
 max_iter = 200
 
 max_iter_se = 200
-Nrv = 10
 
+
+Nrv = 10
 L = 12: 3623.75 MB
 After setting precon: NVML Used: 1067.75 MB, diff: 68.00 MB
 
@@ -179,5 +180,19 @@ get_fermion_obsr CUDA graph initialization complete
 
 After init se_graph: NVML Used: 3623.75 MB, diff: 460.00 MB
 
+Nrv = 20
+After setting precon: NVML Used: 1067.75 MB, diff: 68.00 MB
 
+Initializing CUDA graph for force_f_fast...
+Capturing CUDA graph for max_iter=200 (1/1)...
+force_f CUDA Graph diff: 2084.00 MB
 
+force_f CUDA graph initialization complete for batch sizes: [200]
+After init force_f_graph: NVML Used: 3163.75 MB, diff: 2096.00 MB
+
+Initializing CUDA graph for get_fermion_obsr...
+fermion_obsr CUDA Graph diff: 112.00 MB
+
+get_fermion_obsr CUDA graph initialization complete
+
+After init se_graph: NVML Used: 4673.75 MB, diff: 1510.00 MB
