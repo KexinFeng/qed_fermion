@@ -43,7 +43,7 @@ class StochaticEstimator:
 
         self.Vs = hmc.Vs
 
-        self.cuda_graph = cuda_graph_se
+        self.cuda_graph_se = cuda_graph_se
         self.device = hmc.device
         self.dtype = hmc.dtype
         self.cdtype = hmc.cdtype
@@ -58,7 +58,7 @@ class StochaticEstimator:
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
         # Capture
-        if self.cuda_graph:
+        if self.cuda_graph_se:
             print("Initializing CUDA graph for get_fermion_obsr...")
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
             dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)

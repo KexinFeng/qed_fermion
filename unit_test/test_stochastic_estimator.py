@@ -100,7 +100,7 @@ def test_fermion_obsr():
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
 
     bosons = hmc.boson
-    if se.cuda_graph:
+    if se.cuda_graph_se:
         obsr = se.graph_runner(bosons, eta)
     else:
         obsr = se.get_fermion_obsr(bosons, eta)
@@ -128,7 +128,7 @@ def test_fermion_obsr_write():
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
 
     bosons = hmc.boson
-    if se.cuda_graph:
+    if se.cuda_graph_se:
         obsr = se.graph_runner(bosons, eta)
     else:
         obsr = se.get_fermion_obsr(bosons, eta)
@@ -179,7 +179,7 @@ def test_fermion_obsr_write():
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
 
-        if se.cuda_graph:
+        if se.cuda_graph_se:
             obsr = se.graph_runner(bosons, eta)
         else:
             obsr = se.get_fermion_obsr(bosons, eta)
