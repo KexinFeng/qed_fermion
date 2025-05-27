@@ -112,6 +112,12 @@ class StochaticEstimator:
         a_F = torch.roll(a_F, shifts=(1, 1, 1), dims=(-3, -2, -1))
         return a_F
 
+    @staticmethod
+    def reorder_fft_grid2(tensor2d):
+        """Reorder the last two axes of a tensor from FFT-style to ascending momentum order."""
+        Ny, Nx = tensor2d.shape[-2], tensor2d.shape[-1]
+        return torch.roll(tensor2d, shifts=(Ny // 2, Nx // 2), dims=(-2, -1))
+
 
     def test_orthogonality(self, rand_vec):
         """
@@ -720,10 +726,8 @@ class StochaticEstimator:
         spsm = -self.G_delta_0_G_0_delta_ext()[:1]  # [Ltau, Ly, Lx]
         spsm[0, 0, 0] += self.G_delta_0_ext()[0, 0, 0]
         spsm = spsm.real
-        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [1, Lx, Ly]
-        ky = torch.fft.fftfreq(self.Ly)
-        kx = torch.fft.fftfreq(self.Lx)
-        ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1)
+        spsm_k = torch.fft.ifft2(spsm, (self.Ly, self.Lx), norm="forward")  # [1, Ly, Lx]
+        spsm_k = self.reorder_fft_grid2(spsm_k).permute(0, 2, 1)  # [1, Lx, Ly]
         return spsm_k
 
     def szsz(self):
@@ -741,9 +745,14 @@ class StochaticEstimator:
             szsz: [Ltau, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        spsm = torch.zeros((bs, 1, Ly, Lx), dtype=self.cdtype, device=self.device)
-        szsz = torch.zeros((bs, 1, Ly, Lx), dtype=self.cdtype, device=self.device)
-
+        spsm = torch.zeros((bs, 1, Lx, Ly), dtype=self.cdtype, device=self.device)
+        szsz = torch.zeros((bs, 1, Lx, Ly), dtype=self.cdtype, device=self.device)
+        
+        ky = torch.fft.fftfreq(self.Ly)
+        kx = torch.fft.fftfreq(self.Lx)
+        ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, 2]
+        ks = ks.permute(2, 0, 1)  # [2, Ly, Lx]
+        ks_ordered = self.reorder_fft_grid2(ks).permute(2, 1, 0)  # [Lx, Ly, 2]
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
@@ -754,6 +763,7 @@ class StochaticEstimator:
         obsr = {}
         obsr['spsm'] = spsm
         obsr['szsz'] = szsz
+        obsr['ks'] = ks_ordered
         return obsr
 
 
@@ -853,6 +863,7 @@ def test_fermion_obsr():
 
     obsr_ref = se.get_fermion_obsr(bosons, eta)
     torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
+    print()
 
     # ---------- Benchmark vs dqmc ---------- #
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
