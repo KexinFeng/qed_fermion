@@ -726,7 +726,7 @@ class StochaticEstimator:
         """
         spsm = -self.G_delta_0_G_0_delta_ext()[0]  # [Ly, Lx]
         spsm[0, 0] += self.G_delta_0_ext()[0, 0, 0]
-        # spsm = spsm.real
+        spsm = spsm.real
         return spsm
     
     def spsm_k(self, spsm_r):
@@ -736,6 +736,23 @@ class StochaticEstimator:
         spsm_k = torch.fft.ifft2(spsm_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         spsm_k = self.reorder_fft_grid2(spsm_k).permute(1, 0)  # [Lx, Ly]
         return spsm_k
+    
+    def get_ks_ordered(self):
+        """
+        Returns:
+            ks_ordered: [Lx, Ly, 2] tensor, where ks_ordered[:, :, 0] = kx and ks_ordered[:, :, 1] = ky
+            kx = 2 * pi * n / Lx, ky = 2 * pi * m / Ly
+            n = -Lx/2, ..., -1, 0, 1, ..., Lx/2-1
+            m = -Ly/2, ..., -1, 0, 1, ..., Ly/2-1
+        """
+        ky = torch.fft.fftfreq(self.Ly)
+        kx = torch.fft.fftfreq(self.Lx)
+        ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, 2]
+        
+        ks = ks.permute(2, 0, 1)  # [2, Ly, Lx]
+        ks_ordered = self.reorder_fft_grid2(ks).permute(2, 1, 0)  # [Lx, Ly, 2]
+        ks_ordered = torch.flip(ks_ordered, dims=[-1])  # [Lx, Ly, 2]
+        return ks_ordered
 
     def szsz(self):
         # zszsz(imj) = zszsz(imj) + chalf*chalf*( (grupc(i,i)-grdnc(i,i))*(grupc(j,j)-grdnc(j,j)) + ( grupc(i,j)*grup(i,j)+grdnc(i,j)*grdn(i,j) ) )
@@ -753,8 +770,9 @@ class StochaticEstimator:
             szsz: [bs, Ltau=1, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        spsm = torch.zeros((bs, Lx, Ly), dtype=self.cdtype, device=self.device)
-        szsz = torch.zeros((bs, Lx, Ly), dtype=self.cdtype, device=self.device)
+        spsm_r = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
+        spsm_k_abs = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
+        # szsz = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
         
         ky = torch.fft.fftfreq(self.Ly)
         kx = torch.fft.fftfreq(self.Lx)
@@ -767,15 +785,16 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
-            
-            spsm_r = self.spsm_r()
-            spsm[b] = self.spsm_k(spsm_r)
 
-            szsz[b] = 0.5 * spsm[b]
+            spsm_r = self.spsm_r()
+            spsm_r[b] = spsm_r
+            spsm_k_abs[b] = self.spsm_k(spsm_r).abs()
+
+            # szsz[b] = 0.5 * spsm[b]
 
         obsr = {}
-        obsr['spsm'] = spsm
-        obsr['szsz'] = szsz
+        obsr['spsm_r'] = spsm_r
+        obsr['spsm_k_abs'] = spsm_k_abs
         obsr['ks'] = ks_ordered
         return obsr
 
@@ -875,7 +894,7 @@ def test_fermion_obsr():
         obsr = se.get_fermion_obsr(bosons, eta)
 
     obsr_ref = se.get_fermion_obsr(bosons, eta)
-    torch.testing.assert_close(obsr['spsm'], obsr_ref['spsm'], rtol=1e-2, atol=5e-2)
+    torch.testing.assert_close(obsr['spsm_r'], obsr_ref['spsm_r'], rtol=1e-2, atol=5e-2)
     print()
 
     # ---------- Benchmark vs dqmc ---------- #
@@ -916,7 +935,7 @@ def test_fermion_obsr():
     # Write result to file
 
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
-    spsm = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.cdtype)
+    spsm_k = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.cdtype)
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
 
@@ -924,23 +943,23 @@ def test_fermion_obsr():
             obsr = se.graph_runner(bosons, eta)
         else:
             obsr = se.get_fermion_obsr(bosons, eta)
-        spsm[i-start] = obsr['spsm']  # [bs, Lx, Ly]
+        spsm_k[i-start] = obsr['spsm_k_abs']  # [bs, Lx, Ly]
     
     ks = obsr['ks']  # [Lx, Ly, 2]
 
     # Linearize
-    spsm_mean = spsm.mean(dim=(0))  # [bs, Lx, Ly]
-    spsm_mean = spsm_mean.permute((0, 2, 1)).reshape(bs, -1)  # Ly*Lx
+    spsm_k_mean = spsm_k.mean(dim=(0))  # [bs, Lx, Ly]
+    spsm_k_mean_real = spsm_k_mean.permute((0, 2, 1)).reshape(bs, -1).real  # Ly*Lx
     ks = ks.permute((1, 0, 2)).reshape(-1, 2)  # Ly*Lx, but displayed as (kx, ky)
     print("ks (flattened):", ks)
 
     for b in range(bs):
-        print(f"spsm_mean (flattened) bid:{b}: ", spsm_mean[b].real)
+        print(f"spsm_k_mean_real (flattened) bid:{b}: ", spsm_k_mean_real[b])
 
     output_dir = os.path.join(script_path, "post_processors/fermi_bench")
     os.makedirs(output_dir, exist_ok=True)
     for b in range(bs):
-        data = torch.stack([ks[:, 0], ks[:, 1], spsm_mean[b].real], dim=1).cpu().numpy()
+        data = torch.stack([ks[:, 0], ks[:, 1], spsm_mean_real[b]], dim=1).cpu().numpy()
         output_file = os.path.join(output_dir, f"spsm_k_b{b}.txt")
         # Save as text, columns: kx, ky, spsm
         np.savetxt(output_file, data, fmt="%.8f", comments='')

@@ -150,6 +150,8 @@ class HmcSampler(object):
         self.cg_iter_list = torch.zeros(self.N_step, self.bs)
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
+        
+        self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Lx, self.Ly, dtype=dtype)
 
         # boson_seq
         self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device='cpu', dtype=dtype)
@@ -2660,7 +2662,8 @@ class HmcSampler(object):
         # Warm up measure
         self.reset_precon()
         if self.cuda_graph:
-            self.initialize_force_graph()
+            # self.initialize_force_graph()
+            self.initialize_metropolis_graph()
             self.init_stochastic_estimator()
 
         if torch.cuda.is_available():
@@ -2677,8 +2680,18 @@ class HmcSampler(object):
         futures = {}
 
         for i in tqdm(range(self.N_step)):
-            boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()
+
+            # if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
+            #     # force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+            #     # cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             
+            #     boson, accp, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter]()
+            # else:
+            #     # force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
+
+            #     boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()
+
+            boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
             # self.threshold_queue.append(threshold)
             if mass_mode != 0:
                 self.apply_sigma_hat_cpu(i)
@@ -2688,11 +2701,11 @@ class HmcSampler(object):
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
             obsr = self.se.graph_runner(boson, eta)
 
-            spsm = obsr['spsm'] # [bs, Lx, Ly]
-            # ks = obsr['ks']  # [Lx, Ly, 2]      
+            spsm_r = obsr['spsm_r']  # [bs, Lx, Ly]
+            spsm_k_abs = obsr['spsm_k_abs']  # [bs, Lx, Ly]   
 
             # Define CPU computations to run asynchronously
-            def async_cpu_computations(i, boson_cpu, spsm_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+            def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
                 # Update metrics
                 self.accp_list[i] = accp_cpu
                 self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -2710,7 +2723,8 @@ class HmcSampler(object):
                 self.cg_r_err_list[i] = cg_r_err_cpu
                 self.delta_t_list[i] = delta_t_cpu
                 # self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-                self.spsm_list[i] = spsm_cpu  # [bs, Lx, Ly] 
+                self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
+                self.spsm_k_abs_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
                 if mass_mode != 0:
                     self.update_sigma_hat_cpu(boson_cpu, i)                
                 return i  # Return the step index for identification
@@ -2720,7 +2734,8 @@ class HmcSampler(object):
                 async_cpu_computations, 
                 i, 
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
-                spsm.cpu() if spsm.is_cuda else spsm.clone(),
+                spsm_r.cpu() if spsm_r.is_cuda else spsm_r.clone(),
+                spsm_k_abs.cpu() if spsm_k_abs.is_cuda else spsm_k_abs.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone(), 
                 cg_r_err.cpu() if cg_r_err.is_cuda else cg_r_err.clone(), 
