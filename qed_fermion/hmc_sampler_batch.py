@@ -147,7 +147,7 @@ class HmcSampler(object):
         # self.Sf_list = torch.zeros(self.N_step, self.bs)
         # self.H_list = torch.zeros(self.N_step, self.bs)
 
-        self.cg_iter_list = torch.zeros(self.N_step, self.bs)
+        self.cg_iter_list = torch.zeros(self.N_step, self.bs) if not cuda_graph else None
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
@@ -2860,7 +2860,8 @@ class HmcSampler(object):
                     accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
                     + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
                     
-                self.cg_iter_list[i] = cg_converge_iter_cpu
+                if not self.cuda_graph:
+                    self.cg_iter_list[i] = cg_converge_iter_cpu
                 self.cg_r_err_list[i] = cg_r_err_cpu
                 self.delta_t_list[i] = delta_t_cpu
                 # self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
@@ -2878,7 +2879,7 @@ class HmcSampler(object):
                 spsm_r.cpu() if spsm_r.is_cuda else spsm_r.clone(),
                 spsm_k_abs.cpu() if spsm_k_abs.is_cuda else spsm_k_abs.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
-                cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone(), 
+                (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
                 cg_r_err.cpu() if cg_r_err.is_cuda else cg_r_err.clone(), 
                 self.delta_t_tensor.cpu() if self.delta_t_tensor.is_cuda else self.delta_t_tensor.clone(),
                 cnt_stream_write
@@ -2948,12 +2949,12 @@ class HmcSampler(object):
             if i % self.ckp_rate == 0 and i > 0:
                 res = {'boson': boson,
                         'step': self.step,
-                        'G_list': self.G_list.cpu(),
-                        'S_plaq_list': self.S_plaq_list.cpu(),
-                        'S_tau_list': self.S_tau_list.cpu(),
-                        'cg_iter_list': self.cg_iter_list.cpu(),
-                        'cg_r_err_list': self.cg_r_err_list.cpu(),
-                        'delta_t_list': self.delta_t_list.cpu()}
+                        'G_list': self.G_list,
+                        'S_plaq_list': self.S_plaq_list,
+                        'S_tau_list': self.S_tau_list,
+                        'cg_iter_list': self.cg_iter_list,
+                        'cg_r_err_list': self.cg_r_err_list,
+                        'delta_t_list': self.delta_t_list}
                 
                 data_folder = script_path + "/check_points/hmc_check_point_bench/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
@@ -2963,11 +2964,11 @@ class HmcSampler(object):
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
-               'G_list': self.G_list.cpu(),
-               'S_plaq_list': self.S_plaq_list.cpu(),
-               'S_tau_list': self.S_tau_list.cpu(),
-               'cg_iter_list': self.cg_iter_list.cpu(),
-               'cg_r_err_list': self.cg_r_err_list.cpu(),
+               'G_list': self.G_list,
+               'S_plaq_list': self.S_plaq_list,
+               'S_tau_list': self.S_tau_list,
+               'cg_iter_list': self.cg_iter_list,
+               'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}
 
         # Save to file
