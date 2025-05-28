@@ -10,7 +10,7 @@ def device_mem():
         info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         return f"NVML Used: {info.used / 1024**2:.2f} MB", info.used / 1024**2
     else:
-        return "no cuda"
+        return "no cuda", 0
 
 def ravel_multi_index(multi_index, shape):
     """
