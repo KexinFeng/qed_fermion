@@ -1,8 +1,9 @@
 import torch
 
-import pynvml
-pynvml.nvmlInit()
-handle = pynvml.nvmlDeviceGetHandleByIndex(torch.cuda.current_device())
+if torch.cuda.is_available():
+    import pynvml
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(torch.cuda.current_device())
 
 def device_mem():
     if torch.cuda.is_available():

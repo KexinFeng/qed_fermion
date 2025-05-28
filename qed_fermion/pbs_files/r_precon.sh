@@ -19,7 +19,7 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-		config=$(echo L_${L})
+		config=$(echo L${L}a${asym})
                 echo $config
                 export L
                 #
