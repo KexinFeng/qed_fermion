@@ -119,7 +119,7 @@ class LeapfrogCmpGraphRunner:
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for _ in range(n_warmups):
-                static_outputs = self.hmc_sampler.leapfrog_cmp_graph(
+                static_outputs = self.hmc_sampler.leapfrog_cmp(
                     input_buffers['x'],
                     input_buffers['p'],
                     input_buffers['dt'],
@@ -134,7 +134,7 @@ class LeapfrogCmpGraphRunner:
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.hmc_sampler.leapfrog_cmp_graph(
+            static_outputs = self.hmc_sampler.leapfrog_cmp(
                 input_buffers['x'],
                 input_buffers['p'],
                 input_buffers['dt'],

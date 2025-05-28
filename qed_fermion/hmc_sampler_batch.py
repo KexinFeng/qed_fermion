@@ -2474,11 +2474,9 @@ class HmcSampler(object):
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
         cg_converge_iters = [cg_converge_iter]
         cg_r_errs = [r_err]
+
+        p = p + dt/2 * (force_f_u) * tau_mask
         for leap in range(self.N_leapfrog):
-
-            # Update p only for selected tau block
-            p = p + dt/2 * (force_f_u) * tau_mask
-
             # Update (p, x)
             M = 5
             for _ in range(M):
@@ -2496,9 +2494,12 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
 
+            if leap == self.N_leapfrog - 1:
+                break
+
             force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
 
-            p = p + dt/2 * (force_f_u) * tau_mask
+            p = p + dt * (force_f_u) * tau_mask
 
             cg_converge_iters.append(cg_converge_iter)
             cg_r_errs.append(r_err)
@@ -2649,10 +2650,9 @@ class HmcSampler(object):
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
         cg_converge_iters = [cg_converge_iter]
         cg_r_errs = [r_err]
+
+        p = p + dt/2 * (force_f_u)
         for leap in range(self.N_leapfrog):
-
-            p = p + dt/2 * (force_f_u)
-
             # Update (p, x)
             M = 5
             for _ in range(M):
@@ -2666,6 +2666,9 @@ class HmcSampler(object):
                 
                 force_b = self.force_b_plaq_matfree(x)
                 p = p + force_b * dt/2/M
+
+            if leap == self.N_leapfrog - 1:
+                break
 
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
@@ -2682,7 +2685,7 @@ class HmcSampler(object):
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
-            p = p + dt/2 * (force_f_u)
+            p = p + dt * (force_f_u)
 
             cg_converge_iters.append(cg_converge_iter)
             cg_r_errs.append(r_err)
