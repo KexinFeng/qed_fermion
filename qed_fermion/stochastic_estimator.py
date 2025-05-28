@@ -114,10 +114,10 @@ class StochaticEstimator:
         return a_F
 
     @staticmethod
-    def reorder_fft_grid2(tensor2d):
+    def reorder_fft_grid2(tensor2d, dims=(-2, -1)):
         """Reorder the last two axes of a tensor from FFT-style to ascending momentum order."""
-        Ny, Nx = tensor2d.shape[-2], tensor2d.shape[-1]
-        return torch.roll(tensor2d, shifts=(Ny // 2, Nx // 2), dims=(-2, -1))
+        Ny, Nx = tensor2d.shape[dims[0]], tensor2d.shape[dims[1]]
+        return torch.roll(tensor2d, shifts=(Ny // 2, Nx // 2), dims=dims)
 
 
     def test_orthogonality(self, rand_vec):
@@ -734,7 +734,7 @@ class StochaticEstimator:
         spsm: [Ly, Lx]
         """
         spsm = self.spsm_r(GD0G0D, GD0)
-        spsm -= GD0[0, 0, 0]**2
+        spsm -= (GD0[0, 0, 0]**2).abs()
         return spsm
     
     def spsm_k(self, spsm_r):
@@ -767,7 +767,9 @@ class StochaticEstimator:
         ky = torch.fft.fftfreq(self.Ly)
         kx = torch.fft.fftfreq(self.Lx)
         ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, (ky, kx)]
-        return ks     
+
+        ks_ordered = self.reorder_fft_grid2(ks, dims=(0, 1))  # [Ly, Lx, 2]
+        return ks_ordered     
 
     def szsz(self):
         # zszsz(imj) = zszsz(imj) + chalf*chalf*( (grupc(i,i)-grdnc(i,i))*(grupc(j,j)-grdnc(j,j)) + ( grupc(i,j)*grup(i,j)+grdnc(i,j)*grdn(i,j) ) )
