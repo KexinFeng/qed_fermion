@@ -186,7 +186,8 @@ def test_fermion_obsr_write():
             obsr = se.get_fermion_obsr(bosons, eta)
         spsm_k[i-start] = obsr['spsm_k_abs']  # [bs, Lx, Ly]
     
-    ks = obsr['ks']  # [Lx, Ly, 2]
+    # ks = obsr['ks']  # [Lx, Ly, 2]
+    ks = se.get_ks_ordered()  # [Lx, Ly, 2]
 
     # Linearize
     spsm_k_mean = spsm_k.mean(dim=(0))  # [bs, Lx, Ly]

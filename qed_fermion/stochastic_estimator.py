@@ -681,7 +681,7 @@ class StochaticEstimator:
 
 
     # -------- Fermionic obs methods --------
-    def spsm_r(self):
+    def spsm_r(self, GD0G0D, GD0):
         # Observables
         # !zspsm(imj) = zspsm(imj) + grupc(i,j)*grup(i,j)
         # ! up-down not the same anymore
@@ -724,9 +724,17 @@ class StochaticEstimator:
 
         spsm: [Lx, Ly]
         """
-        spsm = -self.G_delta_0_G_0_delta_ext()[0]  # [Ly, Lx]
-        spsm[0, 0] += self.G_delta_0_ext()[0, 0, 0]
+        spsm = -GD0G0D[0]  # [Ly, Lx]
+        spsm[0, 0] += GD0[0, 0, 0]
         spsm = spsm.real
+        return spsm
+    
+    def spsm_r_minus_bg(self, GD0G0D, GD0):
+        """
+        spsm: [Lx, Ly]
+        """
+        spsm = self.spsm_r(GD0G0D, GD0)
+        spsm -= GD0[0, 0, 0]**2
         return spsm
     
     def spsm_k(self, spsm_r):
@@ -774,28 +782,23 @@ class StochaticEstimator:
         spsm_k_abs = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
         # szsz = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
         
-        ky = torch.fft.fftfreq(self.Ly)
-        kx = torch.fft.fftfreq(self.Lx)
-        ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, 2]
-        
-        ks = ks.permute(2, 0, 1)  # [2, Ly, Lx]
-        ks_ordered = self.reorder_fft_grid2(ks).permute(2, 1, 0)  # [Lx, Ly, 2]
-        ks_ordered = torch.flip(ks_ordered, dims=[-1])  # [Lx, Ly, 2]
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
+            GD0G0D = self.G_delta_0_G_delta_0_ext()
+            GD0 = self.G_delta_0_ext()
 
-            spsm_r_b = self.spsm_r()
-            spsm_r[b] = spsm_r_b
-            spsm_k_abs[b] = self.spsm_k(spsm_r_b).abs()
+            spsm_r_per_b = self.spsm_r(GD0G0D, GD0)  # [Lx, Ly]
+            # spsm_r[b] = spsm_r_per_b
+            spsm_r[b] = self.spsm_r_minus_bg(GD0G0D, GD0)  # [Lx, Ly]
+            spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()
 
             # szsz[b] = 0.5 * spsm[b]
 
         obsr = {}
         obsr['spsm_r'] = spsm_r
         obsr['spsm_k_abs'] = spsm_k_abs
-        obsr['ks'] = ks_ordered
         return obsr
 
 
