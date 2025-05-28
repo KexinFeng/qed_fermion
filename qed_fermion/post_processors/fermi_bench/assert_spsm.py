@@ -23,7 +23,7 @@ for bid in range(bs):
     # Assuming torch.load is appropriate for loading the file
     data = np.genfromtxt(file_path)
     
-    txt_file_path = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/post_processors/fermi_bench/spsm_k_b{bid}.txt"
+    txt_file_path = f"/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/post_processors/fermi_bench/spsm_k_real/spsm_k_b{bid}.txt"
     data2 = np.genfromtxt(txt_file_path)
 
     # Compare the third column of data and data2 using torch.testing.assert_close

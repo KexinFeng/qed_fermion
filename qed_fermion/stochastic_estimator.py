@@ -717,7 +717,7 @@ class StochaticEstimator:
         zsp_i sm_j = <c^+_i c_j><c_i c^+_j> = (delta_ij  - <c_j c^+_i>)<c_i c^+_j>
         = grupc(i, j) * grup(i, j) = (- grup(j, i) + delta_ij) * grup(i, j)
         Delta = i - j
-        = - grup(0, D) * grup (D, 0) + grup(0, 0) * delta_{D, 0}
+        = - grup (D, 0) * grup(0, D) + grup(0, 0) * delta_{D, 0}
         = - GG_D00D + G_D0 * delta_{D, 0}
 
         spsm: [Ly, Lx]
@@ -793,7 +793,7 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
-            GD0G0D = self.G_delta_0_G_delta_0_ext() # [Ly, Lx]
+            GD0G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
             GD0 = self.G_delta_0_ext() # [Ly, Lx]
 
             spsm_r_per_b = self.spsm_r(GD0G0D, GD0)  # [Ly, Lx]
