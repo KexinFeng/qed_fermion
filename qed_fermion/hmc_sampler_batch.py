@@ -2309,9 +2309,6 @@ class HmcSampler(object):
                     x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             else:
                 x, p = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
-
-            if leap == self.N_leapfrog - 1:
-                break
             
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
@@ -2328,6 +2325,9 @@ class HmcSampler(object):
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
+
+            if leap == self.N_leapfrog - 1:
+                break
             p = p + dt * (force_f_u) * tau_mask
 
             cg_converge_iters.append(cg_converge_iter)
@@ -2494,11 +2494,10 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
 
-            if leap == self.N_leapfrog - 1:
-                break
-
             force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
 
+            if leap == self.N_leapfrog - 1:
+                break
             p = p + dt * (force_f_u) * tau_mask
 
             cg_converge_iters.append(cg_converge_iter)
@@ -2667,9 +2666,6 @@ class HmcSampler(object):
                 force_b = self.force_b_plaq_matfree(x)
                 p = p + force_b * dt/2/M
 
-            if leap == self.N_leapfrog - 1:
-                break
-
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
                 MhM = result[0]
@@ -2685,6 +2681,9 @@ class HmcSampler(object):
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
+
+            if leap == self.N_leapfrog - 1:
+                break
             p = p + dt * (force_f_u)
 
             cg_converge_iters.append(cg_converge_iter)
