@@ -32,8 +32,8 @@ class StochaticEstimator:
 
     def __init__(self, hmc, cuda_graph_se=False):
         self.hmc_sampler = hmc
-        self.Nrv = 20
-        self.max_iter = 200
+        self.Nrv = 10
+        self.max_iter_se = 200
 
         self.Lx = hmc.Lx
         self.Ly = hmc.Ly    
@@ -64,7 +64,7 @@ class StochaticEstimator:
             self.graph_memory_pool = self.graph_runner.capture(
                                         dummy_bosons, 
                                         dummy_eta, 
-                                        max_iter = self.max_iter,
+                                        max_iter_se=self.max_iter_se,
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
             print('')

@@ -18,7 +18,7 @@ class FermionObsrGraphRunner:
         bosons,
         eta,
         # cuda_graph control parameters
-        max_iter,
+        max_iter_se,
         graph_memory_pool=None,
         n_warmups=3
     ):
@@ -28,7 +28,8 @@ class FermionObsrGraphRunner:
             "eta": eta
         }
 
-        self.se.hmc_sampler.max_iter, max_iter_copy = max_iter, self.se.hmc_sampler.max_iter
+        max_iter_copy = self.se.hmc_sampler.max_iter
+        self.se.hmc_sampler.max_iter = max_iter_se
         
         # Warm up
         torch.cuda.empty_cache()
