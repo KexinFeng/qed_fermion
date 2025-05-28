@@ -150,8 +150,8 @@ class HmcSampler(object):
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
-        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Lx, self.Ly, dtype=dtype)
-        self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Lx, self.Ly, dtype=dtype)
+        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
 
         # boson_seq
         # self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device='cpu', dtype=dtype)
@@ -2718,8 +2718,8 @@ class HmcSampler(object):
             else:
                 obsr = self.se.get_fermion_obsr(boson, eta)
 
-            spsm_r = obsr['spsm_r']  # [bs, Lx, Ly]
-            spsm_k_abs = obsr['spsm_k_abs']  # [bs, Lx, Ly]   
+            spsm_r = obsr['spsm_r']  # [bs, Ly, Lx]
+            spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]   
 
             # Define CPU computations to run asynchronously
             def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):

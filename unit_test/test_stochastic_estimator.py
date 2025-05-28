@@ -176,7 +176,7 @@ def test_fermion_obsr_write():
     # Write result to file
 
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
-    spsm_k = torch.zeros((len(filtered_seq), bs, Lx, Ly), dtype=hmc.dtype)
+    spsm_k = torch.zeros((len(filtered_seq), bs, Ly, Lx), dtype=hmc.dtype)
     for i, boson in filtered_seq:
         print(f"boson shape: {boson[1].shape}, dtype: {boson[1].dtype}, device: {boson[1].device}")
 
@@ -184,15 +184,15 @@ def test_fermion_obsr_write():
             obsr = se.graph_runner(bosons, eta)
         else:
             obsr = se.get_fermion_obsr(bosons, eta)
-        spsm_k[i-start] = obsr['spsm_k_abs']  # [bs, Lx, Ly]
+        spsm_k[i-start] = obsr['spsm_k_abs']  # [bs, Ly, Lx]
     
     # ks = obsr['ks']  # [Lx, Ly, 2]
-    ks = se.get_ks_ordered()  # [Lx, Ly, 2]
+    ks = se.get_ks_ordered()  # [Ly, Lx, (ky, kx)]
 
     # Linearize
-    spsm_k_mean = spsm_k.mean(dim=(0))  # [bs, Lx, Ly]
-    spsm_k_mean = spsm_k_mean.permute((0, 2, 1)).reshape(bs, -1)  # Ly*Lx
-    ks = ks.permute((1, 0, 2)).reshape(-1, 2)  # Ly*Lx, but displayed as (kx, ky)
+    spsm_k_mean = spsm_k.mean(dim=(0))  # [bs, Ly, Lx]
+    spsm_k_mean = spsm_k_mean.reshape(bs, -1)  # Ly*Lx
+    ks = ks.reshape(-1, 2).flip(dims=[-1])  # Ly*Lx, but displayed as (kx, ky)
     print("ks (flattened):", ks)
 
     for b in range(bs):

@@ -722,7 +722,7 @@ class StochaticEstimator:
         = - grup(0, D) * grup (D, 0) + grup(0, 0) * delta_{D, 0}
         = - GG_D00D + G_D0 * delta_{D, 0}
 
-        spsm: [Lx, Ly]
+        spsm: [Ly, Lx]
         """
         spsm = -GD0G0D[0]  # [Ly, Lx]
         spsm[0, 0] += GD0[0, 0, 0]
@@ -731,7 +731,7 @@ class StochaticEstimator:
     
     def spsm_r_minus_bg(self, GD0G0D, GD0):
         """
-        spsm: [Lx, Ly]
+        spsm: [Ly, Lx]
         """
         spsm = self.spsm_r(GD0G0D, GD0)
         spsm -= GD0[0, 0, 0]**2
@@ -739,13 +739,14 @@ class StochaticEstimator:
     
     def spsm_k(self, spsm_r):
         """
-        spsm: [Lkx, Lky]
+        spsm_r: [Ly, Lx]
+        spsm_k: [Lky, Lkx]
         """
         spsm_k = torch.fft.ifft2(spsm_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
-        spsm_k = self.reorder_fft_grid2(spsm_k).permute(1, 0)  # [Lx, Ly]
+        spsm_k = self.reorder_fft_grid2(spsm_k)  # [Ly, Lx]
         return spsm_k
     
-    def get_ks_ordered(self):
+    def get_ks_ordered_xy(self):
         """
         Returns:
             ks_ordered: [Lx, Ly, 2] tensor, where ks_ordered[:, :, 0] = kx and ks_ordered[:, :, 1] = ky
@@ -761,6 +762,12 @@ class StochaticEstimator:
         ks_ordered = self.reorder_fft_grid2(ks).permute(2, 1, 0)  # [Lx, Ly, 2]
         ks_ordered = torch.flip(ks_ordered, dims=[-1])  # [Lx, Ly, 2]
         return ks_ordered
+    
+    def get_ks_ordered(self):
+        ky = torch.fft.fftfreq(self.Ly)
+        kx = torch.fft.fftfreq(self.Lx)
+        ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, (ky, kx)]
+        return ks     
 
     def szsz(self):
         # zszsz(imj) = zszsz(imj) + chalf*chalf*( (grupc(i,i)-grdnc(i,i))*(grupc(j,j)-grdnc(j,j)) + ( grupc(i,j)*grup(i,j)+grdnc(i,j)*grdn(i,j) ) )
@@ -778,21 +785,21 @@ class StochaticEstimator:
             szsz: [bs, Ltau=1, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        spsm_r = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
-        spsm_k_abs = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
+        spsm_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
+        spsm_k_abs = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
         # szsz = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
         
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
-            GD0G0D = self.G_delta_0_G_delta_0_ext()
-            GD0 = self.G_delta_0_ext()
+            GD0G0D = self.G_delta_0_G_delta_0_ext() # [Ly, Lx]
+            GD0 = self.G_delta_0_ext() # [Ly, Lx]
 
-            spsm_r_per_b = self.spsm_r(GD0G0D, GD0)  # [Lx, Ly]
+            spsm_r_per_b = self.spsm_r(GD0G0D, GD0)  # [Ly, Lx]
             # spsm_r[b] = spsm_r_per_b
-            spsm_r[b] = self.spsm_r_minus_bg(GD0G0D, GD0)  # [Lx, Ly]
-            spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()
+            spsm_r[b] = self.spsm_r_minus_bg(GD0G0D, GD0)  # [Ly, Lx]
+            spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
 
             # szsz[b] = 0.5 * spsm[b]
 
