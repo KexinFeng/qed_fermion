@@ -33,8 +33,7 @@ class StochaticEstimator:
     def __init__(self, hmc, cuda_graph_se=False):
         self.hmc_sampler = hmc
         self.Nrv = 20
-        self.green_four = None
-        self.green_two = None
+        self.max_iter = 200
 
         self.Lx = hmc.Lx
         self.Ly = hmc.Ly    
@@ -50,7 +49,6 @@ class StochaticEstimator:
         
         self.graph_runner = FermionObsrGraphRunner(self)
         self.graph_memory_pool = hmc.graph_memory_pool
-        self.max_iter = 200
 
         # init
         if hmc.precon_csr is None:

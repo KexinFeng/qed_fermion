@@ -2460,9 +2460,9 @@ class HmcSampler(object):
         H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H_fin += Sf_fin_u
 
-        cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
+        # cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
         cg_r_errs = torch.stack(cg_r_errs)  # [sub_seq, bs]
-        return x, H0, H_fin, cg_converge_iters.float().mean(dim=0), cg_r_errs.float().mean(dim=0)
+        return x, H0, H_fin, None, cg_r_errs.float().mean(dim=0)
     
     def leapfrog_proposer5_noncmptau(self):
         """          
@@ -3207,7 +3207,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '6000'))
-    Lx = int(os.getenv("L", '12'))
+    Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
     asym = float(os.environ.get("asym", '4'))

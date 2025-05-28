@@ -39,7 +39,10 @@ class MetropolisGraphRunner:
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for _ in range(n_warmups):
-                static_outputs = self.hmc_sampler.leapfrog_proposer5_cmptau_graphrun()
+                static_outputs = self.hmc_sampler.leapfrog_proposer5_cmptau_graphrun(
+                    input_buffers['boson'],
+                    input_buffers['tau_mask']
+                )
 
             s.synchronize()
 
@@ -48,7 +51,10 @@ class MetropolisGraphRunner:
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.hmc_sampler.leapfrog_proposer5_cmptau_graphrun(input_buffers['boson'])
+            static_outputs = self.hmc_sampler.leapfrog_proposer5_cmptau_graphrun(
+                input_buffers['boson'],
+                input_buffers['tau_mask']
+            )
 
         end_mem = device_mem()[1]   
         print(f"leapfrog_proposer5_cmptau_graphrun CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
