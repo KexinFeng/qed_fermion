@@ -2097,11 +2097,6 @@ class HmcSampler(object):
         p = p0
         x = x0
 
-        if len(self._MAX_ITERS_TO_CAPTURE) > 1:
-            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
-        else:
-            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
-
         R_u = self.draw_psudo_fermion().view(-1, 1)
         if not self.use_cuda_kernel:
             result = self.get_M_sparse(x)
@@ -2376,11 +2371,6 @@ class HmcSampler(object):
         x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
         x = x0
-
-        if len(self._MAX_ITERS_TO_CAPTURE) > 1:
-            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
-        else:
-            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
         R_u = self.draw_psudo_fermion().view(-1, 1)
         if not self.use_cuda_kernel:
@@ -2752,12 +2742,21 @@ class HmcSampler(object):
 
         :return: None
         """
+        if len(self._MAX_ITERS_TO_CAPTURE) > 1:
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
+        else:
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
+        
         while self.tau_block_idx < self.max_tau_block_idx:
 
             if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter]()
             else:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau_graphrun()
+
+            boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau_graphrun()
+            torch.testing.assert_close(boson_new, boson_new_ref, atol=1e-1, rtol=1e-3)
+            
 
             accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
             if debug_mode:
