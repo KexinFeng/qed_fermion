@@ -2348,6 +2348,138 @@ class HmcSampler(object):
         cg_r_errs = torch.stack(cg_r_errs)  # [sub_seq, bs]
         return x, H0, H_fin, cg_converge_iters.float().mean(dim=0), cg_r_errs.float().mean(dim=0)
     
+    def leapfrog_proposer5_cmptau_graphrun(self):
+        """          
+        Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
+        Sf(t) = psi' * [M(xt)'M(xt)]^(-1) * psi := R'R at t=0
+        - dS/dx_{r, tau} = F_fermion
+        Sample R ~ N(0, 1/sqrt(2)) + i N(0, 1/sqrt(2)), 
+            -> psi = M(x0)'R 
+            -> Sf(t) = psi' * [M(xt)'M(xt)]^(-1)*psi := psi' * xi(t)
+        [M(xt)'M(xt)] xi(t) = psi
+
+        Ff(t) = -xi(t)[M'*dM + dM'*M]xi(t)
+            -> ...
+
+        # Primitive leapfrog
+        x_0 = x
+        p_{1/2} = p_0 + dt/2 * F(x_0)
+
+        x_{n+1} = x_{n} + p_{n+1/2}/m dt
+        p_{n+3/2} = p_{n+1/2} + F(x_{n+1}) dt 
+
+        p_{N} = (p_{N+1/2} + p_{N-1/2}) /2
+        """
+
+        p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
+        # p0 = self.draw_momentum_fft()  # [bs, 2, Lx, Ly, Ltau] tensor
+        x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
+        p = p0
+        x = x0
+
+        if len(self._MAX_ITERS_TO_CAPTURE) > 1:
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
+        else:
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
+
+        R_u = self.draw_psudo_fermion().view(-1, 1)
+        if not self.use_cuda_kernel:
+            result = self.get_M_sparse(x)
+            MhM0, B_list, M0 = result[0], result[1], result[-1]
+            psi_u = torch.sparse.mm(M0.permute(1, 0).conj(), R_u)
+            force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM0, x, B_list)
+            psi_u = psi_u.view(self.bs, -1)
+            xi_t_u = xi_t_u.view(self.bs, -1)
+
+            r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
+        else:
+            psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
+            # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
+
+            # Use CUDA graph if available
+            if self.cuda_graph and self.max_iter in self.force_graph_runners:
+                force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
+            else:
+                force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
+            # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
+
+        Sf0_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
+        Sf0_u = torch.real(Sf0_u)
+
+        Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq_matfree(x0)
+        H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H0 += Sf0_u
+
+        dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
+
+        force_b_plaq = self.force_b_plaq_matfree(x)
+        force_b_tau = self.force_b_tau_cmp(x)
+
+       # Create mask for tau dimension: shape [1, 1, 1, 1, Ltau]
+        tau_start = self.tau_block_idx * self.tau_block_size
+        tau_end = (self.tau_block_idx + 1) * self.tau_block_size
+        tau_mask = torch.zeros((1, 1, 1, 1, self.Ltau), device=p.device, dtype=p.dtype)
+        tau_mask[..., tau_start: tau_end] = 1.0
+        
+        # Multi-scale Leapfrog
+        # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
+        cg_converge_iters = [cg_converge_iter]
+        cg_r_errs = [r_err]
+        for leap in range(self.N_leapfrog):
+
+            # Update p only for selected tau block
+            p = p + dt/2 * (force_f_u) * tau_mask
+
+            # Update (p, x)
+            M = 5
+            for _ in range(M):
+                # p = p + force(x) * dt/2
+                # x = x + velocity(p) * dt
+                # p = p + force(x) * dt/2
+
+                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
+
+                force_b_plaq = self.force_b_plaq_matfree(x)
+                force_b_tau = self.force_b_tau_cmp(x)
+
+                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+
+            if not self.use_cuda_kernel:
+                result = self.get_M_sparse(x)
+                MhM = result[0]
+                B_list = result[1]
+                force_f_u, xi_t_u, cg_converge_iter = self.force_f_sparse(psi_u, MhM, x, B_list)
+                xi_t_u = xi_t_u.view(self.bs, -1)
+                
+                r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
+            else:
+                if self.cuda_graph and self.max_iter in self.force_graph_runners:
+                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                    cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
+                else:
+                    force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
+                # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
+            p = p + dt/2 * (force_f_u) * tau_mask
+
+            cg_converge_iters.append(cg_converge_iter)
+            cg_r_errs.append(r_err)
+        
+        # Final energies
+        Sf_fin_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
+        Sf_fin_u = torch.real(Sf_fin_u)
+
+        Sb_fin = self.action_boson_plaq_matfree(x) + self.action_boson_tau_cmp(x) 
+        H_fin = Sb_fin + torch.sum(p ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
+        H_fin += Sf_fin_u
+
+        cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
+        cg_r_errs = torch.stack(cg_r_errs)  # [sub_seq, bs]
+        return x, H0, H_fin, cg_converge_iters.float().mean(dim=0), cg_r_errs.float().mean(dim=0)
+    
     def leapfrog_proposer5_noncmptau(self):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
