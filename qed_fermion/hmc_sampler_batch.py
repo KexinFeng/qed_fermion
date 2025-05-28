@@ -2753,7 +2753,12 @@ class HmcSampler(object):
         :return: None
         """
         while self.tau_block_idx < self.max_tau_block_idx:
-            boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau()
+
+            if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
+                boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter]()
+            else:
+                boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau_graphrun()
+
             accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
             if debug_mode:
                 print(f"H_old, H_new, diff: \n{H_old}, \n{H_new}, \n{H_new - H_old}")
