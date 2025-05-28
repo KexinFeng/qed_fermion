@@ -195,7 +195,6 @@ class HmcSampler(object):
         # self.N_leapfrog = 2
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
-        self.N_leapfrog = 1
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
