@@ -2300,10 +2300,9 @@ class HmcSampler(object):
         # H(x, p) = U1/2 + sum_m (U0/2M + K/M + U0/2M) + U1/2 
         cg_converge_iters = [cg_converge_iter]
         cg_r_errs = [r_err]
+
+        p = p + dt/2 * (force_f_u) * tau_mask
         for leap in range(self.N_leapfrog):
-
-            p = p + dt/2 * (force_f_u) * tau_mask
-
             # Update (p, x)
             if self.cuda_graph and self.max_iter in self.leapfrog_cmp_graph_runners:
                 x, p = self.leapfrog_cmp_graph_runner[self.max_iter](
@@ -2311,6 +2310,9 @@ class HmcSampler(object):
             else:
                 x, p = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
 
+            if leap == self.N_leapfrog - 1:
+                break
+            
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
                 MhM = result[0]
@@ -2326,7 +2328,7 @@ class HmcSampler(object):
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
-            p = p + dt/2 * (force_f_u) * tau_mask
+            p = p + dt * (force_f_u) * tau_mask
 
             cg_converge_iters.append(cg_converge_iter)
             cg_r_errs.append(r_err)
@@ -2859,6 +2861,10 @@ class HmcSampler(object):
         print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
 
         if self.cuda_graph:
+            self.initialize_leapfrog_cmp_graph()
+            d_mem_str, d_mem2 = device_mem()
+            print(f"After init leapfrog_cmp_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+
             self.initialize_force_graph()
             d_mem_str, d_mem2 = device_mem()
             print(f"After init force_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
