@@ -227,4 +227,33 @@ get_fermion_obsr CUDA graph initialization complete
 After init se_graph: NVML Used: 2287.75 MB, diff: 158.00 MB
 
 * metropolis graph
+N_leapfrog = 1; but two force_f_fast calls in this case, with one for initiation
 
+After setting precon: NVML Used: 1003.75 MB, diff: 24.00 MB
+
+Initializing CUDA graph for force_f_fast...
+Capturing CUDA graph for max_iter=200 (1/1)...
+force_f CUDA Graph diff: 1076.00 MB
+
+force_f CUDA graph initialization complete for batch sizes: [200]
+Execution time for initialize_force_graph: 5.41 seconds
+
+After init force_graph: NVML Used: 2129.75 MB, diff: 1126.00 MB
+
+Initializing CUDA graph for leapfrog_proposer5_cmptau_graphrun...
+Capturing CUDA graph for metropolis max_iter=200 (1/1)...
+leapfrog_proposer5_cmptau_graphrun CUDA Graph diff: 2108.00 MB
+
+leapfrog_proposer5_cmptau_graphrun CUDA graph initialization complete for batch sizes: [200]
+Execution time for initialize_metropolis_graph: 10.48 seconds
+
+After init metropolis_graph: NVML Used: 4259.75 MB, diff: 3256.00 MB
+
+Initializing CUDA graph for get_fermion_obsr...
+fermion_obsr CUDA Graph diff: 84.00 MB
+
+get_fermion_obsr CUDA graph initialization complete
+
+Execution time for init_stochastic_estimator: 0.68 seconds
+
+After init se_graph: NVML Used: 4413.75 MB, diff: 154.00 MB
