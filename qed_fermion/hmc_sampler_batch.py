@@ -2854,13 +2854,15 @@ class HmcSampler(object):
             torch.cuda.reset_peak_memory_stats()
             torch.cuda.synchronize()
         
-        d_mem_str, d_mem0 = device_mem()
-        print("Initial device memory: ", d_mem_str)
-        print('')
+        if self.cuda_graph:
+            d_mem_str, d_mem0 = device_mem()
+            print("Initial device memory: ", d_mem_str)
+            print('')
 
         self.reset_precon()
-        d_mem_str, d_mem1 = device_mem()
-        print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
+        if self.cuda_graph:
+            d_mem_str, d_mem1 = device_mem()
+            print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
 
         if self.cuda_graph:
             self.initialize_leapfrog_cmp_graph()
