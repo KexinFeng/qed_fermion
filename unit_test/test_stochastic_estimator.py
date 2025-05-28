@@ -144,7 +144,7 @@ def test_fermion_obsr_write():
     bs = 5
     assert bs == hmc.bs, "Batch size mismatch."
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    input_folder = "/users/4/fengx463/hmc/qed_fermion/qed_fermion/post_processors/fermi_bench/"
+    input_folder = f"/users/4/fengx463/hmc/qed_fermion/qed_fermion/post_processors/fermi_bench/"
     hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
 
     # Parse to get specifics
@@ -174,7 +174,6 @@ def test_fermion_obsr_write():
     seq_idx = set(list(range(start, end, sample_step)))
 
     # Write result to file
-
     filtered_seq = [(i, boson) for i, boson in enumerate(boson_seq) if i in seq_idx]
     spsm_k = torch.zeros((len(filtered_seq), bs, Ly, Lx), dtype=hmc.dtype)
     for i, boson in filtered_seq:
@@ -198,7 +197,7 @@ def test_fermion_obsr_write():
     for b in range(bs):
         print(f"spsm_k_mean (flattened) bid:{b}: ", spsm_k_mean[b])
 
-    output_dir = os.path.join(script_path, "../post_processors/fermi_bench")
+    output_dir = os.path.join(script_path, "../post_processors/fermi_bench/Nrv_{se.Nrv}")
     os.makedirs(output_dir, exist_ok=True)
     for b in range(bs):
         data = torch.stack([ks[:, 0], ks[:, 1], spsm_k_mean[b]], dim=1).cpu().numpy()
