@@ -13,6 +13,8 @@ import os
 import matlab.engine
 import concurrent.futures
 
+from qed_fermion.metropolis_graph_runner import MetropolisGraphRunner
+
 # matplotlib.use('MacOSX')
 plt.ion()
 import scipy.sparse as sp
@@ -291,6 +293,38 @@ class HmcSampler(object):
             self.graph_memory_pool = graph_memory_pool
                 
         print(f"force_f CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+
+    def initialize_metropolis_graph(self):
+        """Initialize CUDA graph for leapfrog_proposer5_cmptau_graphrun function."""
+        if not self.cuda_graph:
+            return
+
+        print("Initializing CUDA graph for leapfrog_proposer5_cmptau_graphrun...")
+
+        # dummy_psi = torch.zeros(self.bs, self.Lx * self.Ly * self.Ltau,
+        #                        dtype=cdtype, device=device)
+        dummy_boson = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau,
+                                  dtype=dtype, device=device)
+
+        # Capture graphs for different max_iter values
+        for idx, max_iter in enumerate(reversed(self._MAX_ITERS_TO_CAPTURE)):
+            print(
+                f"Capturing CUDA graph for metropolis max_iter={max_iter} ({idx + 1}/{len(self._MAX_ITERS_TO_CAPTURE)})...")
+            # Capture graphs for given max_iter
+            graph_runner = MetropolisGraphRunner(self)
+            graph_memory_pool = graph_runner.capture(
+                dummy_boson,
+                max_iter,
+                self.graph_memory_pool
+            )
+
+            # Store the graph runner and memory pool
+            self.metropolis_graph_runners[max_iter] = graph_runner
+            self.graph_memory_pool = graph_memory_pool
+
+        print(
+            f"leapfrog_proposer5_cmptau_graphrun CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+
 
     def init_stochastic_estimator(self):
         self.se = StochaticEstimator(self, cuda_graph_se=True)
