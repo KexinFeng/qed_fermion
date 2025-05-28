@@ -10,6 +10,7 @@ J_array=$(echo '1.0')
 L_array=$(echo '20 22 24 26')  # 10 h (-2)
 
 L_array=$(echo '26 30 40 50 60')
+L_array=$(echo '36 46 56 66')
 
 export debug=0
 export asym=2
