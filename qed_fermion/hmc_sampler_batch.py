@@ -2305,7 +2305,7 @@ class HmcSampler(object):
         for leap in range(self.N_leapfrog):
             # Update (p, x)
             if self.cuda_graph and self.max_iter in self.leapfrog_cmp_graph_runners:
-                x, p = self.leapfrog_cmp_graph_runner[self.max_iter](
+                x, p = self.leapfrog_cmp_graph_runners[self.max_iter](
                     x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             else:
                 x, p = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
