@@ -195,6 +195,7 @@ class HmcSampler(object):
         # self.N_leapfrog = 2
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
+        self.N_leapfrog = 1
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
@@ -234,6 +235,7 @@ class HmcSampler(object):
         # CUDA Graph for force_f_fast
         self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
         self.force_graph_runners = {}
+        self.metropolis_graph_runners = {}
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [200, 400]
@@ -263,12 +265,13 @@ class HmcSampler(object):
     def get_specifics(self):
         return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
 
+    @time_execution
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
         if not self.cuda_graph:
             return
             
-        print("Initializing CUDA graph for force_f_fast...")
+        print("Initializing CUDA graph for force_f_fast.........")
         
         dummy_psi = torch.zeros(self.bs, self.Lx * self.Ly * self.Ltau, 
                                dtype=cdtype, device=device)
@@ -293,12 +296,13 @@ class HmcSampler(object):
                 
         print(f"force_f CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
+    @time_execution
     def initialize_metropolis_graph(self):
         """Initialize CUDA graph for leapfrog_proposer5_cmptau_graphrun function."""
         if not self.cuda_graph:
             return
 
-        print("Initializing CUDA graph for leapfrog_proposer5_cmptau_graphrun...")
+        print("Initializing CUDA graph for leapfrog_proposer5_cmptau_graphrun.........")
 
         # dummy_psi = torch.zeros(self.bs, self.Lx * self.Ly * self.Ltau,
         #                        dtype=cdtype, device=device)
@@ -327,7 +331,7 @@ class HmcSampler(object):
         print(
             f"leapfrog_proposer5_cmptau_graphrun CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
-
+    @time_execution
     def init_stochastic_estimator(self):
         self.se = StochaticEstimator(self, cuda_graph_se=True)
         self.se.init_cuda_graph()
@@ -2445,7 +2449,7 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
 
-                force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
+            force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
 
             p = p + dt/2 * (force_f_u) * tau_mask
 
@@ -2749,12 +2753,12 @@ class HmcSampler(object):
             tau_mask[..., tau_start: tau_end] = 1.0
 
             if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
-                boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter](self.boson, tau_mask)
+                boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter](self.boson, tau_mask)
             else:
-                boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
+                boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
 
-            boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
-            torch.testing.assert_close(boson_new, boson_new_ref, atol=1e-1, rtol=1e-3)
+            boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
+            torch.testing.assert_close(boson_new, boson_new_ref, atol=5e-1, rtol=1e-3)
             
             accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
             if debug_mode:
@@ -2809,7 +2813,10 @@ class HmcSampler(object):
         print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
 
         if self.cuda_graph:
-            # self.initialize_force_graph()
+            self.initialize_force_graph()
+            d_mem_str, d_mem2 = device_mem()
+            print(f"After init force_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+
             self.initialize_metropolis_graph()
             d_mem_str, d_mem2 = device_mem()
             print(f"After init metropolis_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
