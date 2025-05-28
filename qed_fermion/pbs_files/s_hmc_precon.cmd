@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --mail-type=END,FAIL    # 2. Send email upon events (Options: NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fengx463@hku.hk     #    Email address to receive notification
-#SBATCH --partition=amd
+#SBATCH --partition=hugemem
 ##SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=1
 #SBATCH --nodes=1

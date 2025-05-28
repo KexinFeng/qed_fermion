@@ -9,10 +9,11 @@ L_array=$(echo '12 14 16 18')  # 10 h (-2)
 J_array=$(echo '1.0')
 L_array=$(echo '20 22 24 26')  # 10 h (-2)
 
-export debug=0
-export asym=1
-export cuda_graph=0
+L_array=$(echo '26 30 40 50 60')
 
+export debug=0
+export asym=2
+export cuda_graph=0
 
 for L in $L_array; do
         #
@@ -23,9 +24,9 @@ for L in $L_array; do
                 export L
                 #
         	sbatch --job-name=${config}_hmc \
-                --time=0-15:00:00 \
-                --qos=normal \
-                --mem=10G \
+                --time=0-24:00:00 \
+                --qos=hugemem \
+                --mem=200G \
                 s_hmc_precon.cmd
 	done
 done
