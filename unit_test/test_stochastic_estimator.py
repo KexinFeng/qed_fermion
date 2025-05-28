@@ -197,7 +197,7 @@ def test_fermion_obsr_write():
     for b in range(bs):
         print(f"spsm_k_mean (flattened) bid:{b}: ", spsm_k_mean[b])
 
-    output_dir = os.path.join(script_path, "../post_processors/fermi_bench/Nrv_{se.Nrv}")
+    output_dir = os.path.join(script_path, f"../post_processors/fermi_bench/Nrv_{se.Nrv}")
     os.makedirs(output_dir, exist_ok=True)
     for b in range(bs):
         data = torch.stack([ks[:, 0], ks[:, 1], spsm_k_mean[b]], dim=1).cpu().numpy()
