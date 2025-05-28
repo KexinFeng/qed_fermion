@@ -100,7 +100,7 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 1 if asym > 0 else 1
+        self.max_tau_block_idx = 5 if asym > 0 else 1
         print(f"max_tau_block_idx: {self.max_tau_block_idx}")    
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
         dt_deque_max_len = 5 * self.max_tau_block_idx
