@@ -679,7 +679,7 @@ class StochaticEstimator:
 
 
     # -------- Fermionic obs methods --------
-    def spsm_r(self, GD0G0D, GD0):
+    def spsm_r(self, GD0_G0D, GD0):
         # Observables
         # !zspsm(imj) = zspsm(imj) + grupc(i,j)*grup(i,j)
         # ! up-down not the same anymore
@@ -722,16 +722,16 @@ class StochaticEstimator:
 
         spsm: [Ly, Lx]
         """
-        spsm = -GD0G0D[0]  # [Ly, Lx]
+        spsm = -GD0_G0D[0]  # [Ly, Lx]
         spsm[0, 0] += GD0[0, 0, 0]
         spsm = spsm.real
         return spsm
     
-    def spsm_r_minus_bg(self, GD0G0D, GD0):
+    def spsm_r_minus_bg(self, GD0_G0D, GD0):
         """
         spsm: [Ly, Lx]
         """
-        spsm = self.spsm_r(GD0G0D, GD0)
+        spsm = self.spsm_r(GD0_G0D, GD0)
         spsm -= (GD0[0, 0, 0]**2).abs()
         return spsm
     
@@ -793,12 +793,12 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta)
-            GD0G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
+            GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
             GD0 = self.G_delta_0_ext() # [Ly, Lx]
 
-            spsm_r_per_b = self.spsm_r(GD0G0D, GD0)  # [Ly, Lx]
+            spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
             # spsm_r[b] = spsm_r_per_b
-            spsm_r[b] = self.spsm_r_minus_bg(GD0G0D, GD0)  # [Ly, Lx]
+            spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
             spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
 
             # szsz[b] = 0.5 * spsm[b]
