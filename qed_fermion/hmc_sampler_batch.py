@@ -2742,7 +2742,6 @@ class HmcSampler(object):
         else:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]       
 
-
         while self.tau_block_idx < self.max_tau_block_idx:
             # Create mask for tau dimension: shape [1, 1, 1, 1, Ltau]
             tau_start = self.tau_block_idx * self.tau_block_size
@@ -2811,9 +2810,10 @@ class HmcSampler(object):
         print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
 
         if self.cuda_graph:
-            self.initialize_force_graph()
+            # self.initialize_force_graph()
+            self.initialize_metropolis_graph()
             d_mem_str, d_mem2 = device_mem()
-            print(f"After init force_f_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+            print(f"After init metropolis_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
 
             # self.initialize_metropolis_graph()
             self.init_stochastic_estimator()  
@@ -2829,7 +2829,6 @@ class HmcSampler(object):
         futures = {}
 
         for i in tqdm(range(self.N_step)):
-
             boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
 
             # self.threshold_queue.append(threshold)
