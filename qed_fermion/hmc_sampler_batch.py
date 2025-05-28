@@ -30,6 +30,7 @@ from qed_fermion.force_graph_runner import ForceGraphRunner
 from qed_fermion.metropolis_graph_runner import MetropolisGraphRunner
 from qed_fermion.stochastic_estimator import StochaticEstimator
 from qed_fermion.utils.util import device_mem
+from qed_fermion.metropolis_graph_runner import LeapfrogCmpGraphRunner
 
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
@@ -235,6 +236,7 @@ class HmcSampler(object):
         self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
         self.force_graph_runners = {}
         self.metropolis_graph_runners = {}
+        self.leapfrog_cmp_graph_runners = {}
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [200, 400]
@@ -329,6 +331,46 @@ class HmcSampler(object):
 
         print(
             f"leapfrog_proposer5_cmptau_graphrun CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+        
+    @time_execution
+    def initialize_leapfrog_cmp_graph(self):
+        if not self.cuda_graph:
+            return
+
+        print("Initializing CUDA graph for leapfrog_cmp_graph.........")
+
+        dummy_x = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, dtype=dtype, device=device)
+        dummy_p = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, dtype=dtype, device=device)
+        dummy_dt = torch.zeros(self.bs, 1, 1, 1, 1, dtype=dtype, device=device)
+        dummy_tau_mask = torch.zeros((1, 1, 1, 1, self.Ltau), device=self.device, dtype=self.dtype)
+        dummy_force_b_plaq = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, dtype=dtype, device=device)
+        dummy_force_b_tau = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, dtype=dtype, device=device)
+
+        # Capture graphs for different max_iter values
+        for idx, max_iter in enumerate(reversed(self._MAX_ITERS_TO_CAPTURE)):
+            print(
+                f"Capturing CUDA graph for leapfrog_cmp_graph max_iter={max_iter} ({idx + 1}/{len(self._MAX_ITERS_TO_CAPTURE)})...")
+            # Capture graphs for given max_iter
+            graph_runner = LeapfrogCmpGraphRunner(self)
+            graph_memory_pool = graph_runner.capture(
+                dummy_x,
+                dummy_p,
+                dummy_dt,
+                dummy_tau_mask,
+                dummy_force_b_plaq,
+                dummy_force_b_tau,
+                max_iter,
+                self.graph_memory_pool
+            )
+
+            # Store the graph runner and memory pool
+            if not hasattr(self, "leapfrog_cmp_graph_runners"):
+                self.leapfrog_cmp_graph_runners = {}
+            self.leapfrog_cmp_graph_runners[max_iter] = graph_runner
+            self.graph_memory_pool = graph_memory_pool
+
+        print(
+            f"leapfrog_cmp_graph CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
     @time_execution
     def init_stochastic_estimator(self):
@@ -2107,6 +2149,22 @@ class HmcSampler(object):
 
         return Ft, xi_t.view(-1), cg_converge_iter
 
+    def leapfrog_cmp(self, x, p, dt, tau_mask, force_b_plaq, force_b_tau):
+        M = 5
+        for _ in range(M):
+            # p = p + force(x) * dt/2
+            # x = x + velocity(p) * dt
+            # p = p + force(x) * dt/2
+
+            p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+            x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt
+
+            force_b_plaq = self.force_b_plaq_matfree(x)
+            force_b_tau = self.force_b_tau_cmp(x)
+
+            p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+        return x, p
+
     def leapfrog_proposer5_cmptau(self, boson, tau_mask):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
@@ -2244,25 +2302,14 @@ class HmcSampler(object):
         cg_r_errs = [r_err]
         for leap in range(self.N_leapfrog):
 
-            # Update p only for selected tau block
             p = p + dt/2 * (force_f_u) * tau_mask
 
             # Update (p, x)
-            M = 5
-            for _ in range(M):
-                # p = p + force(x) * dt/2
-                # x = x + velocity(p) * dt
-                # p = p + force(x) * dt/2
-
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
-                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
-                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
-                # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
-
-                force_b_plaq = self.force_b_plaq_matfree(x)
-                force_b_tau = self.force_b_tau_cmp(x)
-
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+            if self.cuda_graph and self.max_iter in self.leapfrog_cmp_graph_runners:
+                x, p = self.leapfrog_cmp_graph_runner[self.max_iter](
+                    x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+            else:
+                x, p = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
 
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
@@ -2375,7 +2422,7 @@ class HmcSampler(object):
         cg_converge_iters = torch.stack(cg_converge_iters)  # [sub_seq, bs]
         cg_r_errs = torch.stack(cg_r_errs)  # [sub_seq, bs]
         return x, H0, H_fin, cg_converge_iters.float().mean(dim=0), cg_r_errs.float().mean(dim=0)
-    
+
     def leapfrog_proposer5_cmptau_graphrun(self, boson, tau_mask):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
