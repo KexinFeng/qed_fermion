@@ -2413,7 +2413,6 @@ class HmcSampler(object):
 
         Sf0_u = torch.einsum('br,br->b', psi_u.conj(), xi_t_u)
         Sf0_u = torch.real(Sf0_u)
-
         Sb0 = self.action_boson_tau_cmp(x0) + self.action_boson_plaq_matfree(x0)
         H0 = Sb0 + torch.sum(p0 ** 2, axis=(1, 2, 3, 4)) / (2 * self.m)
         H0 += Sf0_u
@@ -2752,13 +2751,14 @@ class HmcSampler(object):
             tau_mask = torch.zeros((1, 1, 1, 1, self.Ltau), device=self.device, dtype=self.dtype)
             tau_mask[..., tau_start: tau_end] = 1.0
 
-            if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
-                boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter](self.boson, tau_mask)
-            else:
-                boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
+            # if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
+            #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter](self.boson, tau_mask)
+            # else:
+            #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
 
             boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
-            torch.testing.assert_close(boson_new, boson_new_ref, atol=5e-1, rtol=1e-3)
+
+            # torch.testing.assert_close(boson_new, boson_new_ref, atol=5e-1, rtol=1e-3)
             
             accp = torch.rand(self.bs, device=device) < torch.exp(H_old - H_new)
             if debug_mode:
@@ -2817,9 +2817,9 @@ class HmcSampler(object):
             d_mem_str, d_mem2 = device_mem()
             print(f"After init force_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
 
-            self.initialize_metropolis_graph()
-            d_mem_str, d_mem2 = device_mem()
-            print(f"After init metropolis_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+            # self.initialize_metropolis_graph()
+            # d_mem_str, d_mem2 = device_mem()
+            # print(f"After init metropolis_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
 
             # self.initialize_metropolis_graph()
             self.init_stochastic_estimator()  
