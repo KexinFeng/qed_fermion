@@ -102,15 +102,12 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # ---- Load and plot spsm_k.pt mean ---- #
-    spin_pi_s = []
-    spin_pi_errs = []
-    for idx, J in enumerate(Js):
-        output_dir = os.path.join(script_path, f"Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}")
-        spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-        spsm_k_res = torch.load(spsm_k_file) # [Ly, Lx]
-            # Compute spin order as sum of spsm_k_mean divided by vs
-        spin_pi_s.append(spsm_k_res['mean'][0, 0])
-        spin_pi_errs.append(spsm_k_res['std'][0, 0])
+    output_dir = os.path.join(script_path, f"Lx_{Lx}_Ltau_{Ltau}")
+    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
+    spsm_k_res = torch.load(spsm_k_file) # [J/bs, Ly, Lx]
+        # Compute spin order as sum of spsm_k_mean divided by vs
+    spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
+    spin_pi_errs = spsm_k_res['std'][:, 0, 0]
 
     plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')

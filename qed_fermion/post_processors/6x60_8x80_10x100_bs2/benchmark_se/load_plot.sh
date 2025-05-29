@@ -1,4 +1,6 @@
 cd /users/4/fengx463/hmc/qed_fermion/qed_fermion/post_processors/6x60_8x80_10x100_bs2/benchmark_se/
+export cuda_graph=1
+
 export Lx=6
 export Ltau=60
 python3 load_se.py
