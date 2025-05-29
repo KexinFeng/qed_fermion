@@ -500,10 +500,25 @@ class HmcSampler(object):
         matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
 
         # Call MATLAB function
-        result_indices_i, result_indices_j, result_values = eng.ichol_m(
-            matlab_indices, matlab_values, M.size(0), M.size(1), nargout=3
-        )
+        # result_indices_i, result_indices_j, result_values = eng.ichol_m(
+        #     matlab_indices, matlab_values, M.size(0), M.size(1), nargout=3
+        # )
+        eng.ichol_m_write(matlab_indices, matlab_values, self.Lx, self.Ly, self.Ltau, nargout=0)
         eng.quit()
+
+        # Read results from MATLAB-written ASCII file
+        output_dir = os.path.join(script_path, 'preconditioners', 'pre_precon')
+        filename = os.path.join(output_dir, f'L_mat_precon_{self.Lx}_{self.Ly}_{self.Ltau}.data')
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f"MATLAB preconditioner file not found: {filename}")
+
+        data = np.loadtxt(filename)
+        if data.ndim == 1:
+            data = data[None, :]  # Ensure 2D for single line
+
+        result_indices_i = data[:, 0]
+        result_indices_j = data[:, 1]
+        result_values = data[:, 2] + 1j * data[:, 3]
 
         # Convert MATLAB results directly to PyTorch tensors
         result_indices_i = torch.tensor(result_indices_i, dtype=torch.long, device=M.device).view(-1) - 1

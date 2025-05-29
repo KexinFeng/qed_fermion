@@ -45,7 +45,8 @@ function preconditioner(O_indices, O_values, Lx, Ly, Ltau)
     if fid == -1
         error('Cannot open file for writing: %s', filename);
     end
-    fprintf(fid, '%d %d %.16e\n', data_to_write');
+    % Write complex values: real and imaginary parts separately
+    fprintf(fid, '%d %d %.16e %.16e\n', [O_inv_indices_i, O_inv_indices_j, real(O_inv_values), imag(O_inv_values)]');
     fclose(fid);
     disp(['Data written to ', filename]);
 end
