@@ -588,7 +588,8 @@ class HmcSampler(object):
         M_inv = torch.sparse.mm(dd_inv, M_inv)
         del dd_inv
         gc.collect()
-
+        
+        M_inv = self.filter_mat(M_inv, M)
         # Compute O_inv1 = M_inv' * M_inv
         print("# Compute O_inv1 = M_inv' * M_inv")
         O_inv1 = torch.sparse.mm(M_inv.T.conj(), M_inv)
