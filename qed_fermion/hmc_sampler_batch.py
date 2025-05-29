@@ -476,7 +476,27 @@ class HmcSampler(object):
             mat_indices,
             mat_values,
             (M.size(0), M.size(1)),
-            dtype=M.dtype,
+            dtype=torch.complex32,
+            device=M.device
+        ).coalesce() 
+        return mat    
+    
+    @staticmethod
+    def filter_mat_float(mat_part, M):
+        mat = mat_part
+        if not mat.is_coalesced():
+            mat = mat.coalesce()
+        abs_values = torch.abs(mat.values())
+        filter_mask = abs_values >= 1e-4
+        mat_indices = mat.indices()[:, filter_mask]
+        mat_values = mat.values()[filter_mask]
+        del mat
+        # gc.collect()
+        mat = torch.sparse_coo_tensor(
+            mat_indices,
+            mat_values,
+            (M.size(0), M.size(1)),
+            dtype=torch.float16,
             device=M.device
         ).coalesce() 
         return mat    
@@ -524,89 +544,140 @@ class HmcSampler(object):
         result_values = data[:, 2] + 1j * data[:, 3]
 
         # Convert MATLAB results directly to PyTorch tensors
-        result_indices_i = torch.tensor(result_indices_i, dtype=torch.long, device=M.device).view(-1) - 1
-        result_indices_j = torch.tensor(result_indices_j, dtype=torch.long, device=M.device).view(-1) - 1
-        result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
+        result_indices_i = torch.tensor(result_indices_i, dtype=torch.int, device=M.device).view(-1) - 1
+        result_indices_j = torch.tensor(result_indices_j, dtype=torch.int, device=M.device).view(-1) - 1
+        result_values = torch.tensor(result_values, dtype=torch.complex32, device=M.device).view(-1)
 
         # Create MhM_inv as a sparse_coo_tensor
-        M_pc = torch.sparse_coo_tensor(
+        M_pc_real = torch.sparse_coo_tensor(
             torch.stack([result_indices_i, result_indices_j]),
-            result_values,
+            result_values.real,
             (M.size(0), M.size(1)),
-            dtype=M.dtype,
+            dtype=torch.float16,
+            device=M.device
+        ).coalesce()
+        M_pc_imag = torch.sparse_coo_tensor(
+            torch.stack([result_indices_i, result_indices_j]),
+            result_values.imag,
+            (M.size(0), M.size(1)),
+            dtype=torch.float16,
             device=M.device
         ).coalesce()
 
         # Diagonal matrix from M_pc
-        diag_values = M_pc.values()[M_pc.indices()[0] == M_pc.indices()[1]]
-        dd_inv = 1.0 / diag_values
-        del diag_values
-        I = torch.sparse_coo_tensor(
+        bool_mask = M_pc_real.indices()[0] == M_pc_real.indices()[1]
+        diag_values_real = M_pc_real.values()[bool_mask]
+        diag_values_imag = M_pc_imag.values()[bool_mask]
+        diag_values_mod = torch.sqrt(diag_values_real ** 2 + diag_values_imag ** 2)
+        # dd_inv = 1.0 / diag_values
+        dd_inv_real = diag_values_real / diag_values_mod 
+        dd_inv_imag = -(diag_values_imag / diag_values_mod)
+        del diag_values_real
+        del diag_values_imag
+        del diag_values_mod
+        gc.collect()
+        I_real = torch.sparse_coo_tensor(
             torch.arange(M.size(0), device=M.device).repeat(2, 1),
-            torch.ones(M.size(0), device=M.device, dtype=M.dtype),
+            torch.ones(M.size(0), device=M.device, dtype=torch.complex32),
             (M.size(0), M.size(0)),
             device=M.device,
-            dtype=M.dtype
+            dtype=torch.float16,
         ).coalesce()
 
         # Neumann series approximation for matrix inverse
-        dd_inv = torch.sparse_coo_tensor(
+        dd_inv_real = torch.sparse_coo_tensor(
             torch.arange(M.size(0), device=M.device).repeat(2, 1),
-            dd_inv,
+            dd_inv_real,
             (M.size(0), M.size(0)),
-            dtype=M.dtype,
+            dtype=torch.float16,
+            device=M.device
+        ).coalesce()
+        dd_inv_imag = torch.sparse_coo_tensor(
+            torch.arange(M.size(0), device=M.device).repeat(2, 1),
+            dd_inv_imag,
+            (M.size(0), M.size(0)),
+            dtype=torch.float16,
             device=M.device
         ).coalesce()
         gc.collect() 
 
-        M_diag_scaled = torch.sparse.mm(M_pc, dd_inv)
-        del M_pc
+        # M_diag_scaled = torch.sparse.mm(M_pc, dd_inv)
+        M_diag_scaled_real = torch.sparse.mm(M_pc_real, dd_inv_real) - torch.sparse.mm(M_pc_imag, dd_inv_imag) 
+        M_diag_scaled_imag = torch.sparse.mm(M_pc_real, dd_inv_imag) + torch.sparse.mm(M_pc_imag, dd_inv_real)
+        del M_pc_real
+        del M_pc_imag
         gc.collect() 
 
-        M_itr = I - M_diag_scaled
-        M_temp = I.clone()
-        M_inv = I
+        # M_itr = I - M_diag_scaled
+        M_itr_real = I_real - M_diag_scaled_real
+        M_itr_imag = - M_diag_scaled_imag
+        # M_temp = I.clone()
+        M_tmp_real = I_real.clone()
+        M_tmp_imag = torch.zeros_like(I_real, dtype=torch.float16, device=device)
+        # M_inv = I_real
+        M_inv_real = I_real
+        M_inv_imag = torch.zeros_like(I_real, dtype=torch.float16, device=device)
         for i in tqdm(range(iter), desc="Neumann Series Iteration"):
-            M_temp = torch.sparse.mm(M_temp, M_itr)
-            M_inv = M_inv + M_temp
+            # M_temp = torch.sparse.mm(M_temp, M_itr)
+            M_tmp_real, M_tmp_imag = torch.sparse.mm(M_tmp_real, M_itr_real) - torch.sparse.mm(M_tmp_imag, M_itr_imag), torch.sparse.mm(M_tmp_real, M_itr_imag) + torch.sparse.mm(M_tmp_imag, M_itr_real)
+            # M_inv = M_inv + M_temp
+            M_inv_real = M_inv_real + M_tmp_real
+            M_inv_imag = M_inv_imag + M_tmp_imag
             if i % math.floor(iter * 0.1) == 0:
-                M_temp = self.filter_mat(M_temp, M)
-                M_inv = self.filter_mat(M_inv, M)
+                M_temp_real = self.filter_mat_float(M_temp_real, M)
+                M_temp_imag = self.filter_mat_float(M_temp_imag, M)
+                M_inv_real = self.filter_mat_float(M_inv_real, M)
+                M_inv_imag = self.filter_mat_float(M_inv_imag, M)
                 gc.collect()
                 
+        del M_temp_real
+        del M_temp_imag
+        del M_itr_real
+        del M_itr_imag
         gc.collect() 
-        del M_temp
-        del M_itr
 
         # Filter small elements right after Neumann series
         print("# Filter small elements right after Neumann series")
-        M_inv = self.filter_mat(M_inv, M) 
+        M_inv_real = self.filter_mat_float(M_inv_real, M) 
+        M_inv_imag = self.filter_mat_float(M_inv_imag, M) 
         gc.collect()     
 
         # Scale by the inverse diagonal
         print('# Scale by the inverse diagonal')
-        M_inv = torch.sparse.mm(dd_inv, M_inv)
-        del dd_inv
+        # M_inv = torch.sparse.mm(dd_inv, M_inv)
+        M_inv_real, M_inv_imag = torch.sparse.mm(dd_inv_real, M_inv_real) - torch.sparse.mm(dd_inv_imag, M_inv_imag), torch.sparse.mm(dd_inv_real, M_inv_imag) + torch.sparse.mm(dd_inv_imag, M_inv_real)
+        del dd_inv_real
+        del dd_inv_imag
         gc.collect()
         
-        M_inv = self.filter_mat(M_inv, M)
         # Compute O_inv1 = M_inv' * M_inv
         print("# Compute O_inv1 = M_inv' * M_inv")
-        O_inv1 = torch.sparse.mm(M_inv.T.conj(), M_inv)
-        del M_inv
+        # O_inv1 = torch.sparse.mm(M_inv.T.conj(), M_inv)
+        O_inv1_real = torch.sparse.mm(M_inv_real.T, M_inv_real) + torch.sparse.mm(M_inv_imag.T, M_inv_imag)
+        O_inv1_imag = torch.sparse.mm(M_inv_real.T, M_inv_imag) - torch.sparse.mm(M_inv_imag.T, M_inv_real)
+        del M_inv_real
+        del M_inv_imag
+        gc.collect()
 
         # Filter small elements to maintain sparsity
         print("# Filter small elements to maintain sparsity")
-        abs_values = torch.abs(O_inv1.values())
+        # abs_values = torch.abs(O_inv1.values())
+        abs_values = O_inv1_real.values() ** 2 + O_inv1_imag.values() ** 2
         filter_mask = abs_values >= thrhld
+
+        O_inv1 = O_inv1_real + 1j * O_inv1_imag
+
+        del O_inv1_real
+        del O_inv1_imag
+        gc.collect()
 
         # Gather filtered indices and values
         O_inv_indices = O_inv1.indices()[:, filter_mask]
         O_inv_values = O_inv1.values()[filter_mask]
 
         precon_dict = {
-                    "indices": O_inv_indices,
-                    "values": O_inv_values,
+                    "indices": O_inv_indices.to(torch.long),
+                    "values": O_inv_values.to(M.dtype),
                     "size": O_inv1.shape
                 }
         return precon_dict
@@ -3293,7 +3364,7 @@ if __name__ == '__main__':
     Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = float(os.environ.get("asym", '4'))
+    asym = float(os.environ.get("asym", '6'))
 
     Ltau = int(asym*Lx * 10) # dtau=0.1
     # Ltau = 10 # dtau=0.1
