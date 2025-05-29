@@ -3,6 +3,7 @@ import json
 import math
 import re
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 plt.ion()
 import numpy as np
 # matplotlib.use('MacOSX')
@@ -46,7 +47,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=200, start=
     os.makedirs(output_dir, exist_ok=True)
     boson_conf = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
     spsm_k = []
-    for boson in boson_conf:  # boson: [J/bs, 2, Lx, Ly, Ltau]
+    for boson in tqdm(boson_conf):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         if se.cuda_graph_se:
             obsr = se.graph_runner(boson.to(se.device), eta)
         else:
@@ -81,6 +82,7 @@ if __name__ == '__main__':
     # Ltau = Lx * 10
 
     Js = [1.0, 1.5, 2.0, 2.3, 2.5, 3.0]
+    Js = [1.0, 1.5]
     # Js = [0.5, 1.0, 3.0]
 
     bs = 2
