@@ -103,7 +103,7 @@ if __name__ == '__main__':
             
             # Post-process and write spsm
             Ly = Lx  # Assuming square lattice, adjust if not
-            output_dir = script_path + os.path.join(script_path, f"/Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}/")
+            output_dir = script_path + f"/Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}/"
             postprocess_and_write_spsm(boson_seq[:, bid], output_dir, Lx, Ly, Ltau, Nrv=10, start=start)
                   
 
