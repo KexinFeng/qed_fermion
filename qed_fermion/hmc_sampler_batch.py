@@ -463,11 +463,11 @@ class HmcSampler(object):
 
  
     @staticmethod
-    def filter_mat(mat, M):
+    def filter_mat(mat, M, eps=1e-4):
         if not mat.is_coalesced():
             mat = mat.coalesce()
         abs_values = torch.abs(mat.values())
-        filter_mask = abs_values >= 1e-4
+        filter_mask = abs_values >= eps
         mat_indices = mat.indices()[:, filter_mask]
         mat_values = mat.values()[filter_mask]
         del mat
@@ -580,7 +580,7 @@ class HmcSampler(object):
 
         # Filter small elements right after Neumann series
         print("# Filter small elements right after Neumann series")
-        M_inv = self.filter_mat(M_inv, M) 
+        M_inv = self.filter_mat(M_inv, M, 1e-3) 
         gc.collect()     
 
         # Scale by the inverse diagonal
@@ -589,7 +589,7 @@ class HmcSampler(object):
         del dd_inv
         gc.collect()
         
-        M_inv = self.filter_mat(M_inv, M)
+        M_inv = self.filter_mat(M_inv, M, 1e-3)
         # Compute O_inv1 = M_inv' * M_inv
         print("# Compute O_inv1 = M_inv' * M_inv")
         O_inv1 = torch.sparse.mm(M_inv.T.conj(), M_inv)
