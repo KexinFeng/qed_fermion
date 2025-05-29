@@ -524,8 +524,8 @@ class HmcSampler(object):
         result_values = data[:, 2] + 1j * data[:, 3]
 
         # Convert MATLAB results directly to PyTorch tensors
-        result_indices_i = torch.tensor(result_indices_i, dtype=torch.long, device=M.device).view(-1) - 1
-        result_indices_j = torch.tensor(result_indices_j, dtype=torch.long, device=M.device).view(-1) - 1
+        result_indices_i = torch.tensor(result_indices_i, dtype=torch.int, device=M.device).view(-1) - 1
+        result_indices_j = torch.tensor(result_indices_j, dtype=torch.int, device=M.device).view(-1) - 1
         result_values = torch.tensor(result_values, dtype=M.dtype, device=M.device).view(-1)
 
         # Create MhM_inv as a sparse_coo_tensor
