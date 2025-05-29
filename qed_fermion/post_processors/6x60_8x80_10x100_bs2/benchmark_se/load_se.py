@@ -26,9 +26,8 @@ def time_execution(func):
         return result
     return wrapper
 
-start = 5000
 
-def postprocess_and_write_spsm(boson, output_dir, Lx, Ly, Ltau, Nrv=200, cuda_graph_se=True):
+def postprocess_and_write_spsm(boson, output_dir, Lx, Ly, Ltau, Nrv=200, start=5000):
     """
     boson: [seq, Ltau * Ly * Lx * 2]
     """
@@ -84,6 +83,7 @@ if __name__ == '__main__':
 
     input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
 
+    start = 5000
     end = 10000
 
     @time_execution
@@ -103,7 +103,7 @@ if __name__ == '__main__':
             # Post-process and write spsm
             Ly = Lx  # Assuming square lattice, adjust if not
             output_dir = script_path + os.path.join(script_path, f"/Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}/")
-            postprocess_and_write_spsm(boson_seq[:, bid], output_dir, Lx, Ly, Ltau, Nrv=10, cuda_graph_se=True)
+            postprocess_and_write_spsm(boson_seq[:, bid], output_dir, Lx, Ly, Ltau, Nrv=10, start=start)
                   
 
             dbstop = 1
