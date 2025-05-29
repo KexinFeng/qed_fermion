@@ -29,7 +29,7 @@ for L in $L_array; do
         	sbatch --job-name=${config}_hmc \
                 --time=0-10:00:00 \
                 --qos=hugemem \
-                --mem=2048G \
+                --mem=2000G \
                 s_hmc_precon.cmd
 	done
 done
