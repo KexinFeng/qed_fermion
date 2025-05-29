@@ -95,12 +95,26 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
-    # ---- Load dqmc and plot ----
-    dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    data = np.genfromtxt(dqmc_filename)
-    plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+    # # ---- Load dqmc and plot ---- # #
+    # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
+    # data = np.genfromtxt(dqmc_filename)
+    # plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
+    #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+    
+    # ---- Load and plot spsm_k.pt mean ---- #
+    spin_pi_s = []
+    spin_pi_errs = []
+    for idx, J in enumerate(Js):
+        output_dir = os.path.join(script_path, f"Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}")
+        spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
+        spsm_k_res = torch.load(spsm_k_file) # [Ly, Lx]
+            # Compute spin order as sum of spsm_k_mean divided by vs
+        spin_pi_s.append(spsm_k_res['mean'][0, 0])
+        spin_pi_errs.append(spsm_k_res['std'][0, 0])
 
+    plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
+                 fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
+    
 
 if __name__ == '__main__':
     batch_size = 2

@@ -54,9 +54,12 @@ def postprocess_and_write_spsm(boson, output_dir, Lx, Ly, Ltau, Nrv=200, start=5
     
     spsm_k = np.array(spsm_k)
     spsm_k_mean = spsm_k[start:].mean(axis=0)  # [Ly, Lx]
+    spsm_k_std = spsm_k[start:].std(axis=0)  # [Ly, Lx]
 
     output_file = os.path.join(output_dir, "spsm_k.pt")
-    torch.save(spsm_k_mean, output_file)
+    torch.save({'mean': spsm_k_mean, 
+                'std': spsm_k_std}, 
+                output_file)
     print(f"Saved: {output_file}")
 
     # ks = se.get_ks_ordered().cpu().numpy()
@@ -105,9 +108,6 @@ if __name__ == '__main__':
             Ly = Lx  # Assuming square lattice, adjust if not
             output_dir = script_path + f"/Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}/"
             postprocess_and_write_spsm(boson_seq[:, bid], output_dir, Lx, Ly, Ltau, Nrv=10, start=start)
-                  
-
-            dbstop = 1
             
   
     iterate_func()
