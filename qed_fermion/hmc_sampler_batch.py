@@ -482,7 +482,7 @@ class HmcSampler(object):
         return mat    
     
     def get_precon2(self, pi_flux_boson, output_scipy=False):
-        iter = 20
+        iter = 5
         thrhld = 0.1 
         diagcomp = 0.05  
 
@@ -569,7 +569,7 @@ class HmcSampler(object):
         for i in tqdm(range(iter), desc="Neumann Series Iteration"):
             M_temp = torch.sparse.mm(M_temp, M_itr)
             M_inv = M_inv + M_temp
-            if i % math.floor(iter * 0.1) == 0:
+            if i % math.floor(iter * 0.05) == 0:
                 M_temp = self.filter_mat(M_temp, M)
                 M_inv = self.filter_mat(M_inv, M)
                 gc.collect()
