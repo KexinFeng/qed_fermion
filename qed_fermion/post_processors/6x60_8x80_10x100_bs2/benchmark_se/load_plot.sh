@@ -1,4 +1,4 @@
-cd /users/4/fengx463/hmc/qed_fermion/qed_fermion/post_processors/6x60_8x80_10x100_bs2/benchmark_se/
+cd "$(dirname "$0")"
 export cuda_graph=1
 
 export Lx=6
