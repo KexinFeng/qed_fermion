@@ -11,7 +11,7 @@ L_array=$(echo '20 22 24 26')  # 10 h (-2)
 
 # L_array=$(echo '30 40 50 60 36 46 56 66')  # 500G
 L_array=$(echo '20 16 12 10 8 6')  # 50G
-L_array=$(echo '24 40 46 50 56 60 66')  # 500G
+L_array=$(echo '66 60 56 50 46 40 24')  # 500G
 # L_array=$(echo '24 20')  # 500G
 
 export debug=0
