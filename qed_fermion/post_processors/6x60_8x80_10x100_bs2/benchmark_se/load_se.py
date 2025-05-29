@@ -82,6 +82,7 @@ if __name__ == '__main__':
     bs = 2
 
     input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
+    input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
 
     start = 5000
     end = 10000
