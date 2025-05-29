@@ -28,7 +28,7 @@ for L in $L_array; do
                 export L
                 #
         	sbatch --job-name=${config}_hmc \
-                --time=0-10:00:00 \
+                --time=0-20:00:00 \
                 --qos=hugemem \
                 --mem=2000G \
                 s_hmc_precon.cmd
