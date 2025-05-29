@@ -27,15 +27,16 @@ def time_execution(func):
     return wrapper
 
 
-def postprocess_and_write_spsm(boson, output_dir, Lx, Ly, Ltau, Nrv=200, start=5000):
+def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=200, start=5000):
     """
-    boson: [seq, Ltau * Ly * Lx * 2]
+    boson: [seq, J/bs, 2 * Lx * Ly * Ltau]
     """
     hmc = HmcSampler()
     hmc.Lx = Lx
     hmc.Ly = Ly
     hmc.Ltau = Ltau
-    hmc.bs = 1
+    hmc.bs = bosons.shape[1]
+    hmc.reset()
 
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
@@ -43,18 +44,18 @@ def postprocess_and_write_spsm(boson, output_dir, Lx, Ly, Ltau, Nrv=200, start=5
         se.init_cuda_graph()
     eta = se.random_vec_bin()
     os.makedirs(output_dir, exist_ok=True)
+    boson_conf = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
     spsm_k = []
-
-    boson_conf = boson.view(-1, 2, Lx, Ly, Ltau)
-    if se.cuda_graph_se:
-        obsr = se.graph_runner(boson_conf, eta)
-    else:
-        obsr = se.get_fermion_obsr(boson_conf, eta)
-    spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-    
-    spsm_k = np.array(spsm_k)
-    spsm_k_mean = spsm_k[start:].mean(axis=0)  # [Ly, Lx]
-    spsm_k_std = spsm_k[start:].std(axis=0)  # [Ly, Lx]
+    for boson in boson_conf:  # boson: [J/bs, 2, Lx, Ly, Ltau]
+        if se.cuda_graph_se:
+            obsr = se.graph_runner(boson.to(se.device), eta)
+        else:
+            obsr = se.get_fermion_obsr(boson.to(se.device), eta)
+        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        
+    spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
+    spsm_k_mean = spsm_k.mean(axis=0)  # [J/bs, Ly, Lx]
+    spsm_k_std = spsm_k.std(axis=0)  # [J/bs, Ly, Lx]
 
     output_file = os.path.join(output_dir, "spsm_k.pt")
     torch.save({'mean': spsm_k_mean, 
@@ -92,6 +93,7 @@ if __name__ == '__main__':
 
     @time_execution
     def iterate_func():
+        bosons = []
         for J in Js:
 
             bid = 1
@@ -106,8 +108,13 @@ if __name__ == '__main__':
             
             # Post-process and write spsm
             Ly = Lx  # Assuming square lattice, adjust if not
-            output_dir = script_path + f"/Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}/"
-            postprocess_and_write_spsm(boson_seq[:, bid], output_dir, Lx, Ly, Ltau, Nrv=10, start=start)
+            
+            bosons.append(boson_seq[:, bid])
+
+        bosons = torch.stack(bosons, dim=1)  # [seq, J/bs, 2*Lx*Ly*Ltau]
+        
+        output_dir = script_path + f"/Lx_{Lx}_Ltau_{Ltau}/"
+        postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, start=start)
             
   
     iterate_func()

@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import os 
 import sys
+
+from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
@@ -781,8 +783,8 @@ class StochaticEstimator:
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
 
         Returns:
-            spsm: [bs, Ltau=1, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
-            szsz: [bs, Ltau=1, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+            spsm: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
         spsm_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
