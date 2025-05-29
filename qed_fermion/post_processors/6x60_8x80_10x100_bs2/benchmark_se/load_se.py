@@ -186,45 +186,27 @@ if __name__ == '__main__':
 
     bs = 2
 
-    part_size = 500
-    # start = 5000
-    # end = 10000
-    start = int(os.getenv("start", '5000'))
-    print(f"start: {start}")    
-    end = int(os.getenv("end", '10000'))
-    print(f"end: {end}")
-
-    num_parts = math.ceil((end - start )/ part_size)
-    print(f"Number of parts: {num_parts}")
-
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
     input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
+
+    end = 10000
 
     @time_execution
     def iterate_func():
         for J in Js:
-            for bid in range(bs):
-                for part_id in range(num_parts):
-                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
-                    os.makedirs(output_folder, exist_ok=True)
 
-                    # hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.02_N_leapfrog_5_m_1_cg_rtol_1e-05_step_{end}.pt"
-                    # Construct the filename according to the new format
-                    # hmc_filename = (
-                    #     f"/stream_ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1"
-                    #     f"_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_lmd_0.99_sig_min_0.8_sig_max_1.2"
-                    #     f"_lower_limit_0.5_upper_limit_0.8_mass_mode_0_step_{end}.pt"
-                    # )
-                    hmc_filename = f"/stream_ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_step_{end}.pt"
-                    load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, bid=bid, starts=[part_id * part_size + start], sample_steps=[1], ends=[min(end, (part_id+1) * part_size + start)])
-        
-        # Run
-        for J in Js:
-            for bid in range(bs):
-                for part_id in range(num_parts):
-                    output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
-                    clear(output_folder)
-                    execute_bash_scripts(output_folder)
+            bid = 1
 
+            hmc_filename = f"/stream_ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_step_{end}.pt"
+
+            # Load and write
+            # [seq, Ltau * Ly * Lx * 2]
+            boson_seq = torch.load(hmc_filename)
+            # boson_seq = boson_seq.to(device='mps', dtype=torch.float32)
+            print(f'Loaded: {hmc_filename}')  
+            
+                  
+
+            dbstop = 1
+            
+  
     iterate_func()
