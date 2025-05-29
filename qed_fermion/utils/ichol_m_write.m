@@ -28,6 +28,11 @@ function preconditioner(O_indices, O_values, Lx, Ly, Ltau)
     O_inv_indices_j = j;
     O_inv_values = v;
 
+    filter = abs(O_inv_values) >= 1e-4;
+    O_inv_indices_i = O_inv_indices_i(filter);
+    O_inv_indices_j = O_inv_indices_j(filter);
+    O_inv_values = O_inv_values(filter);
+
     % Prepare filename
     script_path = fileparts(mfilename('fullpath'));
     output_dir = fullfile(script_path, '..', 'preconditioners', 'pre_precon');
