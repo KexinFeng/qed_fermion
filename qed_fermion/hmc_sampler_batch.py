@@ -490,31 +490,35 @@ class HmcSampler(object):
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
         retrieved_values = M.values()
 
+        print(f"MATLAB preconditioner file not found: {filename}")
+        print("Computing preconditioner using MATLAB function ichol_m...")
+        # Pass indices and values to MATLAB
+        matlab_function_path = script_path + '/utils/'
+        eng = matlab.engine.start_matlab()
+        eng.addpath(matlab_function_path)
+
+        # Convert indices and values directly to MATLAB format
+        matlab_indices = matlab.double(retrieved_indices.cpu().tolist())
+        matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
+
+        # Call MATLAB function
+        # result_indices_i, result_indices_j, result_values = eng.ichol_m(
+        #     matlab_indices, matlab_values, M.size(0), M.size(1), nargout=3
+        # )
+        eng.ichol_m_write(matlab_indices, matlab_values, self.Lx, self.Ly, self.Ltau, nargout=0)
+        eng.quit()
+
         # Read results from MATLAB-written ASCII file
         output_dir = os.path.join(script_path, 'preconditioners', 'pre_precon')
         filename = os.path.join(output_dir, f'L_mat_precon_{self.Lx}_{self.Ly}_{self.Ltau}.data')
-        if not os.path.exists(filename):
-            print(f"MATLAB preconditioner file not found: {filename}")
-            print("Computing preconditioner using MATLAB function ichol_m...")
-            # Pass indices and values to MATLAB
-            matlab_function_path = script_path + '/utils/'
-            eng = matlab.engine.start_matlab()
-            eng.addpath(matlab_function_path)
-
-            # Convert indices and values directly to MATLAB format
-            matlab_indices = matlab.double(retrieved_indices.cpu().tolist())
-            matlab_values = matlab.double(retrieved_values.cpu().tolist(), is_complex=True)
-
-            # Call MATLAB function
-            # result_indices_i, result_indices_j, result_values = eng.ichol_m(
-            #     matlab_indices, matlab_values, M.size(0), M.size(1), nargout=3
-            # )
-            eng.ichol_m_write(matlab_indices, matlab_values, self.Lx, self.Ly, self.Ltau, nargout=0)
-            eng.quit()
 
         data = np.loadtxt(filename)
         if data.ndim == 1:
             data = data[None, :]  # Ensure 2D for single line
+            
+        # Remove the file after reading
+        if os.path.exists(filename):
+            os.remove(filename)
 
         result_indices_i = data[:, 0]
         result_indices_j = data[:, 1]
