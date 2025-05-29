@@ -233,7 +233,7 @@ class HmcSampler(object):
         self.use_cuda_kernel = torch.cuda.is_available()
         
         # CUDA Graph for force_f_fast
-        self.cuda_graph = cuda_graph  # Disable CUDA graph support for now
+        self.cuda_graph = cuda_graph and torch.cuda.is_available()
         self.force_graph_runners = {}
         self.metropolis_graph_runners = {}
         self.leapfrog_cmp_graph_runners = {}

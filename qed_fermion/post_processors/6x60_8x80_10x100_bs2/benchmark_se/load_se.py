@@ -12,10 +12,10 @@ import os
 script_path = os.path.dirname(os.path.abspath(__file__))
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../')
+sys.path.insert(0, script_path + '/../../../../')
 import time
-import subprocess
-from tqdm import tqdm
+from qed_fermion.hmc_sampler_batch import HmcSampler
+from qed_fermion.stochastic_estimator import StochaticEstimator
 
 def time_execution(func):
     def wrapper(*args, **kwargs):
@@ -25,6 +25,49 @@ def time_execution(func):
         print(f"Execution time for {func.__name__}: {end_time - start_time:.2f} seconds\n")
         return result
     return wrapper
+
+start = 5000
+
+def postprocess_and_write_spsm(boson, output_dir, Lx, Ly, Ltau, Nrv=200, cuda_graph_se=True):
+    """
+    boson: [seq, Ltau * Ly * Lx * 2]
+    """
+    hmc = HmcSampler()
+    hmc.Lx = Lx
+    hmc.Ly = Ly
+    hmc.Ltau = Ltau
+    hmc.bs = 1
+
+    se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
+    se.Nrv = Nrv
+    if se.cuda_graph_se:
+        se.init_cuda_graph()
+    eta = se.random_vec_bin()
+    os.makedirs(output_dir, exist_ok=True)
+    spsm_k = []
+
+    boson_conf = boson.view(-1, 2, Lx, Ly, Ltau)
+    if se.cuda_graph_se:
+        obsr = se.graph_runner(boson_conf, eta)
+    else:
+        obsr = se.get_fermion_obsr(boson_conf, eta)
+    spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+    
+    spsm_k = np.array(spsm_k)
+    spsm_k_mean = spsm_k[start:].mean(axis=0)  # [Ly, Lx]
+
+    output_file = os.path.join(output_dir, "spsm_k.pt")
+    torch.save(spsm_k_mean, output_file)
+    print(f"Saved: {output_file}")
+
+    # ks = se.get_ks_ordered().cpu().numpy()
+    # ks = ks.reshape(-1, 2)[:, ::-1]
+    # for b in range(spsm_k_mean.shape[0]):
+    #     data = np.stack([ks[:, 0], ks[:, 1], spsm_k_mean[b].reshape(-1)], axis=1)
+    #     output_file = os.path.join(output_dir, f"spsm_k_b{b}.txt")
+    #     np.savetxt(output_file, data, fmt="%.8f", comments='')
+    #     print(f"Saved: {output_file}")
+    
 
 if __name__ == '__main__':
     # Create configs file
@@ -52,11 +95,15 @@ if __name__ == '__main__':
             hmc_filename = f"/stream_ckpt_N_t_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_step_{end}.pt"
 
             # Load and write
-            # [seq, Ltau * Ly * Lx * 2]
-            boson_seq = torch.load(hmc_filename)
+            # [seq, bs, 2*Lx*Ly*Ltau]
+            boson_seq = torch.load(input_folder + hmc_filename)
             # boson_seq = boson_seq.to(device='mps', dtype=torch.float32)
             print(f'Loaded: {hmc_filename}')  
             
+            # Post-process and write spsm
+            Ly = Lx  # Assuming square lattice, adjust if not
+            output_dir = script_path + os.path.join(script_path, f"/Lx_{Lx}_Ltau_{Ltau}_J_{J:.2g}/")
+            postprocess_and_write_spsm(boson_seq[:, bid], output_dir, Lx, Ly, Ltau, Nrv=10, cuda_graph_se=True)
                   
 
             dbstop = 1

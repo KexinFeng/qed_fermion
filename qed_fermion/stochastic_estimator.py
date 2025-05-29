@@ -778,7 +778,7 @@ class StochaticEstimator:
 
     def get_fermion_obsr(self, bosons, eta):
         """
-        bosons: [bs, 2, Ltau, Ly, Lx] tensor of boson fields
+        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
 
         Returns:
             spsm: [bs, Ltau=1, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>

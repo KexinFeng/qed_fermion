@@ -42,7 +42,7 @@ def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', bid=0, st
     jtau_value = float(parts[jtau_index + 1])   # Get the next element
     
     # Load and write
-    # [seq, Ltau * Ly * Lx * 2]
+    # [seq, bs, 2*Lx*Ly*Ltau]
     boson_seq = torch.load(hmc_filename)
     # boson_seq = boson_seq.to(device='mps', dtype=torch.float32)
     print(f'Loaded: {hmc_filename}')        
