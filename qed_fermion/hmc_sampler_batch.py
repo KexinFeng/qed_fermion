@@ -490,7 +490,6 @@ class HmcSampler(object):
         retrieved_indices = M.indices() + 1  # Convert to 1-based indexing for MATLAB
         retrieved_values = M.values()
 
-        print(f"MATLAB preconditioner file not found: {filename}")
         print("Computing preconditioner using MATLAB function ichol_m...")
         # Pass indices and values to MATLAB
         matlab_function_path = script_path + '/utils/'
@@ -515,7 +514,7 @@ class HmcSampler(object):
         data = np.loadtxt(filename)
         if data.ndim == 1:
             data = data[None, :]  # Ensure 2D for single line
-            
+
         # Remove the file after reading
         if os.path.exists(filename):
             os.remove(filename)
