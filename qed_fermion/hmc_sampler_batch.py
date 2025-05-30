@@ -95,7 +95,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 5 if torch.cuda.is_available() else 1
+        self.bs = 3 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
@@ -3318,7 +3318,7 @@ if __name__ == '__main__':
     print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
 
     trace_folder = f"./trace_folder/"
-    prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}.json")
+    prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}_{Nstep}.json")
 
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
