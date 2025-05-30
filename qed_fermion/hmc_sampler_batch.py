@@ -135,7 +135,7 @@ class HmcSampler(object):
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 10000
         self.stream_write_rate = Nstep
-        self.memory_check_rate = 10 if debug_mode else 10
+        self.memory_check_rate = 10 if debug_mode else 1000
 
         # Statistics
         self.N_step = Nstep
