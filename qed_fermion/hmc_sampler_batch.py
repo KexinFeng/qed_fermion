@@ -74,6 +74,7 @@ print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
 start_total_monitor = 10 if debug_mode else 100
 start_load = 2000
+start_load = 0
 
 # Set a random seed for reproducibility
 seed = 42
@@ -100,7 +101,7 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 5 if asym > 0 else 1
+        self.max_tau_block_idx = 2 if asym > 0 else 1
         print(f"max_tau_block_idx: {self.max_tau_block_idx}")    
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
         dt_deque_max_len = 5 * self.max_tau_block_idx
@@ -196,6 +197,7 @@ class HmcSampler(object):
         # self.N_leapfrog = 2
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
+        self.N_leapfrog = 3
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
@@ -3290,11 +3292,11 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
-    Nstep = int(os.getenv("Nstep", '6000'))
+    Nstep = int(os.getenv("Nstep", '10'))
     Lx = int(os.getenv("L", '6'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = float(os.environ.get("asym", '4'))
+    asym = float(os.environ.get("asym", '2'))
 
     Ltau = int(asym*Lx * 10) # dtau=0.1
     # Ltau = 10 # dtau=0.1
@@ -3303,12 +3305,14 @@ if __name__ == '__main__':
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
     # Measure
+    # G_avg, G_std = hmc.measure()
+
     from torch.profiler import profile, record_function, ProfilerActivity
     with profile(
-        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-        record_shapes=True,       # Records input shapes of operators
+        activities=[ProfilerActivity.CPU],
+        record_shapes=False,       # Records input shapes of operators
         profile_memory=True,      # Tracks memory allocations and releases
-        with_stack=True           # Records Python call stacks for operations
+        with_stack=False           # Records Python call stacks for operations
     ) as prof:
         with record_function("model_inference"):
             for _ in range(1):
