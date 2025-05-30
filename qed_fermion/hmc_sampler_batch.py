@@ -12,6 +12,8 @@ import sys
 import os
 import matlab.engine
 import concurrent.futures
+import psutil
+process = psutil.Process(os.getpid())
 
 # matplotlib.use('MacOSX')
 plt.ion()
@@ -74,7 +76,6 @@ print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
 start_total_monitor = 10 if debug_mode else 100
 start_load = 2000
-start_load = 0
 
 # Set a random seed for reproducibility
 seed = 42
@@ -134,7 +135,7 @@ class HmcSampler(object):
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 10000
         self.stream_write_rate = Nstep
-        self.memory_check_rate = 10 if debug_mode else 1000
+        self.memory_check_rate = 10 if debug_mode else 10
 
         # Statistics
         self.N_step = Nstep
@@ -3018,12 +3019,15 @@ class HmcSampler(object):
             # with open(tmp_file_path, "a") as tmp_file:
             #     tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
                 
-            if torch.cuda.is_available() and i % self.memory_check_rate == 0:
+            if i % self.memory_check_rate == 0:
                 # Check memory usage
                 mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
                 max_mem_usage = torch.cuda.max_memory_allocated() / (1024 ** 2)
                 print(f"Memory usage at step {i}: {mem_usage:.2f} MB")
                 print(f"Max memory usage: {max_mem_usage:.2f} MB")
+
+                mem_mb = process.memory_info().rss / 1024**2
+                print(f"Current memory usage: {mem_mb:.2f} MB")
                 
                 # Write memory usage to a temporary file
                 # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
@@ -3317,7 +3321,7 @@ if __name__ == '__main__':
 
     from torch.profiler import profile, record_function, ProfilerActivity
     with profile(
-        activities=[ProfilerActivity.CPU],
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         record_shapes=False,       # Records input shapes of operators
         profile_memory=True,      # Tracks memory allocations and releases
         with_stack=False           # Records Python call stacks for operations
@@ -3330,6 +3334,7 @@ if __name__ == '__main__':
     print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
 
     trace_folder = f"./trace_folder/"
+    os.makedirs(trace_folder, exist_ok=True)
     prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}_{Nstep}.json")
 
 
