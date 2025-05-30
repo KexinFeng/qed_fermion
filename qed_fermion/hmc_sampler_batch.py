@@ -141,7 +141,7 @@ class HmcSampler(object):
         self.step = 0
         self.cur_step = 0
 
-        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau + 1)
+        self.G_list = torch.zeros(self.N_step, self.bs, self.num_tau)
         self.accp_list = torch.zeros(self.N_step, self.bs, dtype=torch.bool)
         self.accp_rate = torch.zeros(self.N_step, self.bs)
         self.S_plaq_list = torch.zeros(self.N_step, self.bs)
