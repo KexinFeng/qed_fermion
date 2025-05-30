@@ -96,7 +96,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 3 if torch.cuda.is_available() else 1
+        self.bs = 3 if torch.cuda.is_available() else 3
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
@@ -1187,15 +1187,23 @@ class HmcSampler(object):
             - phi_y
         )  # Shape: [batch_size, Lx, Ly, Ltau]
 
-        correlations = []
-        for dtau in range(self.num_tau + 1):
-            idx1 = list(range(Ltau))
-            idx2 = [(i + dtau) % Ltau for i in idx1]
+        # correlations = []
+        # for dtau in range(self.num_tau + 1):
+        #     idx1 = list(range(Ltau))
+        #     idx2 = [(i + dtau) % Ltau for i in idx1]
             
-            corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
-            correlations.append(corr)
+        #     corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
+        #     correlations.append(corr)
+        
+        # correlations = torch.stack(correlations).T  # Shape: [bs, num_dtau]
 
-        return torch.stack(correlations).T  # Shape: [bs, num_dtau]
+        a = sin_curl_phi # [bs, Lx, Ly, Ltau]
+        a_F = torch.fft.rfft(a)  # [bs, Lx, Ly, Ltau//2+1]
+        corr_fft = 1/self.Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
+
+        # torch.testing.assert_close(correlations[..., :-1], corr_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        return corr_fft  # Shape: [bs, num_dtau]
 
 
     def force_b_tau_cmp(self, boson):
