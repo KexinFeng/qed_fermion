@@ -95,7 +95,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2 if torch.cuda.is_available() else 1
+        self.bs = 5 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
@@ -3303,7 +3303,23 @@ if __name__ == '__main__':
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
     # Measure
-    G_avg, G_std = hmc.measure()
+    from torch.profiler import profile, record_function, ProfilerActivity
+    with profile(
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        record_shapes=True,       # Records input shapes of operators
+        profile_memory=True,      # Tracks memory allocations and releases
+        with_stack=True           # Records Python call stacks for operations
+    ) as prof:
+        with record_function("model_inference"):
+            for _ in range(1):
+                G_avg, G_std = hmc.measure()
+
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+    print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
+
+    trace_folder = f"./trace_folder/"
+    prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}.json")
+
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
