@@ -1190,7 +1190,7 @@ class HmcSampler(object):
 
         a = sin_curl_phi # [bs, Lx, Ly, Ltau]
         a_F = torch.fft.rfft(a)  # [bs, Lx, Ly, Ltau//2+1]
-        corr_fft = 1/self.Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
+        corr_fft = 1/Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
 
         return corr_fft  # Shape: [bs, num_dtau]
 
