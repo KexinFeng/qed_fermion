@@ -1,4 +1,6 @@
+import gc
 import torch
+import inspect
 
 if torch.cuda.is_available():
     import pynvml
@@ -36,3 +38,44 @@ def unravel_index(flat_index, shape):
         multi_index.append(flat_index % dim)
         flat_index //= dim
     return tuple(reversed(multi_index))
+
+def tensor_memory_MB(tensor, device='cpu'):
+    if device is None:
+        return tensor.element_size() * tensor.numel() / 1024**2
+    elif device == 'cpu':
+        return tensor.element_size() * tensor.numel() / 1024**2 if not tensor.is_cuda else 0
+    else:
+        return tensor.element_size() * tensor.numel() / 1024**2 if tensor.is_cuda else 0
+
+
+def report_tensor_memory():
+    tensor_info = []
+    total = 0
+
+    # Get current frame and local variables from calling scope
+    current_frame = inspect.currentframe()
+    outer_frames = inspect.getouterframes(current_frame)
+    caller_locals = outer_frames[1].frame.f_locals
+
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj):
+                mem_MB = tensor_memory_MB(obj)
+
+                # Try to find variable name from local scope
+                var_names = [name for name, val in caller_locals.items() if val is obj]
+                var_name = var_names[0] if var_names else "<unnamed>"
+
+                tensor_info.append((mem_MB, obj, var_name))
+                total += mem_MB
+        except Exception:
+            pass
+
+    # Sort by memory in descending order
+    tensor_info.sort(key=lambda x: x[0], reverse=True)
+
+    for mem_MB, tensor, var_name in tensor_info:
+        if tensor.is_cuda: continue
+        print(f"{var_name}: {str(tensor.size())} | {tensor.dtype} | {mem_MB:.2f} MB")
+
+    print(f"Total memory used by tensors: {total:.2f} MB")

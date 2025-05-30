@@ -13,6 +13,8 @@ import os
 import matlab.engine
 import concurrent.futures
 import psutil
+from memory_profiler import profile
+
 process = psutil.Process(os.getpid())
 
 # matplotlib.use('MacOSX')
@@ -31,7 +33,7 @@ from qed_fermion.post_processors.load_write2file_convert import time_execution
 from qed_fermion.force_graph_runner import ForceGraphRunner
 from qed_fermion.metropolis_graph_runner import MetropolisGraphRunner
 from qed_fermion.stochastic_estimator import StochaticEstimator
-from qed_fermion.utils.util import device_mem
+from qed_fermion.utils.util import device_mem, report_tensor_memory, tensor_memory_MB
 from qed_fermion.metropolis_graph_runner import LeapfrogCmpGraphRunner
 
 BLOCK_SIZE = (4, 8)
@@ -271,6 +273,7 @@ class HmcSampler(object):
         return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
 
     @time_execution
+    # @profile
     def initialize_force_graph(self):
         """Initialize CUDA graph for force_f_fast function."""
         if not self.cuda_graph:
@@ -486,7 +489,7 @@ class HmcSampler(object):
         return mat    
     
     def get_precon2(self, pi_flux_boson, output_scipy=False):
-        iter = 5
+        iter = 20
         thrhld = 0.1 
         diagcomp = 0.05  
 
@@ -2893,25 +2896,25 @@ class HmcSampler(object):
         self.reset_precon()
         if self.cuda_graph:
             d_mem_str, d_mem1 = device_mem()
-            print(f"After setting precon: {d_mem_str}, diff: {d_mem1 - d_mem0:.2f} MB\n")
+            print(f"After setting precon: {d_mem_str}, incr.by: {d_mem1 - d_mem0:.2f} MB\n")
 
         if self.cuda_graph:
             self.initialize_leapfrog_cmp_graph()
             d_mem_str, d_mem2 = device_mem()
-            print(f"After init leapfrog_cmp_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+            print(f"After init leapfrog_cmp_graph: {d_mem_str}, incr.by: {d_mem2 - d_mem1:.2f} MB\n")
 
             self.initialize_force_graph()
             d_mem_str, d_mem2 = device_mem()
-            print(f"After init force_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+            print(f"After init force_graph: {d_mem_str}, incr.by: {d_mem2 - d_mem1:.2f} MB\n")
 
             # self.initialize_metropolis_graph()
             # d_mem_str, d_mem2 = device_mem()
-            # print(f"After init metropolis_graph: {d_mem_str}, diff: {d_mem2 - d_mem1:.2f} MB\n")
+            # print(f"After init metropolis_graph: {d_mem_str}, incr.by: {d_mem2 - d_mem1:.2f} MB\n")
 
-            # self.initialize_metropolis_graph()
+            # self.initialize_stochastic_estimator()
             self.init_stochastic_estimator()  
             d_mem_str, d_mem3 = device_mem()
-            print(f"After init se_graph: {d_mem_str}, diff: {d_mem3 - d_mem2:.2f} MB\n") 
+            print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
 
         # Measure
         # fig = plt.figure()
@@ -3304,8 +3307,8 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
-    Nstep = int(os.getenv("Nstep", '10'))
-    Lx = int(os.getenv("L", '6'))
+    Nstep = int(os.getenv("Nstep", '5'))
+    Lx = int(os.getenv("L", '10'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
     asym = float(os.environ.get("asym", '2'))
@@ -3317,25 +3320,28 @@ if __name__ == '__main__':
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
     # Measure
-    # G_avg, G_std = hmc.measure()
+    G_avg, G_std = hmc.measure()
 
-    from torch.profiler import profile, record_function, ProfilerActivity
-    with profile(
-        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-        record_shapes=False,       # Records input shapes of operators
-        profile_memory=True,      # Tracks memory allocations and releases
-        with_stack=False           # Records Python call stacks for operations
-    ) as prof:
-        with record_function("model_inference"):
-            for _ in range(1):
-                G_avg, G_std = hmc.measure()
+    mem_mb = process.memory_info().rss / 1024**2
+    print(f"Current memory usage: {mem_mb:.2f} MB")
 
-    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-    print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
+    # from torch.profiler import profile, record_function, ProfilerActivity
+    # with profile(
+    #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+    #     record_shapes=False,       # Records input shapes of operators
+    #     profile_memory=True,      # Tracks memory allocations and releases
+    #     with_stack=False           # Records Python call stacks for operations
+    # ) as prof:
+    #     with record_function("model_inference"):
+    #         for _ in range(1):
+    #             G_avg, G_std = hmc.measure()
 
-    trace_folder = f"./trace_folder/"
-    os.makedirs(trace_folder, exist_ok=True)
-    prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}_{Nstep}.json")
+    # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+    # print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
+
+    # trace_folder = f"./trace_folder/"
+    # os.makedirs(trace_folder, exist_ok=True)
+    # prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}_{Nstep}.json")
 
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
