@@ -7,25 +7,26 @@ J_array=$(echo '1.0')
 L_array=$(echo '16 20')
 
 J_array=$(echo '1.0')
-L_array=$(echo '6')  # 10 h (-2)
+L_array=$(echo '36')  # 10 h (-2)
 
-export debug=0
+export debug=1
 export asym=2
 export cuda_graph=1
 
-Nstep=20
+Nstep=10
+mem=6
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J_${J}_L_${L}_Nstep_${Nstep})
+                config=$(echo m${mem}_L_${L}_Nstep_${Nstep})
                 echo $config
                 export J Nstep L
                 #
-                sbatch --job-name=p1bs2${config} \
+                sbatch --job-name=${config} \
                 --time=0-0:30:00 \
                 --qos=debug \
-                --mem-per-cpu=16G \
+                --mem-per-cpu=${mem}G \
                 s_hmc.cmd
                 # {L: size_gb} = {12: 20, 16: 30}
         done

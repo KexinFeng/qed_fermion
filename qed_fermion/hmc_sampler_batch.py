@@ -14,6 +14,7 @@ import matlab.engine
 import concurrent.futures
 import psutil
 from memory_profiler import profile
+import time
 
 process = psutil.Process(os.getpid())
 
@@ -77,7 +78,7 @@ sigma_mini_batch_size = 50 if debug_mode else 1000
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
 start_total_monitor = 10 if debug_mode else 100
-start_load = 2000
+start_load = 500
 
 # Set a random seed for reproducibility
 seed = 42
@@ -99,7 +100,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 3 if torch.cuda.is_available() else 1
+        self.bs = 2 if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
@@ -137,7 +138,7 @@ class HmcSampler(object):
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 10000
         self.stream_write_rate = Nstep
-        self.memory_check_rate = 10 if debug_mode else 1000
+        self.memory_check_rate = 5 if debug_mode else 1000
 
         # Statistics
         self.N_step = Nstep
@@ -3031,6 +3032,8 @@ class HmcSampler(object):
 
                 mem_mb = process.memory_info().rss / 1024**2
                 print(f"Current memory usage: {mem_mb:.2f} MB")
+
+                time.sleep(0.1)
                 
                 # Write memory usage to a temporary file
                 # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
