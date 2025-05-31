@@ -21,6 +21,9 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 # J_array=$(echo '1.5')
 # L_array=$(echo '6')  # 10 h (-2)
 
+J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
+L_array=$(echo '36 30 20')  # 10 h (-2)
+
 Nstep=5000
 
 export debug=0
@@ -36,9 +39,9 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=0-30:00:00 \
+                --time=0-24:00:00 \
                 --qos=gpu \
-                --mem-per-cpu=12G \
+                --mem-per-cpu=6G \
                 s_hmc.cmd
         done
 done

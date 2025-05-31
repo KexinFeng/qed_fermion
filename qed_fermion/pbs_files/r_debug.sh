@@ -7,7 +7,7 @@ J_array=$(echo '1.0')
 L_array=$(echo '16 20')
 
 J_array=$(echo '1.0')
-L_array=$(echo '36')  # 10 h (-2)
+L_array=$(echo '36')  # Nleap3_taublk2_bs2_2000_8h
 
 export debug=1
 export asym=2
