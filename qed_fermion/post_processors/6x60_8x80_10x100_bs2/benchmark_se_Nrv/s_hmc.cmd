@@ -14,4 +14,4 @@ module load python/3.9.7
 module load matlab/r2023b
 export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
 
-./load_plot.sh
+python3 load_se.py

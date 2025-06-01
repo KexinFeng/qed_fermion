@@ -8,7 +8,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner
-from qed_fermion.utils.util import ravel_multi_index, unravel_index
+from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
@@ -61,6 +61,9 @@ class StochaticEstimator:
         # Capture
         if self.cuda_graph_se:
             print("Initializing CUDA graph for get_fermion_obsr.........")
+            print(f"Lx_{self.Lx}, Ltau_{self.Ltau}, Nrv_{self.Nrv}, max_iter_se_{self.max_iter_se}")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init se_graph: {d_mem_str}")
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
             dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
             self.graph_memory_pool = self.graph_runner.capture(
@@ -69,6 +72,8 @@ class StochaticEstimator:
                                         max_iter_se=self.max_iter_se,
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
+            d_mem_str, d_mem3 = device_mem()
+            print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
             print('')
 
     def random_vec_bin(self):  

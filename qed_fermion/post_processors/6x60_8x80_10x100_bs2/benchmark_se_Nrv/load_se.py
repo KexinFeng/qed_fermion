@@ -28,7 +28,7 @@ def time_execution(func):
     return wrapper
 
 
-def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, start=5000):
+def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=200, start=5000):
     """
     boson: [seq, J/bs, 2 * Lx * Ly * Ltau]
     """
@@ -41,6 +41,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, start=5
 
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
+    se.max_iter_se = mxitr
     if se.cuda_graph_se:
         se.init_cuda_graph()
     eta = se.random_vec_bin()
@@ -79,7 +80,11 @@ if __name__ == '__main__':
     print(f"Lx: {Lx}")
     Ltau = int(os.getenv("Ltau", '80'))
     print(f"Ltau: {Ltau}")
-    # Ltau = Lx * 10
+    Nrv = int(os.getenv("Nrv", '10'))
+    print(f"Nrv: {Nrv}")
+    mxitr = int(os.getenv("mxitr", '10'))
+    print(f"mxitr: {mxitr}")
+
 
     Js = [1.0, 1.5, 2.0, 2.3, 2.5, 3.0]
     # Js = [0.5, 1.0, 3.0]
@@ -115,8 +120,8 @@ if __name__ == '__main__':
 
         bosons = torch.stack(bosons, dim=1)  # [seq, J/bs, 2*Lx*Ly*Ltau]
         
-        output_dir = script_path + f"/Lx_{Lx}_Ltau_{Ltau}/"
-        postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=200, start=start)
+        output_dir = script_path + f"/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
+        postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start)
             
   
     iterate_func()
