@@ -13,7 +13,8 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../../')
+sys.path.insert(0, script_path + '/../../../../')
+sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
@@ -92,11 +93,11 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
     
-    # Load dqmc and plot
-    dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_coratio.dat"
-    data = np.genfromtxt(dqmc_filename)
-    plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+    # # Load dqmc and plot
+    # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_coratio.dat"
+    # data = np.genfromtxt(dqmc_filename)
+    # plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
+    #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # # ----
 
@@ -119,6 +120,26 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # data = np.genfromtxt(dqmc_filename)
     # plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+
+
+    # ---- Load and plot spsm_k.pt mean ---- #
+    output_dir = os.path.join(script_path, f"Lx_{Lx}_Ltau_{Ltau}")
+    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
+    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
+    # Compute afm as 1 - spsm_k_mean[0,0]/spsm_k_mean[0,1] (mimic r_afm definition)
+    # Here, we assume spsm_k_res['mean'] has shape [J/bs, Ly, Lx] and [0,0] and [0,1] are the relevant k-points
+    spsm_k_mean = spsm_k_res['mean']
+    spsm_k_std = spsm_k_res['std']
+    # Calculate afm ratio as in r_afm
+    afm_vals = 1 - spsm_k_mean[:, 0, 1] / spsm_k_mean[:, 0, 0]
+    # Error propagation for ratio: err = |A/B| * sqrt((errA/A)^2 + (errB/B)^2)
+    errA = spsm_k_std[:, 0, 1]
+    errB = spsm_k_std[:, 0, 0]
+    A = spsm_k_mean[:, 0, 1]
+    B = spsm_k_mean[:, 0, 0]
+    afm_errs = np.abs(A/B) * np.sqrt((errA/A)**2 + (errB/B)**2)
+    plt.errorbar(Js, afm_vals, yerr=afm_errs, 
+                 fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
 
 
 if __name__ == '__main__':
@@ -149,7 +170,7 @@ if __name__ == '__main__':
     
     plt.show(block=False)
     # Save plot
-    method_name = "spin_order"
+    method_name = "afm"
     save_dir = os.path.join(script_path, f"./figures/afm")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
