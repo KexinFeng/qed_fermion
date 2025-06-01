@@ -28,7 +28,7 @@ def time_execution(func):
     return wrapper
 
 
-def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=200, start=5000):
+def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, start=5000):
     """
     boson: [seq, J/bs, 2 * Lx * Ly * Ltau]
     """

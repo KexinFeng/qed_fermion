@@ -104,7 +104,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # ---- Load and plot spsm_k.pt mean ---- #
     output_dir = os.path.join(script_path, f"Lx_{Lx}_Ltau_{Ltau}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-    spsm_k_res = torch.load(spsm_k_file) # [J/bs, Ly, Lx]
+    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
         # Compute spin order as sum of spsm_k_mean divided by vs
     spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
     spin_pi_errs = spsm_k_res['std'][:, 0, 0]
