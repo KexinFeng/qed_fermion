@@ -65,7 +65,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
         data = data.reshape(bs, -1, vs, 4)  # [bs, seq, vs, values(kx, ky,spin, err)]
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
         # [num_sample]
-        r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
+        # r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
 
         # Slice
         data = data[:, start:, :, :]
@@ -76,16 +76,16 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
         spin_order_values.append(spin_order)
         spin_order_errors.append(spin_order_err)
 
-        # r_afm = spin_order
-        rtol = data[:, :, :, 3] / data[:, :, :, 2]
-        r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
+        # # r_afm = spin_order
+        # rtol = data[:, :, :, 3] / data[:, :, :, 2]
+        # r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
         
-        # Calculate mean and error for plotting
-        r_afm_mean = np.mean(r_afm, axis=1)
-        r_afm_error = np.mean(r_afm_err, axis=1)
+        # # Calculate mean and error for plotting
+        # r_afm_mean = np.mean(r_afm, axis=1)
+        # r_afm_error = np.mean(r_afm_err, axis=1)
         
-        r_afm_values.append(r_afm_mean)
-        r_afm_errors.append(r_afm_error)
+        # r_afm_values.append(r_afm_mean)
+        # r_afm_errors.append(r_afm_error)
 
 
     # ========== Spin order ========= #
