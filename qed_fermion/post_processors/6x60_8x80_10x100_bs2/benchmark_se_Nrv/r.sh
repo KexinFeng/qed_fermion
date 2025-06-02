@@ -1,8 +1,8 @@
 mkdir -p report_se
 
 
-Nrv_array=$(echo '200 100 50 10')
-L_array=$(echo '6 8 10')  # 10 h (-2)
+Nrv_array=$(echo '200')
+L_array=$(echo '6 8')  # 10 h (-2)
 
 export debug=0
 export cuda_graph=1
