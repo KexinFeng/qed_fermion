@@ -65,6 +65,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
         # [num_sample]
         r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
 
+        # Slice
+        data = data[:, start:, :, :]
+
         # spin order
         spin_order = np.mean(data[..., 0, 2], axis=1)
         spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
@@ -102,7 +105,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # ---- Load and plot spsm_k.pt mean ---- #
-    output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
     spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
         # Compute spin order as sum of spsm_k_mean divided by vs
@@ -125,8 +128,9 @@ if __name__ == '__main__':
         asym = Ltau / Lx * 0.1
 
         part_size = 500
-        start_dqmc = -50
+        start_dqmc = 5000
         end_dqmc = 10000
+        start = -50
 
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
@@ -144,7 +148,7 @@ if __name__ == '__main__':
     plt.show(block=False)
     # Save plot
     method_name = "spin_order"
-    save_dir = os.path.join(script_path, f"./figures/spin_order")
+    save_dir = os.path.join(script_path, f"./figures_start{start}/spin_order")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")

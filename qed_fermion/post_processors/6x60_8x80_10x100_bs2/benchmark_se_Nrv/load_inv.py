@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
         bosons = torch.stack(bosons, dim=1, device=device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
         
-        output_dir = script_path + f"/data_inv/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
+        output_dir = script_path + f"/data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
         postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start)
             
   
