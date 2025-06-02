@@ -60,7 +60,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
         
         # Combine all parts' data
         data = np.concatenate(all_data)
-        data = data.reshape(bs, -1, vs, 4)
+        data = data.reshape(bs, -1, vs, 4)  # [bs, seq, vs, values(kx, ky,spin, err)]
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
         # [num_sample]
         r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
@@ -102,7 +102,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # ---- Load and plot spsm_k.pt mean ---- #
-    output_dir = os.path.join(script_path, f"data1/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
     spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
         # Compute spin order as sum of spsm_k_mean divided by vs

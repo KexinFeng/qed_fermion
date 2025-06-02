@@ -123,7 +123,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 
 
     # ---- Load and plot spsm_k.pt mean ---- #
-    output_dir = os.path.join(script_path, f"data1/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
     spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
     # Compute afm as 1 - spsm_k_mean[0,0]/spsm_k_mean[0,1] (mimic r_afm definition)
