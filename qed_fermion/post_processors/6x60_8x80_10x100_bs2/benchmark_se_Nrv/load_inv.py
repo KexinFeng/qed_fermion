@@ -74,9 +74,9 @@ if __name__ == '__main__':
     print(f"Lx: {Lx}")
     Ltau = int(os.getenv("Ltau", '80'))
     print(f"Ltau: {Ltau}")
-    Nrv = int(os.getenv("Nrv", '10'))
+    Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
-    mxitr = int(os.getenv("mxitr", '10'))
+    mxitr = int(os.getenv("mxitr", '400'))
     print(f"mxitr: {mxitr}")
 
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             
             bosons.append(boson_seq[:, bid])
 
-        bosons = torch.stack(bosons, dim=1, device=device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
+        bosons = torch.stack(bosons, dim=1).to(device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
         
         output_dir = script_path + f"/data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
         postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start)

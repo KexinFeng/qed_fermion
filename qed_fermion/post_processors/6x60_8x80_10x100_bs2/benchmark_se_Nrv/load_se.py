@@ -18,6 +18,9 @@ import time
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"device: {device}")
+
 def time_execution(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -69,13 +72,13 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
 
 if __name__ == '__main__':
     # Create configs file
-    Lx = int(os.getenv("Lx", '8'))
+    Lx = int(os.getenv("Lx", '6'))
     print(f"Lx: {Lx}")
-    Ltau = int(os.getenv("Ltau", '80'))
+    Ltau = int(os.getenv("Ltau", '60'))
     print(f"Ltau: {Ltau}")
-    Nrv = int(os.getenv("Nrv", '10'))
+    Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
-    mxitr = int(os.getenv("mxitr", '10'))
+    mxitr = int(os.getenv("mxitr", '400'))
     print(f"mxitr: {mxitr}")
 
 
@@ -112,7 +115,7 @@ if __name__ == '__main__':
             
             bosons.append(boson_seq[:, bid])
 
-        bosons = torch.stack(bosons, dim=1)  # [seq, J/bs, 2*Lx*Ly*Ltau]
+        bosons = torch.stack(bosons, dim=1).to(device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
         
         output_dir = script_path + f"/data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
         postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start)
