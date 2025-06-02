@@ -6,7 +6,7 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 
 export debug=0
 export cuda_graph=1
-export mxitr=600  # 1000
+export mxitr=400  # 1000
 
 for Nrv in $Nrv_array; do
         #
@@ -16,8 +16,8 @@ for Nrv in $Nrv_array; do
                 echo $config
                 export Nrv Lx
                 export Ltau=$((10 * Lx))
-                sbatch --job-name=se \
-                        --time=0-24:00:00 \
+                sbatch --job-name=${config} \
+                        --time=0-3:00:00 \
                         --qos=gpu \
                         --mem-per-cpu=18G \
                         s_hmc.cmd
