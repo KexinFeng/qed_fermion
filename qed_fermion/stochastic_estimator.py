@@ -539,6 +539,43 @@ class StochaticEstimator:
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
 
+    def G_delta_0_groundtruth_ext_fft(self, M_inv):
+        """
+        Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
+        result[i, d] = G[idx, i], with periodic boundary conditions.
+
+        Returns:
+            result: [N, N] tensor, result[i, d] = G[(i+d)%N, i]
+        """
+        G = M_inv  # [N, N]: N = Ltau * Ly * Lx
+        
+        Ltau2 = 2 * self.Ltau
+        Lx = self.Lx
+        Ly = self.Ly
+
+        # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
+        G = torch.cat([
+            torch.cat([G, -G], dim=1),
+            torch.cat([-G, G], dim=1)
+        ], dim=0)  # [2N, 2N]
+
+        N = G.shape[0]
+        Ltau, Ly, Lx = 2*self.Ltau, self.Ly, self.Lx
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
+                dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
+
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
+
+                result[i, d] = G[idx, i] 
+        G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
+
 
     def G_delta_0_G_delta_0_groundtruth(self, M_inv):
         """
