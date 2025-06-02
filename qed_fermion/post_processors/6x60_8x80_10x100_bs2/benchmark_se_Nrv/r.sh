@@ -17,9 +17,9 @@ for Nrv in $Nrv_array; do
                 export Nrv Lx
                 export Ltau=$((10 * Lx))
                 sbatch --job-name=se \
-                        --time=0-3:00:00 \
+                        --time=0-24:00:00 \
                         --qos=gpu \
-                        --mem-per-cpu=8G \
+                        --mem-per-cpu=18G \
                         s_hmc.cmd
         done
 done

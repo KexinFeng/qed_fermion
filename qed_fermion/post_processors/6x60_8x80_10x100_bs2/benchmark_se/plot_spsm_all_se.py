@@ -92,13 +92,13 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
 
     # Plot the batch mean
-    plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
+    plt.errorbar(Js, spin_order_values[:, 1], yerr=spin_order_errors[:, 1],
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     # # ---- Load dqmc and plot ---- # #
     # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     # data = np.genfromtxt(dqmc_filename)
-    # plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
+    # plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # ---- Load and plot spsm_k.pt mean ---- #
@@ -109,7 +109,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
     spin_pi_errs = spsm_k_res['std'][:, 0, 0]
 
-    plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
+    plt.errorbar(Js, spin_pi_s, yerr=spin_pi_errs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
