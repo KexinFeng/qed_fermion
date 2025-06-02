@@ -21,6 +21,8 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 from load_write2file_convert import time_execution
 
 
+bid = 1
+
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     Lx, Ly, Ltau = Lsize
@@ -95,7 +97,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
 
     # Plot the batch mean
-    plt.errorbar(Js, spin_order_values[:, 1], yerr=spin_order_errors[:, 1],
+    plt.errorbar(Js, spin_order_values[:, bid], yerr=spin_order_errors[:, bid],
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     # # ---- Load dqmc and plot ---- # #
