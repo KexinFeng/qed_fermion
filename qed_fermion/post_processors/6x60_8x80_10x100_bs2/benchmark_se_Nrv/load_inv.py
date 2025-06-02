@@ -36,6 +36,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     hmc.Ly = Ly
     hmc.Ltau = Ltau
     hmc.bs = bosons.shape[1]
+    hmc.bs = 1
     hmc.reset()
 
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)

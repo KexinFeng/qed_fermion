@@ -684,6 +684,43 @@ class StochaticEstimator:
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
         return GG.view(Ltau, Ly, Lx)[:self.Ltau]
 
+    def G_delta_0_G_0_delta_groundtruth_ext_fft(self, M_inv):
+        """
+        Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
+        result[i, d] = G[i+d, i] * G[i+d, i], with periodic boundary conditions.
+
+        Returns:
+            result: [N, N] tensor, result[i, d] = G[(i+d)%N, i] * G[(i+d)%N, i]
+        """
+
+        # Compute the four-point green's function using the ground truth
+        # G_delta_0_G_delta_0 = mean_i G_{i+d, i} G_{i+d, i}
+        G = M_inv # [N, N]
+
+        # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
+        G = torch.cat([
+            torch.cat([G, -G], dim=1),
+            torch.cat([-G, G], dim=1)
+        ], dim=0)  # [2N, 2N]
+
+        N = G.shape[0]
+        Ltau, Ly, Lx = 2 * self.Ltau, self.Ly, self.Lx
+        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
+        for i in range(N):
+            for d in range(N):
+                tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
+                dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
+
+                idx = ravel_multi_index(
+                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                    (Ltau, Ly, Lx)
+                )
+
+                result[i, d] = G[idx, i] * G[i, idx]
+
+        GG = result.mean(dim=0) # [Ltau * Ly * Lx]
+        return GG.view(Ltau, Ly, Lx)[:self.Ltau]
+
 
     # -------- Fermionic obs methods --------
     def spsm_r(self, GD0_G0D, GD0):
@@ -815,7 +852,7 @@ class StochaticEstimator:
         obsr['spsm_k_abs'] = spsm_k_abs
         return obsr
     
-    def get_fermion_obsr_groundtruth(self, bosons, eta):
+    def get_fermion_obsr_groundtruth(self, bosons):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
 
@@ -835,7 +872,7 @@ class StochaticEstimator:
             # GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
             # GD0 = self.G_delta_0_ext() # [Ly, Lx]
             Gij_gt = self.G_groundtruth(boson)
-            GD0 = self.G_delta_0_groundtruth(Gij_gt)
+            GD0 = self.G_delta_0_groundtruth_ext(Gij_gt)
             GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext(Gij_gt)
 
             spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
