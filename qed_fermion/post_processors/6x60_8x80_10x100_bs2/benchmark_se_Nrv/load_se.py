@@ -65,13 +65,6 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
                 output_file)
     print(f"Saved: {output_file}")
 
-    # ks = se.get_ks_ordered().cpu().numpy()
-    # ks = ks.reshape(-1, 2)[:, ::-1]
-    # for b in range(spsm_k_mean.shape[0]):
-    #     data = np.stack([ks[:, 0], ks[:, 1], spsm_k_mean[b].reshape(-1)], axis=1)
-    #     output_file = os.path.join(output_dir, f"spsm_k_b{b}.txt")
-    #     np.savetxt(output_file, data, fmt="%.8f", comments='')
-    #     print(f"Saved: {output_file}")
     
 
 if __name__ == '__main__':
