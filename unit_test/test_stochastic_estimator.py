@@ -210,7 +210,7 @@ def test_fermion_obsr_write():
 
 
 if __name__ == "__main__":
-    # test_green_functions()
+    test_green_functions()
     test_fermion_obsr_write()
-    # test_fermion_obsr()
+    test_fermion_obsr()
     print("All tests completed successfully!")

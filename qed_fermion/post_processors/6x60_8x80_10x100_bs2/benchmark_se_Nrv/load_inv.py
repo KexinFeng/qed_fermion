@@ -1,7 +1,3 @@
-import glob
-import json
-import math
-import re
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 plt.ion()
@@ -17,6 +13,9 @@ sys.path.insert(0, script_path + '/../../../../')
 import time
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"device: {device}")
 
 def time_execution(func):
     def wrapper(*args, **kwargs):
@@ -42,19 +41,21 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
     se.max_iter_se = mxitr
-    if se.cuda_graph_se:
-        se.init_cuda_graph()
-    eta = se.random_vec_bin()
+    # if se.cuda_graph_se:
+    #     se.init_cuda_graph()
+    # eta = se.random_vec_bin()
     os.makedirs(output_dir, exist_ok=True)
     boson_conf = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
     spsm_k = []
     for boson in tqdm(boson_conf):  # boson: [J/bs, 2, Lx, Ly, Ltau]
-        if se.cuda_graph_se:
-            obsr = se.graph_runner(boson.to(se.device), eta)
-        else:
-            obsr = se.get_fermion_obsr(boson.to(se.device), eta)
-        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        
+        # if se.cuda_graph_se:
+        #     obsr = se.graph_runner(boson.to(se.device), eta)
+        # else:
+        #     obsr = se.get_fermion_obsr(boson.to(se.device), eta)
+        # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        obsr = se.get_fermion_obsr_groundtruth(boson)
+        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())   
+    
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
     spsm_k_mean = spsm_k.mean(axis=0)  # [J/bs, Ly, Lx]
     spsm_k_std = spsm_k.std(axis=0)  # [J/bs, Ly, Lx]
@@ -111,9 +112,9 @@ if __name__ == '__main__':
             
             bosons.append(boson_seq[:, bid])
 
-        bosons = torch.stack(bosons, dim=1)  # [seq, J/bs, 2*Lx*Ly*Ltau]
+        bosons = torch.stack(bosons, dim=1, device=device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
         
-        output_dir = script_path + f"/data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
+        output_dir = script_path + f"/data_inv/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
         postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start)
             
   

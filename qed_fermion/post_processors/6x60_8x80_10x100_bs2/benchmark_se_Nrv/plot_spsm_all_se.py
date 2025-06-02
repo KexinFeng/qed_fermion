@@ -125,7 +125,7 @@ if __name__ == '__main__':
         asym = Ltau / Lx * 0.1
 
         part_size = 500
-        start_dqmc = 5000
+        start_dqmc = -50
         end_dqmc = 10000
 
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"

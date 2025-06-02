@@ -814,6 +814,41 @@ class StochaticEstimator:
         obsr['spsm_r'] = spsm_r
         obsr['spsm_k_abs'] = spsm_k_abs
         return obsr
+    
+    def get_fermion_obsr_groundtruth(self, bosons, eta):
+        """
+        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
+
+        Returns:
+            spsm: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+        """
+        bs, _, Lx, Ly, Ltau = bosons.shape
+        spsm_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
+        spsm_k_abs = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
+        # szsz = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
+        
+        for b in range(bs):
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+
+            # self.set_eta_G_eta(boson, eta)
+            # GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
+            # GD0 = self.G_delta_0_ext() # [Ly, Lx]
+            Gij_gt = self.G_groundtruth(boson)
+            GD0 = self.G_delta_0_groundtruth(Gij_gt)
+            GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext(Gij_gt)
+
+            spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
+            # spsm_r[b] = spsm_r_per_b
+            spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
+            spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
+
+            # szsz[b] = 0.5 * spsm[b]
+
+        obsr = {}
+        obsr['spsm_r'] = spsm_r
+        obsr['spsm_k_abs'] = spsm_k_abs
+        return obsr
 
 
 
