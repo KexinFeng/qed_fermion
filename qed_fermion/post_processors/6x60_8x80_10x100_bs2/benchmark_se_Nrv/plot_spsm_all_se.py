@@ -116,7 +116,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 if __name__ == '__main__':
     batch_size = 2
     Nrv = 100
-    mxitr = 600
+    mxitr = 400
 
     plt.figure(figsize=(8, 6))
     for idx, Lx in enumerate([6, 8]):
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     method_name = "spin_order"
     save_dir = os.path.join(script_path, f"./figures/spin_order")
     os.makedirs(save_dir, exist_ok=True) 
-    file_path = os.path.join(save_dir, f"{method_name}.pdf")
+    file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 

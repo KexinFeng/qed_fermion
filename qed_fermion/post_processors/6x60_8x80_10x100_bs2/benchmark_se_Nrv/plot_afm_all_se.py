@@ -175,7 +175,7 @@ if __name__ == '__main__':
     method_name = "afm"
     save_dir = os.path.join(script_path, f"./figures/afm")
     os.makedirs(save_dir, exist_ok=True) 
-    file_path = os.path.join(save_dir, f"{method_name}.pdf")
+    file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")    
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
