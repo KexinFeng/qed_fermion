@@ -35,7 +35,7 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo J${J}L${L}a${asym})
+                config=$(echo L${L}a${asym})
                 echo $config
                 export J Nstep L
                 #

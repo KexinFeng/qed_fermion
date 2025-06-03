@@ -21,6 +21,11 @@ if torch.cuda.is_available():
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
+Nrv = float(os.getenv("Nrv", '10'))
+print(f"Nrv: {Nrv}")
+max_iter_se = float(os.getenv("max_iter_se", '200'))
+print(f"max_iter_se: {max_iter_se}")
+
 class StochaticEstimator:
     # This function computes the fermionic green's function, mainly four-point function. The aim is to surrogate the postprocessing of the HMC boson samples. For a given boson, the M(boson) is the determined, so is M_inv aka green's function.
 
@@ -34,8 +39,8 @@ class StochaticEstimator:
 
     def __init__(self, hmc, cuda_graph_se=False):
         self.hmc_sampler = hmc
-        self.Nrv = 10
-        self.max_iter_se = 200
+        self.Nrv = Nrv
+        self.max_iter_se = max_iter_se
 
         self.Lx = hmc.Lx
         self.Ly = hmc.Ly    
