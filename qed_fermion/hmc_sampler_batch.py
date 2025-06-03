@@ -3055,6 +3055,8 @@ class HmcSampler(object):
                         'G_list': self.G_list,
                         'S_plaq_list': self.S_plaq_list,
                         'S_tau_list': self.S_tau_list,
+                        'spsm_r_list': self.spsm_r_list,
+                        'spsm_k_list': self.spsm_k_list,
                         'cg_iter_list': self.cg_iter_list,
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
@@ -3070,6 +3072,8 @@ class HmcSampler(object):
                'G_list': self.G_list,
                'S_plaq_list': self.S_plaq_list,
                'S_tau_list': self.S_tau_list,
+                'spsm_r_list': self.spsm_r_list,
+                'spsm_k_list': self.spsm_k_list,
                'cg_iter_list': self.cg_iter_list,
                'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}

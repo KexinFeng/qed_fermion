@@ -22,9 +22,9 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 # L_array=$(echo '6')  # 10 h (-2)
 
 J_array=$(echo '1.0')
-L_array=$(echo '36 30 20 10')  # 10 h (-2)
+L_array=$(echo '36 30 20 16 12 10')  # 10 h (-2)
 
-Nstep=20000
+Nstep=5000
 
 export debug=0
 export asym=2
