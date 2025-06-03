@@ -13,7 +13,7 @@ import os
 import matlab.engine
 import concurrent.futures
 import psutil
-from memory_profiler import profile
+# from memory_profiler import profile
 import time
 
 process = psutil.Process(os.getpid())

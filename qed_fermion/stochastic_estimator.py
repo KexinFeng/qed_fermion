@@ -539,6 +539,7 @@ class StochaticEstimator:
         G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
         return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
 
+
     def G_delta_0_groundtruth_ext_fft(self, M_inv):
         """
         Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
@@ -573,8 +574,66 @@ class StochaticEstimator:
                 )
 
                 result[i, d] = G[idx, i] 
-        G_mean = result.mean(dim=0)  # [Ltau * Ly * Lx]
-        return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
+        G_mean_ref = result.mean(dim=0)  # [Ltau * Ly * Lx]
+        G_mean_ref = G_mean_ref.view(Ltau2, Ly, Lx)[:self.Ltau]
+
+
+        # FFT-based implementation for spatial correlations at tau=0
+        # Reshape G to [2*Ltau, Ly, Lx, 2*Ltau, Ly, Lx] conceptually
+        G_reshaped = G.view(Ltau2, Ly, Lx, Ltau2, Ly, Lx)
+
+        # fft
+        # mean_r G[:, r, : r + d] = G(d)
+        # G[:, r, :, r'] = G[:, k, :, k'] e^{ikr + ik'r'}
+        # sum_r G[:, r, : r + d] = sum_r e^{ikr+ ik'r + ik'd} G[:, k, :, k']
+        # = G[:, -k, :, k] e^{ikd}
+        # G(d) -> G[:, r, :, r'] 
+
+        # FFT-based implementation for spatial correlations G(d)
+        # G_reshaped: [2*Ltau, Ly, Lx, 2*Ltau, Ly, Lx]
+        # We want to compute, for each tau, G(d) = mean_r G[:, r, :, r + d]
+
+        # We'll perform FFT on the spatial indices (y, x) and (y', x') for each tau, tau'
+        # FFT axes: (1, 2) and (4, 5)
+        G_fft = torch.fft.fftn(G_reshaped, s=None, dim=(1, 2, 4, 5), norm="forward")  # [2*Ltau, Ly, Lx, 2*Ltau, Ly, Lx]
+
+        # Now, for each tau, tau', we want G[:, -k, :, k] (i.e., k = k')
+        # So, for each kx, ky, select G[:, -ky, -kx, :, ky, kx]
+        Ly, Lx = self.Ly, self.Lx
+        Ltau2 = 2 * self.Ltau
+
+        # Prepare frequency indices
+        ky = torch.fft.fftfreq(Ly, device=G_fft.device)
+        kx = torch.fft.fftfreq(Lx, device=G_fft.device)
+        ky_idx = torch.arange(Ly, device=G_fft.device)
+        kx_idx = torch.arange(Lx, device=G_fft.device)
+
+        # For each (ky, kx), get the index for -ky, -kx (modulo Ly, Lx)
+        ky_neg_idx = (-ky_idx) % Ly
+        kx_neg_idx = (-kx_idx) % Lx
+
+        # Use advanced indexing to select G[:, -ky, -kx, :, ky, kx]
+        # We'll build a meshgrid for all (ky, kx)
+        ky_grid, kx_grid = torch.meshgrid(ky_idx, kx_idx, indexing='ij')  # [Ly, Lx]
+        ky_neg_grid = (-ky_grid) % Ly
+        kx_neg_grid = (-kx_grid) % Lx
+
+        # Now, for each tau, tau', select G_fft[:, ky_neg, kx_neg, :, ky, kx]
+        # We'll compute for tau = tau' = 0 for simplicity (can generalize if needed)
+        # Output: [2*Ltau, Ly, Lx]
+        G_fft_diag = torch.empty((Ltau2, Ly, Lx), dtype=G_fft.dtype, device=G_fft.device)
+        for tau in range(Ltau2):
+            # G_fft[tau, ky_neg, kx_neg, tau, ky, kx]
+            G_fft_diag[tau] = G_fft[tau, ky_neg_grid, kx_neg_grid, tau, ky_grid, kx_grid].diagonal(dim1=0, dim2=3).sum(dim=-1)
+
+        # Now, IFFT to get G(d)
+        G_d = torch.fft.ifft2(G_fft_diag, s=(Ly, Lx), norm="backward").real  # [2*Ltau, Ly, Lx]
+        G_mean_fft = G_d[:self.Ltau]
+
+        # Verify equivalence with reference implementation
+        torch.testing.assert_close(G_mean_ref, G_mean_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        return G_mean_fft[0]  # Return tau=0 slice: [Ly, Lx]
 
 
     def G_delta_0_G_delta_0_groundtruth(self, M_inv):

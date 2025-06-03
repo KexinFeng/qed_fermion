@@ -52,7 +52,8 @@ def test_green_functions():
     G_stoch_primitive_ext = se.G_delta_0_primitive_ext()
     torch.testing.assert_close(G_stoch_ext.real, G_stoch_primitive_ext.real, rtol=1e-2, atol=5e-2)
 
-    G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
+    # G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
+    G_gt_ext = se.G_delta_0_groundtruth_ext_fft(Gij_gt)
     torch.testing.assert_close(G_gt_ext.real, G_stoch_primitive_ext.real, rtol=1e-2, atol=5e-2)
 
     # Test Green four-point
