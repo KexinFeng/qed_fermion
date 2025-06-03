@@ -829,8 +829,14 @@ class StochaticEstimator:
             GG_ref = GG_ref.view(Ltau2, Ly, Lx)[:self.Ltau]
 
         # FFT-based implementation
-        # mean_r G[:, r, : r + d] = G(d)
+        # mean_r G[:, r+d, :, r] * G[:, r, : r+d] = G(d)
         # G[:, r, :, r'] = G[:, k, :, k'] e^{ikr + ik'r'}
+        # sum_r G[:, k'', :, k'''] * G[:, k, :, k'] e^{ikr + ik'r + ik'd + ik''d + ik''r + ik'''r} 
+        # = G[:, k'', :, k'''] * G[:, k, :, k'] delta(k+k'+k''+k''') e^{i(k'+k'')d}
+        # = G[:, k'', :, -k-k'-k''] * G[:, k, :, k'] e^{i(k'+k'')d}
+        #sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
+
+
         # sum_r G[:, r, : r + d] = sum_r e^{ikr+ ik'r + ik'd} G[:, k, :, k']
         # = G[:, -k, :, k] e^{ikd}
         # G(d) -> G[:, r, :, r'] 
