@@ -15,7 +15,7 @@ def test_G_delta_0_groundtruth_ext_fft():
     hmc = HmcSampler()
     hmc.Lx = 6
     hmc.Ly = 6
-    hmc.Ltau = 6
+    hmc.Ltau = 60
 
     hmc.bs = 2
     hmc.reset()
