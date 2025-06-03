@@ -828,6 +828,7 @@ class StochaticEstimator:
             GG_ref = result.mean(dim=0)  # [Ltau * Ly * Lx]
             GG_ref = GG_ref.view(Ltau2, Ly, Lx)[:self.Ltau]
 
+
         # FFT-based implementation
         # mean_r G[:, r+d, :, r] * G[:, r, : r+d] = G(d)
         # G[:, r, :, r'] = G[:, k, :, k'] e^{ikr + ik'r'}
@@ -836,35 +837,47 @@ class StochaticEstimator:
         # = G[:, k'', :, -k-k'-k''] * G[:, k, :, k'] e^{i(k'+k'')d}
         #sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
 
-
-        # sum_r G[:, r, : r + d] = sum_r e^{ikr+ ik'r + ik'd} G[:, k, :, k']
-        # = G[:, -k, :, k] e^{ikd}
-        # G(d) -> G[:, r, :, r'] 
-
-        # Reshape G to [Ltau, Ly, Lx, Ltau, Ly, Lx]
         G_reshaped = M_inv.view(self.Ltau, Ly, Lx, self.Ltau, Ly, Lx)
-
-        # FFT over spatial indices for both sets of coordinates
         G_fft = torch.fft.fftn(G_reshaped, dim=(1, 2, 4, 5), norm="forward")  # [Ltau, Ly, Lx, Ltau, Ly, Lx]
 
         Ly, Lx = self.Ly, self.Lx
-        tau_idx = torch.arange(self.Ltau, device=G_fft.device)
-        ky_idx = torch.arange(Ly, device=G_fft.device)
-        kx_idx = torch.arange(Lx, device=G_fft.device)
-        tau_grid, ky_grid, kx_grid = torch.meshgrid(tau_idx, ky_idx, kx_idx, indexing='ij')
-        ky_neg_grid = (-ky_grid) % Ly
-        kx_neg_grid = (-kx_grid) % Lx
+        result_fft = torch.zeros((self.Ltau, Ly, Lx), dtype=G_fft.dtype, device=G_fft.device)
 
-        # For each tau, ky, kx: G_fft[tau, ky_neg, kx_neg, tau, ky, kx] * G_fft[tau, ky, kx, tau, ky_neg, kx_neg]
-        G_fft_diag = G_fft[tau_grid, ky_neg_grid, kx_neg_grid, tau_grid, ky_grid, kx_grid] * \
-                     G_fft[tau_grid, ky_grid, kx_grid, tau_grid, ky_neg_grid, kx_neg_grid]
+        for tau in range(self.Ltau):
+            # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
+            G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
 
-        # IFFT to get G(d)
-        G_d_fft = torch.fft.ifft2(G_fft_diag, s=(Ly, Lx), norm="backward")  # [Ltau, Ly, Lx]
+            # For each p = (py, px), we want:
+            # sum_{k, k'} G_fft_tau[(-k'+py)%Ly, (-k+px)%Lx, k, k']
+            #              * G_fft_tau[k, k', k, k']
+            # This is a double sum over k, k' for each p
+
+            # Prepare k, k' indices
+            ky = torch.arange(Ly, device=G_fft.device)
+            kx = torch.arange(Lx, device=G_fft.device)
+            ky_grid, kx_grid = torch.meshgrid(ky, kx, indexing='ij')  # [Ly, Lx]
+
+            # For each p = (py, px)
+            for py in range(Ly):
+                for px in range(Lx):
+                    # Compute shifted indices
+                    ky_shift = (-ky_grid + py) % Ly  # [Ly, Lx]
+                    kx_shift = (-kx_grid + px) % Lx  # [Ly, Lx]
+
+                    # G1: G_fft_tau[ky_shift, kx_shift, ky_grid, kx_grid]
+                    G1 = G_fft_tau[ky_shift, kx_shift, ky_grid, kx_grid]
+                    # G2: G_fft_tau[ky_grid, kx_grid, ky_grid, kx_grid]
+                    G2 = G_fft_tau[ky_grid, kx_grid, ky_grid, kx_grid]
+
+                    # sum over k, k'
+                    val = (G1 * G2).sum()
+                    result_fft[tau, py, px] = val
+
+        # Now, for each tau, do iFFT over (py, px) to get G(d)
+        G_d_fft = torch.fft.ifft2(result_fft, s=(Ly, Lx), norm="backward")  # [Ltau, Ly, Lx]
         G_mean_fft = G_d_fft.mean(dim=0) * Lx * Ly  # [Ly, Lx]
+
         if debug:
-            # Compare with reference implementation
-            # IFFT to real space
             torch.testing.assert_close(GG_ref[0].real, G_mean_fft.real, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
             torch.testing.assert_close(GG_ref[0], G_mean_fft, rtol=1e-3, atol=1e-3, equal_nan=True, check_dtype=False)
 
