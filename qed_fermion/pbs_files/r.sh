@@ -39,7 +39,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=0-24:00:00 \
+                --time=5-00:00:00 \
                 --qos=gpu \
                 --mem-per-cpu=6G \
                 s_hmc.cmd
