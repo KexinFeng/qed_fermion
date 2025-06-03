@@ -481,6 +481,12 @@ class StochaticEstimator:
         M_inv = torch.linalg.inv(M[0])
         return M_inv  # [Ltau * Ly * Lx, Ltau * Ly * Lx]
     
+    def G_groundtruth_sparse(self, boson):
+        res = self.hmc_sampler.get_M_batch(boson)
+        M = res[-1].to_sparse_csr()
+        M_inv = torch.linalg.inv(M[0])
+        return M_inv  # [Ltau * Ly * Lx, Ltau * Ly * Lx]
+    
     def G_delta_0_groundtruth(self, M_inv):
         """
         Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
@@ -879,7 +885,7 @@ class StochaticEstimator:
         # ---- semi vectorized version ---- #
         # Vectorized computation over all (py, px) at once
         # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
-        for tau in range(self.Ltau):
+        for tau in tqdm(range(self.Ltau)):
             # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
             G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
 

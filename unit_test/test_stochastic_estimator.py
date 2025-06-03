@@ -15,7 +15,7 @@ def test_G_delta_0_groundtruth_ext_fft():
     hmc = HmcSampler()
     hmc.Lx = 6
     hmc.Ly = 6
-    hmc.Ltau = 10
+    hmc.Ltau = 60
 
     hmc.bs = 2
     hmc.reset()
@@ -26,7 +26,7 @@ def test_G_delta_0_groundtruth_ext_fft():
     se = StochaticEstimator(hmc)
 
     # se.set_eta_G_eta_debug(boson, eta)
-    Gij_gt = se.G_groundtruth(boson)
+    Gij_gt = se.G_groundtruth_sparse(boson)
 
     # se.G_delta_0_groundtruth_ext_fft(Gij_gt, debug=True)
     se.G_delta_0_G_0_delta_groundtruth_ext_fft(Gij_gt, debug=True)
@@ -109,7 +109,7 @@ def test_fermion_obsr():
     hmc = HmcSampler()
     hmc.Lx = 6
     hmc.Ly = 6
-    hmc.Ltau = 240
+    hmc.Ltau = 10
 
     hmc.bs = 2
     hmc.reset()
