@@ -105,7 +105,7 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 2 if asym > 0 else 1
+        self.max_tau_block_idx = 10 if asym > 0 else 1
         print(f"max_tau_block_idx: {self.max_tau_block_idx}")    
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
         dt_deque_max_len = 5 * self.max_tau_block_idx
@@ -246,7 +246,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [200, 400]
-        self._MAX_ITERS_TO_CAPTURE = [400]
+        self._MAX_ITERS_TO_CAPTURE = [200]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
