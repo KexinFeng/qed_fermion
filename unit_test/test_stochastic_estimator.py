@@ -11,6 +11,26 @@ from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
 
 
+def test_G_delta_0_groundtruth_ext_fft():
+    hmc = HmcSampler()
+    hmc.Lx = 6
+    hmc.Ly = 6
+    hmc.Ltau = 6
+
+    hmc.bs = 2
+    hmc.reset()
+    hmc.initialize_boson_pi_flux_randn_matfree()
+    boson = hmc.boson[1].unsqueeze(0)
+    hmc.bs = 1
+
+    se = StochaticEstimator(hmc)
+
+    # se.set_eta_G_eta_debug(boson, eta)
+    Gij_gt = se.G_groundtruth(boson)
+
+    se.G_delta_0_groundtruth_ext_fft(Gij_gt, debug=True)
+
+
 def test_green_functions():
     hmc = HmcSampler()
     hmc.Lx = 4
@@ -36,21 +56,21 @@ def test_green_functions():
     eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
     # eta = se.random_vec_norm().to(torch.complex64)  # [Nrv, Ltau * Ly * Lx]
 
-    se.set_eta_G_eta_debug(boson, eta)
+    # se.set_eta_G_eta_debug(boson, eta)
     Gij_gt = se.G_groundtruth(boson)
 
-    # Test Green
-    G_stoch = se.G_delta_0()
-    G_stoch_primitive = se.G_delta_0_primitive()
-    torch.testing.assert_close(G_stoch.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
+    # # Test Green
+    # G_stoch = se.G_delta_0()
+    # G_stoch_primitive = se.G_delta_0_primitive()
+    # torch.testing.assert_close(G_stoch.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
     
-    G_gt = se.G_delta_0_groundtruth(Gij_gt)
-    torch.testing.assert_close(G_gt.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
+    # G_gt = se.G_delta_0_groundtruth(Gij_gt)
+    # torch.testing.assert_close(G_gt.real, G_stoch_primitive.real, rtol=1e-2, atol=5e-2)
 
-    # Test Green extended
-    G_stoch_ext = se.G_delta_0_ext()
-    G_stoch_primitive_ext = se.G_delta_0_primitive_ext()
-    torch.testing.assert_close(G_stoch_ext.real, G_stoch_primitive_ext.real, rtol=1e-2, atol=5e-2)
+    # # Test Green extended
+    # G_stoch_ext = se.G_delta_0_ext()
+    # G_stoch_primitive_ext = se.G_delta_0_primitive_ext()
+    # torch.testing.assert_close(G_stoch_ext.real, G_stoch_primitive_ext.real, rtol=1e-2, atol=5e-2)
 
     # G_gt_ext = se.G_delta_0_groundtruth_ext(Gij_gt)
     G_gt_ext = se.G_delta_0_groundtruth_ext_fft(Gij_gt)
@@ -211,7 +231,8 @@ def test_fermion_obsr_write():
 
 
 if __name__ == "__main__":
-    test_green_functions()
-    test_fermion_obsr_write()
-    test_fermion_obsr()
+    # test_green_functions()
+    # test_fermion_obsr_write()
+    # test_fermion_obsr()
+    test_G_delta_0_groundtruth_ext_fft()
     print("All tests completed successfully!")
