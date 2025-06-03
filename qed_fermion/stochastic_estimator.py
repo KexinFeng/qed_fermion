@@ -843,30 +843,82 @@ class StochaticEstimator:
         Ly, Lx = self.Ly, self.Lx
         result_fft = torch.zeros((self.Ltau, Ly, Lx), dtype=G_fft.dtype, device=G_fft.device)
 
+        # Vectorized computation over all (py, px) at once
+        # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
         for tau in range(self.Ltau):
-            # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
             G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
 
             # Prepare k, k' indices
             ky_idx = torch.arange(Ly, device=G_fft.device)
             kx_idx = torch.arange(Lx, device=G_fft.device)
             ky_grid1, kx_grid1, ky_grid2, kx_grid2 = torch.meshgrid(
-                ky_idx, kx_idx, ky_idx, kx_idx, indexing='ij'
+            ky_idx, kx_idx, ky_idx, kx_idx, indexing='ij'
             )  # [Ly, Lx, Ly, Lx]
 
-            # For each p = (py, px)
-            for py in range(Ly):
-                for px in range(Lx):
-                    #sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
-                    G1 = G_fft_tau[(-ky_grid2 + py) % Ly, 
-                                   (-kx_grid2 + px) % Lx, 
-                                   (-ky_grid1 - py) % Ly, 
-                                   (-kx_grid1 - px) % Lx]
-                    G2 = G_fft_tau[ky_grid1, kx_grid1, ky_grid2, kx_grid2]
+            # Prepare p indices
+            py_idx = torch.arange(Ly, device=G_fft.device)
+            px_idx = torch.arange(Lx, device=G_fft.device)
+            py_grid, px_grid = torch.meshgrid(py_idx, px_idx, indexing='ij')  # [Ly, Lx]
 
-                    # sum over k, k'
-                    val = (G1 * G2).sum()
-                    result_fft[tau, py, px] = val
+            # Expand p grids to match G1/G2 broadcasting
+            py_grid_exp = py_grid[None, None, :, :]  # [1, 1, Ly, Lx]
+            px_grid_exp = px_grid[None, None, :, :]  # [1, 1, Ly, Lx]
+
+            # Expand k, k' grids for broadcasting
+            ky_grid1_exp = ky_grid1[:, :, None, None]  # [Ly, Lx, 1, 1]
+            kx_grid1_exp = kx_grid1[:, :, None, None]
+            ky_grid2_exp = ky_grid2[:, :, None, None]
+            kx_grid2_exp = kx_grid2[:, :, None, None]
+
+            # Compute indices for G1 and G2
+            # G1: [Ly, Lx, Ly, Lx, Ly, Lx]
+            idx1_0 = ( -ky_grid2_exp + py_grid_exp ) % Ly
+            idx1_1 = ( -kx_grid2_exp + px_grid_exp ) % Lx
+            idx1_2 = ( -ky_grid1_exp - py_grid_exp ) % Ly
+            idx1_3 = ( -kx_grid1_exp - px_grid_exp ) % Lx
+
+            # G2: [Ly, Lx, Ly, Lx, Ly, Lx]
+            idx2_0 = ky_grid1_exp
+            idx2_1 = kx_grid1_exp
+            idx2_2 = ky_grid2_exp
+            idx2_3 = kx_grid2_exp
+
+            # G1 and G2: [Ly, Lx, Ly, Lx, Ly, Lx]
+            G1 = G_fft_tau[idx1_0, idx1_1, idx1_2, idx1_3]  # [Ly, Lx, Ly, Lx, Ly, Lx]
+            G2 = G_fft_tau[idx2_0, idx2_1, idx2_2, idx2_3]  # [Ly, Lx, Ly, Lx, Ly, Lx]
+
+            # Multiply and sum over k, k' (the first two dims)
+            # G1, G2: [Ly, Lx, Ly, Lx, Ly, Lx]
+            prod = G1 * G2  # [Ly, Lx, Ly, Lx, Ly, Lx]
+            # Sum over k, k' (axes 0,1)
+            val = prod.sum(dim=(0, 1))  # [Ly, Lx]
+
+            result_fft[tau] = val
+
+        # for tau in range(self.Ltau):
+        #     # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
+        #     G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
+
+        #     # Prepare k, k' indices
+        #     ky_idx = torch.arange(Ly, device=G_fft.device)
+        #     kx_idx = torch.arange(Lx, device=G_fft.device)
+        #     ky_grid1, kx_grid1, ky_grid2, kx_grid2 = torch.meshgrid(
+        #         ky_idx, kx_idx, ky_idx, kx_idx, indexing='ij'
+        #     )  # [Ly, Lx, Ly, Lx]
+
+        #     # For each p = (py, px)
+        #     for py in range(Ly):
+        #         for px in range(Lx):
+        #             #sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
+        #             G1 = G_fft_tau[(-ky_grid2 + py) % Ly, 
+        #                            (-kx_grid2 + px) % Lx, 
+        #                            (-ky_grid1 - py) % Ly, 
+        #                            (-kx_grid1 - px) % Lx]
+        #             G2 = G_fft_tau[ky_grid1, kx_grid1, ky_grid2, kx_grid2]
+
+        #             # sum over k, k'
+        #             val = (G1 * G2).sum()
+        #             result_fft[tau, py, px] = val
 
         # Now, for each tau, do iFFT over (py, px) to get G(d)
         G_d_fft = torch.fft.ifft2(result_fft, s=(Ly, Lx), norm="backward")  # [Ltau, Ly, Lx]
