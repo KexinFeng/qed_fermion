@@ -790,42 +790,79 @@ class StochaticEstimator:
         GG = result.mean(dim=0) # [Ltau * Ly * Lx]
         return GG.view(Ltau, Ly, Lx)[:self.Ltau]
 
-    def G_delta_0_G_0_delta_groundtruth_ext_fft(self, M_inv):
+    def G_delta_0_G_0_delta_groundtruth_ext_fft(self, M_inv, debug=False):
         """
-        Given G of shape [N, N] (N = Lx*Ly*Ltau), compute tensor of shape [N, N] where
-        result[i, d] = G[i+d, i] * G[i+d, i], with periodic boundary conditions.
+        FFT-based implementation of the four-point Green's function:
+        result[i, d] = G[(i+d)%N, i] * G[i, (i+d)%N], with periodic boundary conditions.
 
         Returns:
-            result: [N, N] tensor, result[i, d] = G[(i+d)%N, i] * G[(i+d)%N, i]
+            [Ly, Lx] tensor (tau=0 slice)
         """
+        G = M_inv  # [N, N]: N = Ltau * Ly * Lx
 
-        # Compute the four-point green's function using the ground truth
-        # G_delta_0_G_delta_0 = mean_i G_{i+d, i} G_{i+d, i}
-        G = M_inv # [N, N]
+        if debug:
+            Ltau2 = 2 * self.Ltau
+            Lx = self.Lx
+            Ly = self.Ly
 
-        # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
-        G = torch.cat([
-            torch.cat([G, -G], dim=1),
-            torch.cat([-G, G], dim=1)
-        ], dim=0)  # [2N, 2N]
+            # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
+            G_block = torch.cat([
+                torch.cat([G, -G], dim=1),
+                torch.cat([-G, G], dim=1)
+            ], dim=0)  # [2N, 2N]
 
-        N = G.shape[0]
-        Ltau, Ly, Lx = 2 * self.Ltau, self.Ly, self.Lx
-        result = torch.empty((N, N), dtype=G.dtype, device=G.device)
-        for i in range(N):
-            for d in range(N):
-                tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
-                dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
+            N = G_block.shape[0]
+            Ltau, Ly, Lx = 2*self.Ltau, self.Ly, self.Lx
+            result = torch.empty((N, N), dtype=G_block.dtype, device=G_block.device)
+            for i in range(N):
+                for d in range(N):
+                    tau, y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
+                    dtau, dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=self.device), (Ltau, Ly, Lx))
 
-                idx = ravel_multi_index(
-                    ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
-                    (Ltau, Ly, Lx)
-                )
+                    idx = ravel_multi_index(
+                        ((tau + dtau) % Ltau, (y + dy) % Ly, (x + dx) % Lx),
+                        (Ltau, Ly, Lx)
+                    )
 
-                result[i, d] = G[idx, i] * G[i, idx]
+                    result[i, d] = G_block[idx, i] * G_block[i, idx]
+            GG_ref = result.mean(dim=0)  # [Ltau * Ly * Lx]
+            GG_ref = GG_ref.view(Ltau2, Ly, Lx)[:self.Ltau]
 
-        GG = result.mean(dim=0) # [Ltau * Ly * Lx]
-        return GG.view(Ltau, Ly, Lx)[:self.Ltau]
+        # FFT-based implementation
+        # mean_r G[:, r, : r + d] = G(d)
+        # G[:, r, :, r'] = G[:, k, :, k'] e^{ikr + ik'r'}
+        # sum_r G[:, r, : r + d] = sum_r e^{ikr+ ik'r + ik'd} G[:, k, :, k']
+        # = G[:, -k, :, k] e^{ikd}
+        # G(d) -> G[:, r, :, r'] 
+
+        # Reshape G to [Ltau, Ly, Lx, Ltau, Ly, Lx]
+        G_reshaped = M_inv.view(self.Ltau, Ly, Lx, self.Ltau, Ly, Lx)
+
+        # FFT over spatial indices for both sets of coordinates
+        G_fft = torch.fft.fftn(G_reshaped, dim=(1, 2, 4, 5), norm="forward")  # [Ltau, Ly, Lx, Ltau, Ly, Lx]
+
+        Ly, Lx = self.Ly, self.Lx
+        tau_idx = torch.arange(self.Ltau, device=G_fft.device)
+        ky_idx = torch.arange(Ly, device=G_fft.device)
+        kx_idx = torch.arange(Lx, device=G_fft.device)
+        tau_grid, ky_grid, kx_grid = torch.meshgrid(tau_idx, ky_idx, kx_idx, indexing='ij')
+        ky_neg_grid = (-ky_grid) % Ly
+        kx_neg_grid = (-kx_grid) % Lx
+
+        # For each tau, ky, kx: G_fft[tau, ky_neg, kx_neg, tau, ky, kx] * G_fft[tau, ky, kx, tau, ky_neg, kx_neg]
+        G_fft_diag = G_fft[tau_grid, ky_neg_grid, kx_neg_grid, tau_grid, ky_grid, kx_grid] * \
+                     G_fft[tau_grid, ky_grid, kx_grid, tau_grid, ky_neg_grid, kx_neg_grid]
+
+        # IFFT to get G(d)
+        G_d_fft = torch.fft.ifft2(G_fft_diag, s=(Ly, Lx), norm="backward")  # [Ltau, Ly, Lx]
+        G_mean_fft = G_d_fft.mean(dim=0) * Lx * Ly  # [Ly, Lx]
+        if debug:
+            # Compare with reference implementation
+            # IFFT to real space
+            torch.testing.assert_close(GG_ref[0].real, G_mean_fft.real, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+            torch.testing.assert_close(GG_ref[0], G_mean_fft, rtol=1e-3, atol=1e-3, equal_nan=True, check_dtype=False)
+
+        return G_mean_fft  # tau=0 slice: [Ly, Lx]
 
 
     # -------- Fermionic obs methods --------

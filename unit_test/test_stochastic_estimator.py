@@ -28,7 +28,8 @@ def test_G_delta_0_groundtruth_ext_fft():
     # se.set_eta_G_eta_debug(boson, eta)
     Gij_gt = se.G_groundtruth(boson)
 
-    se.G_delta_0_groundtruth_ext_fft(Gij_gt, debug=True)
+    # se.G_delta_0_groundtruth_ext_fft(Gij_gt, debug=True)
+    se.G_delta_0_G_0_delta_groundtruth_ext_fft(Gij_gt, debug=True)
 
 
 def test_green_functions():
