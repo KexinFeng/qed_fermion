@@ -843,6 +843,35 @@ class StochaticEstimator:
         Ly, Lx = self.Ly, self.Lx
         result_fft = torch.zeros((self.Ltau, Ly, Lx), dtype=G_fft.dtype, device=G_fft.device)
 
+        # # ---- vectorized version ---- #
+        # # Prepare all indices including tau
+        # tau_idx = torch.arange(self.Ltau, device=G_fft.device)
+        # ky_idx = torch.arange(Ly, device=G_fft.device)
+        # kx_idx = torch.arange(Lx, device=G_fft.device)
+        # py_idx = torch.arange(Ly, device=G_fft.device)
+        # px_idx = torch.arange(Lx, device=G_fft.device)
+        
+        # # Create meshgrid for all dimensions at once
+        # tau_grid, ky_grid1, kx_grid1, ky_grid2, kx_grid2, py_grid, px_grid = torch.meshgrid(
+        #     tau_idx, ky_idx, kx_idx, ky_idx, kx_idx, py_idx, px_idx, indexing='ij'
+        # )  # [Ltau, Ly, Lx, Ly, Lx, Ly, Lx]
+
+        # # Vectorized computation for all tau and p = (py, px)
+        # # sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
+        # G1 = G_fft[tau_grid, 
+        #        (-ky_grid2 + py_grid) % Ly, 
+        #        (-kx_grid2 + px_grid) % Lx, 
+        #        tau_grid,
+        #        (-ky_grid1 - py_grid) % Ly, 
+        #        (-kx_grid1 - px_grid) % Lx]
+        # G2 = G_fft[tau_grid, ky_grid1, kx_grid1,
+        #            tau_grid, ky_grid2, kx_grid2]
+
+        # # sum over k, k' dimensions (dimensions 1,2,3,4)
+        # result_fft = (G1 * G2).sum(dim=(1, 2, 3, 4))  # [Ltau, Ly, Lx]
+
+
+        # ---- semi vectorized version ---- #
         # Vectorized computation over all (py, px) at once
         # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
         for tau in range(self.Ltau):
@@ -871,6 +900,8 @@ class StochaticEstimator:
             val = (G1 * G2).sum(dim=(0, 1, 2, 3))  # [Ly, Lx]
             result_fft[tau] = val
 
+
+        # ----- Loop version ---- #
         # for tau in range(self.Ltau):
         #     # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
         #     G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
