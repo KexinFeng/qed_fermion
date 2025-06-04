@@ -590,6 +590,8 @@ class StochaticEstimator:
             G_mean_ref = G_mean_ref.view(Ltau2, Ly, Lx)[:self.Ltau]
 
 
+        Lx = self.Lx
+        Ly = self.Ly
         # FFT-based implementation for spatial correlations at tau=0
         # Reshape G to [2*Ltau, Ly, Lx, 2*Ltau, Ly, Lx] conceptually
         G_reshaped = M_inv.view(self.Ltau, Ly, Lx, self.Ltau, Ly, Lx)
@@ -646,7 +648,7 @@ class StochaticEstimator:
             torch.testing.assert_close(G_fft_diag, G_fft_diag_adv_idx, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         # Now, IFFT to get G(d)
-        G_d = torch.fft.ifft2(G_fft_diag, s=(Ly, Lx), norm="backward")  # [2*Ltau, Ly, Lx]
+        G_d = torch.fft.ifft2(G_fft_diag_adv_idx, s=(Ly, Lx), norm="backward")  # [2*Ltau, Ly, Lx]
         G_mean_fft = G_d.mean(dim=0) * Lx*Ly  # [Ly, Lx]
 
         if debug:
@@ -654,7 +656,7 @@ class StochaticEstimator:
             torch.testing.assert_close(G_mean_ref[0].real, G_mean_fft.real, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
             torch.testing.assert_close(G_mean_ref[0], G_mean_fft, rtol=1e-3, atol=1e-3, equal_nan=True, check_dtype=False)
 
-        return G_mean_fft  # Return tau=0 slice: [Ly, Lx]
+        return G_mean_fft.unsqueeze(0)  # Return tau=0 slice: [Ly, Lx]
 
 
     def G_delta_0_G_delta_0_groundtruth(self, M_inv):
@@ -810,11 +812,12 @@ class StochaticEstimator:
             [Ly, Lx] tensor (tau=0 slice)
         """
         G = M_inv  # [N, N]: N = Ltau * Ly * Lx
-
+        
+        Lx = self.Lx
+        Ly = self.Ly
+        
         if debug:
             Ltau2 = 2 * self.Ltau
-            Lx = self.Lx
-            Ly = self.Ly
 
             # Block concat: [[G, -G], [-G, G]] for G of shape [N, N]
             G_block = torch.cat([
@@ -854,62 +857,62 @@ class StochaticEstimator:
         Ly, Lx = self.Ly, self.Lx
         result_fft = torch.zeros((self.Ltau, Ly, Lx), dtype=G_fft.dtype, device=G_fft.device)
 
-        # # ---- vectorized version ---- #
-        # # Prepare all indices including tau
-        # tau_idx = torch.arange(self.Ltau, device=G_fft.device)
-        # ky_idx = torch.arange(Ly, device=G_fft.device)
-        # kx_idx = torch.arange(Lx, device=G_fft.device)
-        # py_idx = torch.arange(Ly, device=G_fft.device)
-        # px_idx = torch.arange(Lx, device=G_fft.device)
+        # ---- vectorized version ---- #
+        # Prepare all indices including tau
+        tau_idx = torch.arange(self.Ltau, device=G_fft.device)
+        ky_idx = torch.arange(Ly, device=G_fft.device)
+        kx_idx = torch.arange(Lx, device=G_fft.device)
+        py_idx = torch.arange(Ly, device=G_fft.device)
+        px_idx = torch.arange(Lx, device=G_fft.device)
         
-        # # Create meshgrid for all dimensions at once
-        # tau_grid, ky_grid1, kx_grid1, ky_grid2, kx_grid2, py_grid, px_grid = torch.meshgrid(
-        #     tau_idx, ky_idx, kx_idx, ky_idx, kx_idx, py_idx, px_idx, indexing='ij'
-        # )  # [Ltau, Ly, Lx, Ly, Lx, Ly, Lx]
+        # Create meshgrid for all dimensions at once
+        tau_grid, ky_grid1, kx_grid1, ky_grid2, kx_grid2, py_grid, px_grid = torch.meshgrid(
+            tau_idx, ky_idx, kx_idx, ky_idx, kx_idx, py_idx, px_idx, indexing='ij'
+        )  # [Ltau, Ly, Lx, Ly, Lx, Ly, Lx]
 
-        # # Vectorized computation for all tau and p = (py, px)
-        # # sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
-        # G1 = G_fft[tau_grid, 
-        #        (-ky_grid2 + py_grid) % Ly, 
-        #        (-kx_grid2 + px_grid) % Lx, 
-        #        tau_grid,
-        #        (-ky_grid1 - py_grid) % Ly, 
-        #        (-kx_grid1 - px_grid) % Lx]
-        # G2 = G_fft[tau_grid, ky_grid1, kx_grid1,
-        #            tau_grid, ky_grid2, kx_grid2]
+        # Vectorized computation for all tau and p = (py, px)
+        # sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
+        G1 = G_fft[tau_grid, 
+               (-ky_grid2 + py_grid) % Ly, 
+               (-kx_grid2 + px_grid) % Lx, 
+               tau_grid,
+               (-ky_grid1 - py_grid) % Ly, 
+               (-kx_grid1 - px_grid) % Lx]
+        G2 = G_fft[tau_grid, ky_grid1, kx_grid1,
+                   tau_grid, ky_grid2, kx_grid2]
 
-        # # sum over k, k' dimensions (dimensions 1,2,3,4)
-        # result_fft = (G1 * G2).sum(dim=(1, 2, 3, 4))  # [Ltau, Ly, Lx]
+        # sum over k, k' dimensions (dimensions 1,2,3,4)
+        result_fft = (G1 * G2).sum(dim=(1, 2, 3, 4))  # [Ltau, Ly, Lx]
 
 
-        # ---- semi vectorized version ---- #
-        # Vectorized computation over all (py, px) at once
-        # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
-        for tau in tqdm(range(self.Ltau)):
-            # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
-            G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
+        # # ---- semi vectorized version ---- #
+        # # Vectorized computation over all (py, px) at once
+        # # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
+        # for tau in tqdm(range(self.Ltau)):
+        #     # G_fft_tau: [Ly, Lx, Ly, Lx] for fixed tau
+        #     G_fft_tau = G_fft[tau, :, :, tau, :, :]  # [Ly, Lx, Ly, Lx]
 
-            # Prepare k, k' indices
-            ky_idx = torch.arange(Ly, device=G_fft.device)
-            kx_idx = torch.arange(Lx, device=G_fft.device)
-            py_idx = torch.arange(Ly, device=G_fft.device)
-            px_idx = torch.arange(Lx, device=G_fft.device)
+        #     # Prepare k, k' indices
+        #     ky_idx = torch.arange(Ly, device=G_fft.device)
+        #     kx_idx = torch.arange(Lx, device=G_fft.device)
+        #     py_idx = torch.arange(Ly, device=G_fft.device)
+        #     px_idx = torch.arange(Lx, device=G_fft.device)
             
-            ky_grid1, kx_grid1, ky_grid2, kx_grid2, py_grid, px_grid = torch.meshgrid(
-                ky_idx, kx_idx, ky_idx, kx_idx, py_idx, px_idx, indexing='ij'
-            )  # [Ly, Lx, Ly, Lx, Ly, Lx]
+        #     ky_grid1, kx_grid1, ky_grid2, kx_grid2, py_grid, px_grid = torch.meshgrid(
+        #         ky_idx, kx_idx, ky_idx, kx_idx, py_idx, px_idx, indexing='ij'
+        #     )  # [Ly, Lx, Ly, Lx, Ly, Lx]
 
-            # Vectorized computation for all p = (py, px)
-            #sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
-            G1 = G_fft_tau[(-ky_grid2 + py_grid) % Ly, 
-                           (-kx_grid2 + px_grid) % Lx, 
-                           (-ky_grid1 - py_grid) % Ly, 
-                           (-kx_grid1 - px_grid) % Lx]
-            G2 = G_fft_tau[ky_grid1, kx_grid1, ky_grid2, kx_grid2]
+        #     # Vectorized computation for all p = (py, px)
+        #     #sum_{k, k'} G[:, -k'+p, :, -k-p] * G[:, k, :, k'] e^{i * p * d}
+        #     G1 = G_fft_tau[(-ky_grid2 + py_grid) % Ly, 
+        #                    (-kx_grid2 + px_grid) % Lx, 
+        #                    (-ky_grid1 - py_grid) % Ly, 
+        #                    (-kx_grid1 - px_grid) % Lx]
+        #     G2 = G_fft_tau[ky_grid1, kx_grid1, ky_grid2, kx_grid2]
 
-            # sum over k, k' dimensions (first 4 dimensions)
-            val = (G1 * G2).sum(dim=(0, 1, 2, 3))  # [Ly, Lx]
-            result_fft[tau] = val
+        #     # sum over k, k' dimensions (first 4 dimensions)
+        #     val = (G1 * G2).sum(dim=(0, 1, 2, 3))  # [Ly, Lx]
+        #     result_fft[tau] = val
 
 
         # ----- Loop version ---- #
@@ -946,7 +949,7 @@ class StochaticEstimator:
             torch.testing.assert_close(GG_ref[0].real, G_mean_fft.real, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
             torch.testing.assert_close(GG_ref[0], G_mean_fft, rtol=1e-3, atol=1e-3, equal_nan=True, check_dtype=False)
 
-        return G_mean_fft  # tau=0 slice: [Ly, Lx]
+        return G_mean_fft.unsqueeze(0)  # tau=0 slice: [Ly, Lx]
 
 
     # -------- Fermionic obs methods --------
