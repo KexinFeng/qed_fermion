@@ -1099,8 +1099,8 @@ class StochaticEstimator:
             # GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
             # GD0 = self.G_delta_0_ext() # [Ly, Lx]
             Gij_gt = self.G_groundtruth(boson)
-            GD0 = self.G_delta_0_groundtruth_ext(Gij_gt)
-            GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext(Gij_gt)
+            GD0 = self.G_delta_0_groundtruth_ext_fft(Gij_gt)
+            GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext_fft(Gij_gt)
 
             spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
             # spsm_r[b] = spsm_r_per_b
