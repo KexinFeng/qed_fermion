@@ -22,10 +22,12 @@ from load_write2file_convert import time_execution
 
 
 @time_execution
-def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
+def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     Lx, Ly, Ltau = Lsize
 
-    i1, i2 = ipair
+    i1 = ipair
+    i2 = ipair + 1
+    i3 = ipair + 2
 
     Js = [1, 1.5, 2, 2.3, 2.5, 3]
     r_afm_values = []
@@ -145,7 +147,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 if __name__ == '__main__':
     batch_size = 2
     Nrv = 100
-    mxitr = 600
+    mxitr = 400
 
     plt.figure(figsize=(8, 6))
     for idx, Lx in enumerate([6, 8]):
@@ -160,7 +162,7 @@ if __name__ == '__main__':
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
 
-        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1))
+        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=3*idx)
         dbstop = 1
 
     # Plot setting

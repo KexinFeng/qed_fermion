@@ -24,10 +24,12 @@ from load_write2file_convert import time_execution
 bid = 1
 
 @time_execution
-def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
+def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     Lx, Ly, Ltau = Lsize
 
-    i1, i2 = ipair
+    i1 = ipair
+    i2 = ipair + 1
+    i3 = ipair + 2
 
     Js = [1, 1.5, 2, 2.3, 2.5, 3]
     r_afm_values = []
@@ -118,13 +120,28 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
+    # ---- Load and plot spsm_k.pt mean groundtruth ---- #
+    output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
+    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
+        # Compute spin order as sum of spsm_k_mean divided by vs
+    spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
+    spin_pi_errs = spsm_k_res['std'][:, 0, 0]
+
+    plt.errorbar(Js, spin_pi_s, yerr=spin_pi_errs, 
+                 fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
+    
+
+
 if __name__ == '__main__':
     batch_size = 2
     Nrv = 100
     mxitr = 400
 
+    sizes = [6, 8]
+
     plt.figure(figsize=(8, 6))
-    for idx, Lx in enumerate([6, 8]):
+    for idx, Lx in enumerate(sizes):
         Ltau = Lx * 10
 
         asym = Ltau / Lx * 0.1
@@ -137,7 +154,7 @@ if __name__ == '__main__':
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
 
-        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1))
+        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=3*idx)
         dbstop = 1
 
     # Plot setting
