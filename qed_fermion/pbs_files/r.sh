@@ -30,6 +30,7 @@ Nstep=5000
 export debug=0
 export asym=2
 export cuda_graph=1
+export Nrv=100
 
 for L in $L_array; do
         #
