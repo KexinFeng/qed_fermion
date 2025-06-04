@@ -51,6 +51,7 @@ class FermionObsrGraphRunner:
         
         # Memory
         start_mem = device_mem()[1]
+        print(f"Inside capture start_mem: {start_mem:.2f} MB\n")
 
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
@@ -61,6 +62,7 @@ class FermionObsrGraphRunner:
             )
 
         end_mem = device_mem()[1]   
+        print(f"Inside capture end_mem: {end_mem:.2f} MB\n")
         print(f"fermion_obsr CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
     
         self.graph = graph
