@@ -1069,10 +1069,11 @@ class StochaticEstimator:
             GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ly, Lx]
             GD0 = self.G_delta_0_ext() # [Ly, Lx]
 
-            spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
+            # spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
             # spsm_r[b] = spsm_r_per_b
             spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
-            spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
+            # spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
+            spsm_k_abs[b] = self.spsm_k(spsm_r[b]).abs()  # [Ly, Lx]
 
             # szsz[b] = 0.5 * spsm[b]
 
