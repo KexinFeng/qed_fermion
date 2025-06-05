@@ -36,14 +36,23 @@ class FermionObsrGraphRunner:
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.synchronize()
 
+        # Memory
+        start_mem = device_mem()[1]
+        print(f"Inside capture start_mem_0: {start_mem:.2f} MB\n")
+
         s = torch.cuda.Stream()
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
-            for _ in range(n_warmups):
+            for n in range(n_warmups):
                 static_outputs = self.se.get_fermion_obsr(
                     input_buffers['bosons'],
                     input_buffers['eta']
                 )
+                
+                # Memory
+                s.synchronize()
+                start_mem = device_mem()[1]
+                print(f"Inside capture sub_start_mem_{n}: {start_mem:.2f} MB\n")
 
             s.synchronize()
 

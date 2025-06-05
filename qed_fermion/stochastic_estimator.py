@@ -8,7 +8,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner
-from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem
+from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
@@ -21,7 +21,7 @@ if torch.cuda.is_available():
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
-Nrv = int(os.getenv("Nrv", '10'))
+Nrv = int(os.getenv("Nrv", '100'))
 print(f"Nrv: {Nrv}")
 max_iter_se = int(os.getenv("max_iter_se", '200'))
 print(f"max_iter_se: {max_iter_se}")
