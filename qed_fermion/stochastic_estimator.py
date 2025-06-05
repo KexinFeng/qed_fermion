@@ -347,16 +347,31 @@ class StochaticEstimator:
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_ext_conj.shape[0]
         s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
+        
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), N)  # Adjust batch size based on memory constraints
+        G_delta_0_G_delta_0_sum = torch.zeros((2*self.Ltau, self.Ly, self.Lx), 
+                              dtype=eta_ext_conj.dtype, device=eta.device)
+        total_pairs = len(s)
+        
+        for start_idx in range(0, total_pairs, batch_size):
+            end_idx = min(start_idx + batch_size, total_pairs)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+            
+            a = eta_ext_conj[s_batch] * eta_ext_conj[s_prime_batch]
+            b = G_eta_ext[s_batch] * G_eta_ext[s_prime_batch]
 
-        a = eta_ext_conj[s] * G_eta_ext[s_prime]
-        b = eta_ext_conj[s_prime] * G_eta_ext[s]
+            a = a.view(-1, 2*self.Ltau, self.Ly, self.Lx)
+            b = b.view(-1, 2*self.Ltau, self.Ly, self.Lx)
 
-        a = a.view(-1, 2*self.Ltau, self.Ly, self.Lx)  # [N, 2Ltau, Ly, Lx]
-        b = b.view(-1, 2*self.Ltau, self.Ly, self.Lx)  # [N, 2Ltau, Ly, Lx]
+            a_F_neg_k = torch.fft.ifftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
+            
+            G_delta_0_G_delta_0_sum += batch_result.sum(dim=0)
 
-        a_F_neg_k = torch.fft.ifftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="backward")
-        b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
-        G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
+        G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
 
