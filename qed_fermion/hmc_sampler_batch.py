@@ -228,7 +228,7 @@ class HmcSampler(object):
         # CG
         self.cg_rtol = 1e-7
         self.cg_rtol = 1e-5
-        # self.cg_rtol = 1e-9
+        self.cg_rtol = 1e-9
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.max_iter = 1000
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
