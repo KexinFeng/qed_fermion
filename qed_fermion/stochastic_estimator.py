@@ -353,6 +353,8 @@ class StochaticEstimator:
         G_delta_0_G_delta_0_sum = torch.zeros((2*self.Ltau, self.Ly, self.Lx), 
                               dtype=eta_ext_conj.dtype, device=eta.device)
         total_pairs = len(s)
+        # num_loop = 10
+        # batch_size = total_pairs // num_loop
         
         for start_idx in range(0, total_pairs, batch_size):
             end_idx = min(start_idx + batch_size, total_pairs)

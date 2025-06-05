@@ -49,10 +49,10 @@ class FermionObsrGraphRunner:
                     input_buffers['eta']
                 )
                 
-                # Memory
-                s.synchronize()
-                start_mem = device_mem()[1]
-                print(f"Inside capture sub_start_mem_{n}: {start_mem:.2f} MB\n")
+                # # Memory
+                # s.synchronize()
+                # start_mem = device_mem()[1]
+                # print(f"Inside capture sub_start_mem_{n}: {start_mem:.2f} MB\n")
 
             s.synchronize()
 
