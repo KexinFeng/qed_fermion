@@ -205,7 +205,7 @@ class HmcSampler(object):
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
-        self.lower_limit = 0.5
+        self.lower_limit = max(1 - 0.5**(1/self.max_tau_block_idx), 0.1)
         self.upper_limit = 0.8
 
         # Sigma adaptive mass
@@ -228,7 +228,7 @@ class HmcSampler(object):
         # CG
         self.cg_rtol = 1e-7
         self.cg_rtol = 1e-5
-        self.cg_rtol = 1e-9
+        # self.cg_rtol = 1e-9
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.max_iter = 1000
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
@@ -245,8 +245,8 @@ class HmcSampler(object):
         self.leapfrog_cmp_graph_runners = {}
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
-        self._MAX_ITERS_TO_CAPTURE = [200, 400]
-        self._MAX_ITERS_TO_CAPTURE = [400]
+        self._MAX_ITERS_TO_CAPTURE = [100, 200, 400]
+        self._MAX_ITERS_TO_CAPTURE = [100]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
