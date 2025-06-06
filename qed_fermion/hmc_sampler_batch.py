@@ -2953,6 +2953,10 @@ class HmcSampler(object):
             return i  # Return the step index for identification
 
         for i in tqdm(range(self.N_step)):
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            start_time0 = time.perf_counter()
+
             boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
 
             # self.threshold_queue.append(threshold)
@@ -2960,7 +2964,14 @@ class HmcSampler(object):
                 self.apply_sigma_hat_cpu(i)
             self.adjust_delta_t()
 
-            # Fermion
+            # Fermion - with timing
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            start_time = time.perf_counter()
+
+            if i % 10 == 0:  # Print timing every 100 steps
+                print(f"Step {i}: metropolis update took {(start_time - start_time0)*1000:.2f} ms")
+            
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
             if self.se.cuda_graph_se:
                 obsr = self.se.graph_runner(boson, eta)
@@ -2968,7 +2979,14 @@ class HmcSampler(object):
                 obsr = self.se.get_fermion_obsr(boson, eta)
 
             spsm_r = obsr['spsm_r']  # [bs, Ly, Lx]
-            spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]   
+            spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]
+            
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            end_time = time.perf_counter()
+            
+            if i % 10 == 0:  # Print timing every 100 steps
+                print(f"Step {i}: Fermion computation took {(end_time - start_time)*1000:.2f} ms")
 
             # Submit new task to the executor
             future = executor.submit(
