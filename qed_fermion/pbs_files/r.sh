@@ -1,4 +1,4 @@
-mkdir -p report_bench
+mkdir -p report_bench2
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -25,12 +25,12 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 J_array=$(echo '1.25')
 L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
-L_array=$(echo '36')
+L_array=$(echo '40 36 30 20 16 12 10')
 
-Nstep=5000
+Nstep=20000
 
 export debug=0
-export asym=2
+export asym=1
 export cuda_graph=1
 export Nrv=10
 
@@ -38,12 +38,12 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo L${L}a${asym}Nrv${Nrv})
+                config=$(echo L${L}a${asym})
                 echo $config
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=3-00:00:00 \
+                --time=5-00:00:00 \
                 --qos=gpu \
                 --mem-per-cpu=6G \
                 s_hmc.cmd
