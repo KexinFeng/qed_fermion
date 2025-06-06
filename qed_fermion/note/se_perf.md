@@ -13,6 +13,7 @@ Batch_Size = Nrv = 100
 Step 1: metropolis update took 26430.83 ms
 Step 1: Fermion computation took 15796.82 ms
 
+
 Before init se_graph: NVML Used: 4685.75 MB
 Inside capture start_mem_0: 4909.75 MB
 
