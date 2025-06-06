@@ -13,12 +13,11 @@ L_array=$(echo '24')  # 10 h (-2)
 # L_array=$(echo '30 40 50 60 36 46 56 66')  # 500G
 L_array=$(echo '20 16 12 10 8 6')  # 50G
 L_array=$(echo '66 60 56 50 46 40')  # 500G
-L_array=$(echo '36 30 20 16 12 10')  # 500G
-L_array=$(echo '40')  # 500G
+L_array=$(echo '40 36 30 20 16 12 10')  # 500G
 # L_array=$(echo '24 20')  # 500G
 
 export debug=0
-export asym=1
+export asym=0.5
 export cuda_graph=0
 
 for L in $L_array; do
@@ -30,9 +29,9 @@ for L in $L_array; do
                 export L
                 #
         	sbatch --job-name=${config}_hmc \
-                --time=0-20:00:00 \
+                --time=0-2:00:00 \
                 --qos=hugemem \
-                --mem=1500G \
+                --mem=1000G \
                 s_hmc_precon.cmd
 	done
 done
