@@ -2926,6 +2926,32 @@ class HmcSampler(object):
         # Use a dictionary to keep track of futures
         futures = {}
 
+        # Define CPU computations to run asynchronously
+        def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+            # Update metrics
+            self.accp_list[i] = accp_cpu
+            self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
+            self.G_list[i] = \
+                accp_cpu.view(-1, 1) * self.sin_curl_greens_function_batch(boson_cpu) \
+                + (1 - accp_cpu.view(-1, 1).to(torch.float)) * self.G_list[i-1]
+            self.S_plaq_list[i] = \
+                accp_cpu.view(-1) * self.action_boson_plaq_matfree(boson_cpu) \
+                + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
+            self.S_tau_list[i] = \
+                accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
+                + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
+                
+            if not self.cuda_graph:
+                self.cg_iter_list[i] = cg_converge_iter_cpu
+            self.cg_r_err_list[i] = cg_r_err_cpu
+            self.delta_t_list[i] = delta_t_cpu
+            # self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
+            self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
+            self.spsm_k_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
+            if mass_mode != 0:
+                self.update_sigma_hat_cpu(boson_cpu, i)                
+            return i  # Return the step index for identification
+
         for i in tqdm(range(self.N_step)):
             boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
 
@@ -2943,32 +2969,6 @@ class HmcSampler(object):
 
             spsm_r = obsr['spsm_r']  # [bs, Ly, Lx]
             spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]   
-
-            # Define CPU computations to run asynchronously
-            def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
-                # Update metrics
-                self.accp_list[i] = accp_cpu
-                self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
-                self.G_list[i] = \
-                    accp_cpu.view(-1, 1) * self.sin_curl_greens_function_batch(boson_cpu) \
-                    + (1 - accp_cpu.view(-1, 1).to(torch.float)) * self.G_list[i-1]
-                self.S_plaq_list[i] = \
-                    accp_cpu.view(-1) * self.action_boson_plaq_matfree(boson_cpu) \
-                    + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_plaq_list[i-1]
-                self.S_tau_list[i] = \
-                    accp_cpu.view(-1) * self.action_boson_tau_cmp(boson_cpu) \
-                    + (1 - accp_cpu.view(-1).to(torch.float)) * self.S_tau_list[i-1]
-                    
-                if not self.cuda_graph:
-                    self.cg_iter_list[i] = cg_converge_iter_cpu
-                self.cg_r_err_list[i] = cg_r_err_cpu
-                self.delta_t_list[i] = delta_t_cpu
-                # self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-                self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
-                self.spsm_k_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
-                if mass_mode != 0:
-                    self.update_sigma_hat_cpu(boson_cpu, i)                
-                return i  # Return the step index for identification
 
             # Submit new task to the executor
             future = executor.submit(
