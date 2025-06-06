@@ -21,7 +21,7 @@ if torch.cuda.is_available():
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
-Nrv = int(os.getenv("Nrv", '100'))
+Nrv = int(os.getenv("Nrv", '50'))
 print(f"Nrv: {Nrv}")
 max_iter_se = int(os.getenv("max_iter_se", '200'))
 print(f"max_iter_se: {max_iter_se}")
@@ -66,7 +66,6 @@ class StochaticEstimator:
         # Capture
         if self.cuda_graph_se:
             print("Initializing CUDA graph for get_fermion_obsr.........")
-            print(f"Lx_{self.Lx}, Ltau_{self.Ltau}, Nrv_{self.Nrv}, max_iter_se_{self.max_iter_se}")
             d_mem_str, d_mem2 = device_mem()
             print(f"Before init se_graph: {d_mem_str}")
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
@@ -77,8 +76,6 @@ class StochaticEstimator:
                                         max_iter_se=self.max_iter_se,
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
-            d_mem_str, d_mem3 = device_mem()
-            print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
             print('')
 
     def random_vec_bin(self):  
@@ -351,11 +348,11 @@ class StochaticEstimator:
         # Batch processing to avoid OOM
         batch_size = min(len(s), N)  # Adjust batch size based on memory constraints
         # batch_size = len(s)
+        # num_loop = 10
+        # batch_size = total_pairs // num_loop
         G_delta_0_G_delta_0_sum = torch.zeros((2*self.Ltau, self.Ly, self.Lx), 
                               dtype=eta_ext_conj.dtype, device=eta.device)
         total_pairs = len(s)
-        # num_loop = 10
-        # batch_size = total_pairs // num_loop
         
         for start_idx in range(0, total_pairs, batch_size):
             end_idx = min(start_idx + batch_size, total_pairs)

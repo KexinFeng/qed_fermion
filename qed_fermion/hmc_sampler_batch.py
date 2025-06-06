@@ -2969,8 +2969,8 @@ class HmcSampler(object):
                 torch.cuda.synchronize()
             start_time = time.perf_counter()
 
-            if i % 10 == 0:  # Print timing every 100 steps
-                print(f"Step {i}: metropolis update took {(start_time - start_time0)*1000:.2f} ms")
+            if i % 1 == 0:  # Print timing every 100 steps
+                print(f"Step {i}: metropolis update took {(start_time - start_time0)*1:.2f} sec")
             
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
             if self.se.cuda_graph_se:
@@ -2985,8 +2985,8 @@ class HmcSampler(object):
                 torch.cuda.synchronize()
             end_time = time.perf_counter()
             
-            if i % 10 == 0:  # Print timing every 100 steps
-                print(f"Step {i}: Fermion computation took {(end_time - start_time)*1000:.2f} ms")
+            if i % 1 == 0:  # Print timing every 100 steps
+                print(f"Step {i}: Fermion computation took {(end_time - start_time)*1:.2f} sec")
 
             # Submit new task to the executor
             future = executor.submit(
@@ -3334,10 +3334,10 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '5000'))
-    Lx = int(os.getenv("L", '10'))
+    Lx = int(os.getenv("L", '20'))
     # Ltau = int(os.getenv("Ltau", '10'))
     # print(f'J={J} \nNstep={Nstep}')
-    asym = float(os.environ.get("asym", '2'))
+    asym = float(os.environ.get("asym", '4'))
 
     Ltau = int(asym*Lx * 10) # dtau=0.1
     # Ltau = 10 # dtau=0.1
