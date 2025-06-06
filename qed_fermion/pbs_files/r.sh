@@ -25,6 +25,7 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 J_array=$(echo '1.25')
 L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
+L_array=$(echo '36')
 
 Nstep=5000
 
