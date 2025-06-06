@@ -26,18 +26,18 @@ J_array=$(echo '1.25')
 L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 
-Nstep=10000
+Nstep=5000
 
 export debug=0
 export asym=2
 export cuda_graph=1
-export Nrv=100
+export Nrv=10
 
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo L${L}a${asym})
+                config=$(echo L${L}a${asym}Nrv${Nrv})
                 echo $config
                 export J Nstep L
                 #
