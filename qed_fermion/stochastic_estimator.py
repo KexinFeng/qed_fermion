@@ -63,6 +63,8 @@ class StochaticEstimator:
 
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
+        print(f"Nrv: {self.Nrv}")
+        print(f"max_iter_se: {self.max_iter_se}")
         # Capture
         if self.cuda_graph_se:
             print("Initializing CUDA graph for get_fermion_obsr.........")
