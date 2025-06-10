@@ -109,8 +109,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # ---- Load and plot spsm_k.pt mean ---- #
-    if start > 0:
-        output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    if start != 0:
+        output_dir = os.path.join(script_path, f"data_se_start{start}_mbg/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     else:
         output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
@@ -131,7 +131,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
     spin_pi_errs = spsm_k_res['std'][:, 0, 0]
 
-    plt.errorbar(Js, spin_pi_s, yerr=spin_pi_errs, 
+    plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
                  fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
     
 
