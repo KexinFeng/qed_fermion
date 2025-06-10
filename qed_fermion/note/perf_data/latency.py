@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 
 # Data
-L = [10, 12, 16, 20, 30, 36]
-latency = [5.7, 7.4, 11.6, 20.8, 56.9, 94.8]
+L = [10, 12, 16, 20, 30, 36]  # beta = 2L
+latency = [5.7, 7.4, 11.6, 20.8, 56.9, 94.8]  # sec/item
 
 # Convert L to L^3
 L_cubed = [l**3 for l in L]
