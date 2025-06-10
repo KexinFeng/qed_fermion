@@ -233,7 +233,7 @@ def test_fermion_obsr_write():
 
 if __name__ == "__main__":
     # test_green_functions()
-    # test_fermion_obsr_write()
+    test_fermion_obsr_write()
     # test_fermion_obsr()
-    test_G_delta_0_groundtruth_ext_fft()
+    # test_G_delta_0_groundtruth_ext_fft()
     print("All tests completed successfully!")
