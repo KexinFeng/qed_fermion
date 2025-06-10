@@ -119,26 +119,26 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     plt.errorbar(Js, afm_vals, yerr=afm_errs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
 
-    # ---- Load and plot spsm_k.pt mean groundtruth ---- #
-    output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
-    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
-    spsm_k_mean = spsm_k_res['mean']
-    spsm_k_std = spsm_k_res['std']
-    A = spsm_k_mean[:, 0, 1]
-    B = spsm_k_mean[:, 0, 0]
-    errA = spsm_k_std[:, 0, 1]
-    errB = spsm_k_std[:, 0, 0]
-    afm_vals = 1 - A / B
-    afm_errs = np.abs(A/B) * np.sqrt((errA/A)**2 + (errB/B)**2)
-    plt.errorbar(Js, afm_vals, yerr=afm_errs, 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
+    # # ---- Load and plot spsm_k.pt mean groundtruth ---- #
+    # output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    # spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
+    # spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
+    # spsm_k_mean = spsm_k_res['mean']
+    # spsm_k_std = spsm_k_res['std']
+    # A = spsm_k_mean[:, 0, 1]
+    # B = spsm_k_mean[:, 0, 0]
+    # errA = spsm_k_std[:, 0, 1]
+    # errB = spsm_k_std[:, 0, 0]
+    # afm_vals = 1 - A / B
+    # afm_errs = np.abs(A/B) * np.sqrt((errA/A)**2 + (errB/B)**2)
+    # plt.errorbar(Js, afm_vals, yerr=afm_errs, 
+    #              fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
 
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 100
-    mxitr = 400
+    Nrv = 50
+    mxitr = 200
 
     start = -50  # <--- add this line
 
