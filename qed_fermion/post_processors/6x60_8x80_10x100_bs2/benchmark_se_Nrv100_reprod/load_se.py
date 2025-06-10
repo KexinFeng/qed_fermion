@@ -77,7 +77,7 @@ if __name__ == '__main__':
     print(f"Lx: {Lx}")
     Ltau = int(os.getenv("Ltau", '60'))
     print(f"Ltau: {Ltau}")
-    Nrv = int(os.getenv("Nrv", '50'))
+    Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
     mxitr = int(os.getenv("mxitr", '400'))
     print(f"mxitr: {mxitr}")

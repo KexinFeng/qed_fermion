@@ -1,7 +1,7 @@
 mkdir -p report_se
 
 
-Nrv_array=$(echo '50')
+Nrv_array=$(echo '200')
 L_array=$(echo '6 8')  # 10 h (-2)
 
 export debug=0
