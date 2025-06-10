@@ -1,7 +1,3 @@
-import glob
-import json
-import math
-import re
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 plt.ion()
@@ -40,25 +36,27 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     hmc.Ly = Ly
     hmc.Ltau = Ltau
     hmc.bs = bosons.shape[1]
+    hmc.bs = 1
     hmc.reset()
 
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
     se.max_iter_se = mxitr
-    if se.cuda_graph_se:
-        se.init_cuda_graph()
+    # if se.cuda_graph_se:
+    #     se.init_cuda_graph()
     # eta = se.random_vec_bin()
     os.makedirs(output_dir, exist_ok=True)
     boson_conf = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
     spsm_k = []
     for boson in tqdm(boson_conf):  # boson: [J/bs, 2, Lx, Ly, Ltau]
-        eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-        if se.cuda_graph_se:
-            obsr = se.graph_runner(boson.to(se.device), eta)
-        else:
-            obsr = se.get_fermion_obsr(boson.to(se.device), eta)
-        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        
+        # if se.cuda_graph_se:
+        #     obsr = se.graph_runner(boson.to(se.device), eta)
+        # else:
+        #     obsr = se.get_fermion_obsr(boson.to(se.device), eta)
+        # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        obsr = se.get_fermion_obsr_groundtruth(boson)
+        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())   
+    
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
     spsm_k_mean = spsm_k.mean(axis=0)  # [J/bs, Ly, Lx]
     spsm_k_std = spsm_k.std(axis=0)  # [J/bs, Ly, Lx]
@@ -77,7 +75,7 @@ if __name__ == '__main__':
     print(f"Lx: {Lx}")
     Ltau = int(os.getenv("Ltau", '60'))
     print(f"Ltau: {Ltau}")
-    Nrv = int(os.getenv("Nrv", '50'))
+    Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
     mxitr = int(os.getenv("mxitr", '400'))
     print(f"mxitr: {mxitr}")
@@ -89,9 +87,8 @@ if __name__ == '__main__':
     bs = 2
 
     input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
-    input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
-    input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench/"
-    input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
+    # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
+    # input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
 
     start = -50
     end = 10000
@@ -118,7 +115,7 @@ if __name__ == '__main__':
 
         bosons = torch.stack(bosons, dim=1).to(device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
         
-        output_dir = script_path + f"/data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
+        output_dir = script_path + f"/data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
         postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start)
             
   

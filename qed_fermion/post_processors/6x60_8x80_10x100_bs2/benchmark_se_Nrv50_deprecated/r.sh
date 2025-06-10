@@ -1,12 +1,12 @@
 mkdir -p report_se
 
 
-Nrv_array=$(echo '200')
-L_array=$(echo '6 8')  # 10 h (-2)
+Nrv_array=$(echo '50')
+L_array=$(echo '6 8 10')  # 10 h (-2)
 
 export debug=0
 export cuda_graph=1
-export mxitr=400  # 1000
+export mxitr=200  # 1000
 
 for Nrv in $Nrv_array; do
         #
