@@ -110,7 +110,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     
     # ---- Load and plot spsm_k.pt mean ---- #
     if start != 0:
-        output_dir = os.path.join(script_path, f"data_se_start{start}_mbg/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+        output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     else:
         output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
