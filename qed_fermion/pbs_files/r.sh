@@ -1,4 +1,4 @@
-mkdir -p report_cmp_dbg5
+mkdir -p report_noncmp_bench
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -31,6 +31,8 @@ export debug=0
 export asym=1
 export cuda_graph=1
 export Nrv=20
+export compact=0
+export K=1
 
 for L in $L_array; do
         #
@@ -41,7 +43,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=0-24:00:00 \
+                --time=2-00:00:00 \
                 --qos=gpu \
                 --mem-per-cpu=6G \
                 s_hmc.cmd
