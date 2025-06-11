@@ -1193,21 +1193,21 @@ class HmcSampler(object):
             - phi_y
         )  # Shape: [batch_size, Lx, Ly, Ltau]
 
-        # correlations = []
-        # for dtau in range(self.num_tau + 1):
-        #     idx1 = list(range(Ltau))
-        #     idx2 = [(i + dtau) % Ltau for i in idx1]
+        correlations = []
+        for dtau in range(self.num_tau + 1):
+            idx1 = list(range(Ltau))
+            idx2 = [(i + dtau) % Ltau for i in idx1]
             
-        #     corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
-        #     correlations.append(corr)
+            corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
+            correlations.append(corr)
         
-        # correlations = torch.stack(correlations).T  # Shape: [bs, num_dtau]
+        correlations = torch.stack(correlations).T  # Shape: [bs, num_dtau]
 
-        a = sin_curl_phi # [bs, Lx, Ly, Ltau]
-        a_F = torch.fft.rfft(a)  # [bs, Lx, Ly, Ltau//2+1]
-        corr_fft = 1/Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
+        # a = sin_curl_phi # [bs, Lx, Ly, Ltau]
+        # a_F = torch.fft.rfft(a)  # [bs, Lx, Ly, Ltau//2+1]
+        # corr_fft = 1/Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
 
-        # torch.testing.assert_close(correlations[..., :-1], corr_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        # # torch.testing.assert_close(correlations[..., :-1], corr_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         return corr_fft  # Shape: [bs, num_dtau]
 
