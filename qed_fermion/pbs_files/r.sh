@@ -1,4 +1,4 @@
-mkdir -p report_cmp_dbg3
+mkdir -p report_cmp_dbg4
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
