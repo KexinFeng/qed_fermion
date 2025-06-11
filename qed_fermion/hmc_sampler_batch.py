@@ -2338,14 +2338,26 @@ class HmcSampler(object):
         cg_r_errs = [r_err]
 
         for leap in range(self.N_leapfrog):
+
+            # Update p only for selected tau block
             p = p + dt/2 * (force_f_u) * tau_mask
-    
+
             # Update (p, x)
-            if self.cuda_graph and self.max_iter in self.leapfrog_cmp_graph_runners:
-                x, p = self.leapfrog_cmp_graph_runners[self.max_iter](
-                    x, p, dt, tau_mask, force_b_plaq, force_b_tau)
-            else:
-                x, p = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+            M = 5
+            for _ in range(M):
+                # p = p + force(x) * dt/2
+                # x = x + velocity(p) * dt
+                # p = p + force(x) * dt/2
+
+                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
+
+                force_b_plaq = self.force_b_plaq_matfree(x)
+                force_b_tau = self.force_b_tau_cmp(x)
+
+                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
             
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
