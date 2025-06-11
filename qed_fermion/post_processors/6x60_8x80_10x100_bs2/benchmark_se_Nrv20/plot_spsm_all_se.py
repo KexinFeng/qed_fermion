@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, script_path + '/../../../../')
 sys.path.insert(0, script_path + '/../')
 
+from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
 from load_write2file_convert import time_execution
 
@@ -98,7 +99,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
 
     # Plot the batch mean
-    plt.errorbar(Js, spin_order_values[:, bid], yerr=spin_order_errors[:, bid],
+    plt.errorbar(Js, spin_order_values[:, bid] / vs, yerr=spin_order_errors[:, bid] / vs,
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     # # ---- Load dqmc and plot ---- # #
@@ -108,14 +109,17 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
     # ---- Load and plot spsm_k.pt mean ---- #
-    output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    if start != 0:
+        output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    else:
+        output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
     spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
         # Compute spin order as sum of spsm_k_mean divided by vs
     spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
     spin_pi_errs = spsm_k_res['std'][:, 0, 0]
 
-    plt.errorbar(Js, spin_pi_s, yerr=spin_pi_errs, 
+    plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
@@ -127,14 +131,14 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     # spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
     # spin_pi_errs = spsm_k_res['std'][:, 0, 0]
 
-    # plt.errorbar(Js, spin_pi_s, yerr=spin_pi_errs, 
+    # plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
     #              fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
     
 
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 50
+    Nrv = 20
     mxitr = 200
 
     sizes = [6, 8]

@@ -137,7 +137,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 50
+    Nrv = 30
     mxitr = 200
 
     start = -50  # <--- add this line
