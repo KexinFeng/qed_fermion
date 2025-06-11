@@ -1194,7 +1194,7 @@ class HmcSampler(object):
         )  # Shape: [batch_size, Lx, Ly, Ltau]
 
         correlations = []
-        for dtau in range(self.num_tau + 1):
+        for dtau in range(self.num_tau):
             idx1 = list(range(Ltau))
             idx2 = [(i + dtau) % Ltau for i in idx1]
             
