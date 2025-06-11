@@ -135,7 +135,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 10 if debug_mode else max(start_total_monitor, 100)
+        self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
         self.ckp_rate = 10000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 5 if debug_mode else 1000
@@ -247,7 +247,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [100, 200, 400]
-        self._MAX_ITERS_TO_CAPTURE = [200]
+        self._MAX_ITERS_TO_CAPTURE = [100]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
@@ -265,8 +265,8 @@ class HmcSampler(object):
         # self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        self.initialize_boson_time_slice_random_uniform_matfree()
-        # self.initialize_boson_pi_flux_randn_matfree()
+        # self.initialize_boson_time_slice_random_uniform_matfree()
+        self.initialize_boson_pi_flux_randn_matfree()
 
     def initialize_specifics(self):      
         self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
@@ -1065,7 +1065,7 @@ class HmcSampler(object):
 
             # class_name = __file__.split('/')[-1].replace('.py', '')
             # method_name = "sigma_hat"
-            # save_dir = os.path.join(script_path, f"./figures/{class_name}_cmp_dbg")
+            # save_dir = os.path.join(script_path, f"./figures/{class_name}_cmp")
             # os.makedirs(save_dir, exist_ok=True) 
             # file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
             # plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -1158,10 +1158,10 @@ class HmcSampler(object):
         Draw psudo_fermion psi = M(x0)'R
         :return: [bs, Ltau * Ly * Lx] gaussian tensor
         """
-        R_real = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        R_imag = 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        return (R_real + R_imag).to(dtype=cdtype)
-        # return torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device, dtype=cdtype) / math.sqrt(2)
+        # R_real = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
+        # R_imag = 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
+        # return (R_real + R_imag).to(dtype=cdtype)
+        return torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device, dtype=cdtype) / math.sqrt(2)
 
 
     def sin_curl_greens_function_batch(self, boson):
@@ -1193,23 +1193,23 @@ class HmcSampler(object):
             - phi_y
         )  # Shape: [batch_size, Lx, Ly, Ltau]
 
-        correlations = []
-        for dtau in range(self.num_tau):
-            idx1 = list(range(Ltau))
-            idx2 = [(i + dtau) % Ltau for i in idx1]
+        # correlations = []
+        # for dtau in range(self.num_tau):
+        #     idx1 = list(range(Ltau))
+        #     idx2 = [(i + dtau) % Ltau for i in idx1]
             
-            corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
-            correlations.append(corr)
+        #     corr = torch.mean(sin_curl_phi[..., idx1] * sin_curl_phi[..., idx2], dim=(1, 2, 3))
+        #     correlations.append(corr)
         
-        correlations = torch.stack(correlations).T  # Shape: [bs, num_dtau]
+        # correlations = torch.stack(correlations).T  # Shape: [bs, num_dtau]
 
-        # a = sin_curl_phi # [bs, Lx, Ly, Ltau]
-        # a_F = torch.fft.rfft(a)  # [bs, Lx, Ly, Ltau//2+1]
-        # corr_fft = 1/Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
+        a = sin_curl_phi # [bs, Lx, Ly, Ltau]
+        a_F = torch.fft.rfft(a)  # [bs, Lx, Ly, Ltau//2+1]
+        corr_fft = 1/Ltau * torch.fft.irfft(a_F.conj() * a_F).mean(dim=(1, 2))  # [bs, Ltau]
 
-        # # torch.testing.assert_close(correlations[..., :-1], corr_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        # torch.testing.assert_close(correlations[..., :-1], corr_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        return correlations  # Shape: [bs, num_dtau]
+        return corr_fft  # Shape: [bs, num_dtau]
 
 
     def force_b_tau_cmp(self, boson):
@@ -2350,8 +2350,8 @@ class HmcSampler(object):
                 # p = p + force(x) * dt/2
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
-                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
-                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt 
+                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt
+                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt
                 # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
 
                 force_b_plaq = self.force_b_plaq_matfree(x)
