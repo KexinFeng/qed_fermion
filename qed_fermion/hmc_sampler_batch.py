@@ -105,7 +105,7 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 10 if asym >= 1 else 1
+        self.max_tau_block_idx = 1 if asym >= 1 else 1
         print(f"max_tau_block_idx: {self.max_tau_block_idx}")    
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
         dt_deque_max_len = 5 * self.max_tau_block_idx
@@ -201,12 +201,12 @@ class HmcSampler(object):
         # self.N_leapfrog = 2
         # self.N_leapfrog = 6
         self.N_leapfrog = 5
-        self.N_leapfrog = 3
+        # self.N_leapfrog = 3
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
-        self.lower_limit = max(1 - 0.5**(1/self.max_tau_block_idx), 0.1)
-        self.upper_limit = min(1 - 0.2**(1/self.max_tau_block_idx), 0.8)
+        self.lower_limit = max(1 - 0.5**(1/self.max_tau_block_idx), 0.1)  # 0.5
+        self.upper_limit = min(1 - 0.2**(1/self.max_tau_block_idx), 0.8)  # 0.8
         print(f"lower_limit: {self.lower_limit}, upper_limit: {self.upper_limit}")
 
         # Sigma adaptive mass
