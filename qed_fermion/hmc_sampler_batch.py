@@ -1209,7 +1209,7 @@ class HmcSampler(object):
 
         # # torch.testing.assert_close(correlations[..., :-1], corr_fft, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        return corr_fft  # Shape: [bs, num_dtau]
+        return correlations  # Shape: [bs, num_dtau]
 
 
     def force_b_tau_cmp(self, boson):
