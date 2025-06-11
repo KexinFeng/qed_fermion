@@ -1,4 +1,4 @@
-mkdir -p report_noncmp_bench
+mkdir -p report_large
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -17,13 +17,13 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 
 # J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
 J_array=$(echo '1.25')
-L_array=$(echo '36 30 20')  # 10 h (-2)
+# L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10')
 
 
-J_array=$(echo '1.0')
-L_array=$(echo '6 8 10')  # 10 h (-2)
+# J_array=$(echo '1.0')
+# L_array=$(echo '6 8 10')  # 10 h (-2)
 
 Nstep=10000
 
@@ -31,7 +31,7 @@ export debug=0
 export asym=1
 export cuda_graph=1
 export Nrv=20
-export compact=0
+export compact=1
 export K=1
 
 for L in $L_array; do
@@ -43,9 +43,9 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=2-00:00:00 \
+                --time=3-00:00:00 \
                 --qos=gpu \
-                --mem-per-cpu=6G \
+                --mem-per-cpu=8G \
                 s_hmc.cmd
         done
 done
