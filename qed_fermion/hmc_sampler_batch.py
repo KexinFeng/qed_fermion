@@ -2342,24 +2342,7 @@ class HmcSampler(object):
             p = p + dt/2 * (force_f_u) * tau_mask
 
             # Update (p, x)
-            M = 5
-            for _ in range(M):
-                # p = p + force(x) * dt/2
-                # x = x + velocity(p) * dt
-                # p = p + force(x) * dt/2
-
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
-                x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt
-                # x = x + self.apply_m_inv(p) * dt/M # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt
-                # torch.testing.assert_close(x_ref, x, atol=1e-5, rtol=1e-5)
-
-                force_b_plaq = self.force_b_plaq_matfree(x)
-                force_b_tau = self.force_b_tau_cmp(x)
-
-                p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
-
-            # Update (p, x)
-            if self.cuda_graph:
+            if False:
                 x, p = self.leapfrog_cmp_graph_runners(
                     x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             else:
