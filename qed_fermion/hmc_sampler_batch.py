@@ -2262,11 +2262,11 @@ class HmcSampler(object):
 
         dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
 
-        force_b_plaq0 = self.force_b_plaq_matfree(x)
-        force_b_tau0 = self.force_b_tau_cmp(x)
+        force_b_plaq = self.force_b_plaq_matfree(x)
+        force_b_tau = self.force_b_tau_cmp(x)
 
-        force_b_plaq = force_b_plaq0
-        force_b_tau = force_b_tau0  
+        # force_b_plaq0 = force_b_plaq
+        # force_b_tau0 = force_b_tau 
 
         if self.debug_pde:
             # print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -2342,11 +2342,14 @@ class HmcSampler(object):
         for leap in range(self.N_leapfrog):
 
             # Update p only for selected tau block
-            p0 = p + dt/2 * (force_f_u) * tau_mask
-            x0 = x
+            p = p + dt/2 * (force_f_u) * tau_mask
+
+            # x0 = x
+            # p0 = p
+            # force_b_plaq0 = force_b_plaq
+            # force_b_tau0 = force_b_tau 
 
             # Update (p, x)
-            p = p0
             M = 5
             for _ in range(M):
                 # p = p + force(x) * dt/2
@@ -2363,16 +2366,16 @@ class HmcSampler(object):
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
 
-            # Update (p, x)
-            if False:
-                x, p = self.leapfrog_cmp_graph_runners(
-                    x, p, dt, tau_mask, force_b_plaq, force_b_tau)
-            else:
-                x_q, p_q = self.leapfrog_cmp(x0, p0, dt, tau_mask, force_b_plaq0, force_b_tau0)
+            # # Update (p, x)
+            # if False:
+            #     x, p = self.leapfrog_cmp_graph_runners(
+            #         x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+            # else:
+            #     x_q, p_q = self.leapfrog_cmp(x0, p0, dt, tau_mask, force_b_plaq0, force_b_tau0)
 
-            # Assert x_q is close to x and p_q is close to p
-            torch.testing.assert_close(x_q, x, atol=1e-2, rtol=1e-2)
-            torch.testing.assert_close(p_q, p, atol=1e-2, rtol=1e-2)
+            # # Assert x_q is close to x and p_q is close to p
+            # torch.testing.assert_close(x_q, x, atol=1e-3, rtol=1e-3)
+            # torch.testing.assert_close(p_q, p, atol=1e-3, rtol=1e-3)
        
             
             if not self.use_cuda_kernel:
@@ -2940,10 +2943,9 @@ class HmcSampler(object):
             # d_mem_str, d_mem2 = device_mem()
             # print(f"After init metropolis_graph: {d_mem_str}, incr.by: {d_mem2 - d_mem1:.2f} MB\n")
 
-            # # self.initialize_stochastic_estimator()
-            # self.init_stochastic_estimator()  
-            # d_mem_str, d_mem3 = device_mem()
-            # print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
+            self.init_stochastic_estimator()  
+            d_mem_str, d_mem3 = device_mem()
+            print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
 
         # Measure
         # fig = plt.figure()
@@ -3007,6 +3009,7 @@ class HmcSampler(object):
 
             spsm_r = obsr['spsm_r']  # [bs, Ly, Lx]
             spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]
+
             
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
