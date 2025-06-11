@@ -243,7 +243,7 @@ class HmcSampler(object):
         self.cuda_graph = cuda_graph and torch.cuda.is_available()
         self.force_graph_runners = {}
         self.metropolis_graph_runners = {}
-        self.leapfrog_cmp_graph_runners = {}
+        self.leapfrog_cmp_graph_runners = None
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [100, 200, 400]
@@ -356,27 +356,26 @@ class HmcSampler(object):
         dummy_force_b_tau = torch.zeros(self.bs, 2, self.Lx, self.Ly, self.Ltau, dtype=dtype, device=device)
 
         # Capture graphs for different max_iter values
-        for idx, max_iter in enumerate(reversed(self._MAX_ITERS_TO_CAPTURE)):
-            print(
-                f"Capturing CUDA graph for leapfrog_cmp_graph max_iter={max_iter} ({idx + 1}/{len(self._MAX_ITERS_TO_CAPTURE)})...")
-            # Capture graphs for given max_iter
-            graph_runner = LeapfrogCmpGraphRunner(self)
-            graph_memory_pool = graph_runner.capture(
-                dummy_x,
-                dummy_p,
-                dummy_dt,
-                dummy_tau_mask,
-                dummy_force_b_plaq,
-                dummy_force_b_tau,
-                max_iter,
-                self.graph_memory_pool
-            )
+        print(
+            f"Capturing CUDA graph for leapfrog_cmp_graph...")
+        
+        # Capture graphs for given max_iter
+        graph_runner = LeapfrogCmpGraphRunner(self)
+        graph_memory_pool = graph_runner.capture(
+            dummy_x,
+            dummy_p,
+            dummy_dt,
+            dummy_tau_mask,
+            dummy_force_b_plaq,
+            dummy_force_b_tau,
+            self.graph_memory_pool
+        )
 
-            # Store the graph runner and memory pool
-            if not hasattr(self, "leapfrog_cmp_graph_runners"):
-                self.leapfrog_cmp_graph_runners = {}
-            self.leapfrog_cmp_graph_runners[max_iter] = graph_runner
-            self.graph_memory_pool = graph_memory_pool
+        # Store the graph runner and memory pool
+        if not hasattr(self, "leapfrog_cmp_graph_runners"):
+            self.leapfrog_cmp_graph_runners = None
+        self.leapfrog_cmp_graph_runners = graph_runner
+        self.graph_memory_pool = graph_memory_pool
 
         print(
             f"leapfrog_cmp_graph CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
@@ -2358,6 +2357,14 @@ class HmcSampler(object):
                 force_b_tau = self.force_b_tau_cmp(x)
 
                 p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
+
+            # Update (p, x)
+            if self.cuda_graph:
+                x, p = self.leapfrog_cmp_graph_runners(
+                    x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+            else:
+                x, p = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+       
             
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)

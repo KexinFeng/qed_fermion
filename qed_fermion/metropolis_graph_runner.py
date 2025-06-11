@@ -93,7 +93,6 @@ class LeapfrogCmpGraphRunner:
         tau_mask,
         force_b_plaq,
         force_b_tau,
-        max_iter,
         graph_memory_pool=None,
         n_warmups=3
     ):
@@ -107,8 +106,6 @@ class LeapfrogCmpGraphRunner:
             "force_b_plaq": force_b_plaq,
             "force_b_tau": force_b_tau
         }
-
-        self.hmc_sampler.max_iter = max_iter
 
         # Warm up
         torch.cuda.empty_cache()
