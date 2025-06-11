@@ -2337,8 +2337,9 @@ class HmcSampler(object):
         cg_converge_iters = [cg_converge_iter]
         cg_r_errs = [r_err]
 
-        p = p + dt/2 * (force_f_u) * tau_mask
         for leap in range(self.N_leapfrog):
+            p = p + dt/2 * (force_f_u) * tau_mask
+    
             # Update (p, x)
             if self.cuda_graph and self.max_iter in self.leapfrog_cmp_graph_runners:
                 x, p = self.leapfrog_cmp_graph_runners[self.max_iter](
@@ -2362,9 +2363,7 @@ class HmcSampler(object):
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
 
-            if leap == self.N_leapfrog - 1:
-                break
-            p = p + dt * (force_f_u) * tau_mask
+            p = p + dt/2 * (force_f_u) * tau_mask
 
             cg_converge_iters.append(cg_converge_iter)
             cg_r_errs.append(r_err)
