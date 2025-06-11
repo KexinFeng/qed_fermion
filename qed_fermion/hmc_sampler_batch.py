@@ -4,7 +4,6 @@ import json
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 import scipy.sparse as sp
 import torch
 from tqdm import tqdm
@@ -61,6 +60,8 @@ cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
 print(f"cuda_graph: {cuda_graph}")
 mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
+compact = int(os.getenv("compact", '1')) != 0
+print(f"compact turned on: {compact}")
 lmd = float(os.getenv("lmd", '0.9'))
 print(f"lmd: {lmd}")
 lambda_ = float(os.getenv("lambda_", '0.05'))
@@ -269,10 +270,10 @@ class HmcSampler(object):
         self.initialize_boson_pi_flux_randn_matfree()
 
     def initialize_specifics(self):      
-        self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_cmp_{compact}"
 
     def get_specifics(self):
-        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
+        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_cmp_{compact}"
 
     @time_execution
     # @profile
@@ -2581,7 +2582,7 @@ class HmcSampler(object):
         cg_r_errs = torch.stack(cg_r_errs)  # [sub_seq, bs]
         return x, H0, H_fin, None, cg_r_errs.float().mean(dim=0)
     
-    def leapfrog_proposer5_noncmptau(self):
+    def leapfrog_proposer5_noncmptau(self, tau_mask):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
         Sf(t) = psi' * [M(xt)'M(xt)]^(-1) * psi := R'R at t=0
@@ -2716,8 +2717,9 @@ class HmcSampler(object):
         cg_converge_iters = [cg_converge_iter]
         cg_r_errs = [r_err]
 
-        p = p + dt/2 * (force_f_u)
         for leap in range(self.N_leapfrog):
+            p = p + dt/2 * (force_f_u)
+    
             # Update (p, x)
             M = 5
             for _ in range(M):
@@ -2728,7 +2730,7 @@ class HmcSampler(object):
                 p = p + force_b * dt/2/M
 
                 x, p = self.harmonic_tau(x, p, dt/M)
-                
+
                 force_b = self.force_b_plaq_matfree(x)
                 p = p + force_b * dt/2/M
 
@@ -2748,9 +2750,7 @@ class HmcSampler(object):
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
                 # torch.testing.assert_close(force_f_u_ref.unsqueeze(0), force_f_u, atol=1e-3, rtol=1e-3)
 
-            if leap == self.N_leapfrog - 1:
-                break
-            p = p + dt * (force_f_u)
+            p = p + dt/2 * (force_f_u)
 
             cg_converge_iters.append(cg_converge_iter)
             cg_r_errs.append(r_err)
@@ -2872,7 +2872,10 @@ class HmcSampler(object):
             # else:
             #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
 
-            boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
+            if compact:
+                boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
+            else:
+                boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_noncmptau(self.boson, tau_mask)               
 
             # torch.testing.assert_close(boson_new, boson_new_ref, atol=5e-1, rtol=1e-3)
             
