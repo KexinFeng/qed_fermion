@@ -3,18 +3,36 @@ import networkx as nx
 
 # Create a 5x5 grid
 G = nx.grid_2d_graph(5, 5)
-edge_colors = []
+edge_colors = {}
 
-for (u, v) in G.edges():
-    x1, y1 = u
-    x2, y2 = v
-    if x1 == x2:  # Vertical edge
-        color = 'red' if x1 % 2 == 0 else 'blue'
-    else:  # Horizontal edge
-        color = 'green' if y1 % 2 == 0 else 'orange'
-    edge_colors.append(color)
+# Assign default color to all edges
+for edge in G.edges():
+    edge_colors[edge] = 'gray'
+
+# Color the four bonds around each (i+j)-even node
+for (i, j) in G.nodes():
+    if (i + j) % 2 == 0:
+        # Right bond
+        if (i, j + 1) in G:
+            edge = tuple(sorted([ (i, j), (i, j + 1) ]))
+            edge_colors[edge] = 'red'
+        # Up bond
+        if (i - 1, j) in G:
+            edge = tuple(sorted([ (i, j), (i - 1, j) ]))
+            edge_colors[edge] = 'blue'
+        # Left bond
+        if (i, j - 1) in G:
+            edge = tuple(sorted([ (i, j), (i, j - 1) ]))
+            edge_colors[edge] = 'green'
+        # Down bond
+        if (i + 1, j) in G:
+            edge = tuple(sorted([ (i, j), (i + 1, j) ]))
+            edge_colors[edge] = 'orange'
+
+# Prepare edge color list in the order of G.edges()
+edge_color_list = [edge_colors[tuple(sorted(edge))] for edge in G.edges()]
 
 pos = {(x, y): (x, y) for x, y in G.nodes()}
-nx.draw(G, pos, edge_color=edge_colors, node_size=50, width=2)
+nx.draw(G, pos, edge_color=edge_color_list, node_size=50, width=2)
 plt.axis('equal')
 plt.show()
