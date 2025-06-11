@@ -135,7 +135,7 @@ class HmcSampler(object):
         # Plot
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
-        self.plt_rate = 10 if debug_mode else max(start_total_monitor, 500)
+        self.plt_rate = 10 if debug_mode else max(start_total_monitor, 100)
         self.ckp_rate = 10000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 5 if debug_mode else 1000
@@ -247,7 +247,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [100, 200, 400]
-        self._MAX_ITERS_TO_CAPTURE = [100]
+        self._MAX_ITERS_TO_CAPTURE = [200]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
@@ -265,8 +265,8 @@ class HmcSampler(object):
         # self.initialize_curl_mat()
         self.initialize_geometry()
         self.initialize_specifics()
-        # self.initialize_boson_time_slice_random_uniform_matfree()
-        self.initialize_boson_pi_flux_randn_matfree()
+        self.initialize_boson_time_slice_random_uniform_matfree()
+        # self.initialize_boson_pi_flux_randn_matfree()
 
     def initialize_specifics(self):      
         self.specifics = f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}"
@@ -1158,10 +1158,10 @@ class HmcSampler(object):
         Draw psudo_fermion psi = M(x0)'R
         :return: [bs, Ltau * Ly * Lx] gaussian tensor
         """
-        # R_real = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        # R_imag = 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
-        # return (R_real + R_imag).to(dtype=cdtype)
-        return torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device, dtype=cdtype) / math.sqrt(2)
+        R_real = torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
+        R_imag = 1j * torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device) / math.sqrt(2)
+        return (R_real + R_imag).to(dtype=cdtype)
+        # return torch.randn(self.bs, self.Lx * self.Ly * self.Ltau, device=device, dtype=cdtype) / math.sqrt(2)
 
 
     def sin_curl_greens_function_batch(self, boson):
