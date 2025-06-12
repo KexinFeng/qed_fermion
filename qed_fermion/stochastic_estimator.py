@@ -21,9 +21,9 @@ if torch.cuda.is_available():
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
-Nrv = int(os.getenv("Nrv", '50'))
+Nrv = int(os.getenv("Nrv", '20'))
 print(f"Nrv: {Nrv}")
-max_iter_se = int(os.getenv("max_iter_se", '200'))
+max_iter_se = int(os.getenv("max_iter_se", '100'))
 print(f"max_iter_se: {max_iter_se}")
 
 class StochaticEstimator:
