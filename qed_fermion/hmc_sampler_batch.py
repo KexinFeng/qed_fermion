@@ -60,11 +60,11 @@ cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
 print(f"cuda_graph: {cuda_graph}")
 mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
-compact = int(os.getenv("compact", '1')) != 0
+compact = int(os.getenv("compact", '0')) != 0
 print(f"compact turned on: {compact}")
 K = float(os.getenv("K", '1'))
 print(f"K: {K}")
-max_tau_block_idx = int(os.getenv("max_tau_block_idx", '10'))
+max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
 print(f"max_tau_block_idx: {max_tau_block_idx}")    
 
 lmd = float(os.getenv("lmd", '0.9'))
@@ -1226,6 +1226,18 @@ class HmcSampler(object):
         diff_phi_tau_1 = torch.roll(boson, shifts=-1, dims=-1) - boson  # tau-component at (..., tau+1)
         diff_phi_tau_2 = boson - torch.roll(boson, shifts=1, dims=-1)  # tau-component at (..., tau-1)
         force_b_tau = -torch.sin(diff_phi_tau_1) + torch.sin(diff_phi_tau_2)
+        return -coeff * force_b_tau      
+     
+    def force_b_tau_noncmp(self, boson):
+        """
+        x:  [bs, 2, Lx, Ly, Ltau]
+        S = \sum 1/2 * (phi_tau+1 - phi)^2
+        force_b_tau = -(phi_{tau+1} - phi_{tau}) + (phi_{tau} - phi_{tau-1})
+        """    
+        coeff = 1 / self.J / self.dtau**2
+        diff_phi_tau_1 = torch.roll(boson, shifts=-1, dims=-1) - boson  # tau-component at (..., tau+1)
+        diff_phi_tau_2 = boson - torch.roll(boson, shifts=1, dims=-1)  # tau-component at (..., tau-1)
+        force_b_tau = -diff_phi_tau_1 + diff_phi_tau_2
         return -coeff * force_b_tau       
 
 
@@ -2200,12 +2212,29 @@ class HmcSampler(object):
             x = x + p / self.m * dt/M * tau_mask # v = p/m ~ 1 / sqrt(m); dt'= sqrt(m) dt
 
             force_b_plaq = self.force_b_plaq_matfree(x)
-            force_b_tau = self.force_b_tau_cmp(x)
+            force_b_tau = self.force_b_tau_cmp(x) if compact else self.force_b_tau_noncmp(x)
 
             p = p + (force_b_plaq + force_b_tau) * dt/2/M * tau_mask
 
         return x, p, force_b_plaq, force_b_tau
 
+    def leapfrog_noncmp_fft(self, x, p, dt, force_b):
+        # Update (p, x)
+        M = 5
+        for _ in range(M):
+            # p = p + force(x) * dt/2
+            # x = x + velocity(p) * dt
+            # p = p + force(x) * dt/2
+
+            p = p + force_b * dt/2/M
+
+            x, p = self.harmonic_tau(x, p, dt/M)
+
+            force_b = self.force_b_plaq_matfree(x)
+            p = p + force_b * dt/2/M 
+
+        return x, p, force_b  
+    
     def leapfrog_proposer5_cmptau(self, boson, tau_mask):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
@@ -2269,10 +2298,7 @@ class HmcSampler(object):
         dt = self.delta_t_tensor.view(-1, 1, 1, 1, 1)
 
         force_b_plaq = self.force_b_plaq_matfree(x)
-        force_b_tau = self.force_b_tau_cmp(x)
-
-        # force_b_plaq0 = force_b_plaq
-        # force_b_tau0 = force_b_tau 
+        force_b_tau = self.force_b_tau_cmp(x) if compact else self.force_b_tau_noncmp(x)
 
         if self.debug_pde:
             # print(f"Sb_tau={self.action_boson_tau(x)}")
@@ -2356,7 +2382,6 @@ class HmcSampler(object):
                     x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             else:
                 x, p, force_b_plaq, force_b_tau = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
-       
             
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
@@ -2561,7 +2586,7 @@ class HmcSampler(object):
         cg_r_errs = torch.stack(cg_r_errs)  # [sub_seq, bs]
         return x, H0, H_fin, None, cg_r_errs.float().mean(dim=0)
     
-    def leapfrog_proposer5_noncmptau(self, tau_mask):
+    def leapfrog_proposer5_noncmptau(self, boson, tau_mask):
         """          
         Initially (x0, p0, psi) that satisfies e^{-H}, H = p^2/(2m) + Sb(x0) + Sf(x0, psi). Then evolve to (xt, pt, psi). 
         Sf(t) = psi' * [M(xt)'M(xt)]^(-1) * psi := R'R at t=0
@@ -2586,7 +2611,7 @@ class HmcSampler(object):
 
         p0 = self.draw_momentum()  # [bs, 2, Lx, Ly, Ltau] tensor
         # p0 = self.draw_momentum_fft()  # [bs, 2, Lx, Ly, Ltau] tensor
-        x0 = self.boson  # [bs, 2, Lx, Ly, Ltau] tensor
+        x0 = boson  # [bs, 2, Lx, Ly, Ltau] tensor
         p = p0
         x = x0
 
@@ -2700,18 +2725,12 @@ class HmcSampler(object):
             p = p + dt/2 * (force_f_u)
     
             # Update (p, x)
-            M = 5
-            for _ in range(M):
-                # p = p + force(x) * dt/2
-                # x = x + velocity(p) * dt
-                # p = p + force(x) * dt/2
-
-                p = p + force_b * dt/2/M
-
-                x, p = self.harmonic_tau(x, p, dt/M)
-
-                force_b = self.force_b_plaq_matfree(x)
-                p = p + force_b * dt/2/M
+            # if self.cuda_graph:
+            if False:
+                x, p, force_b = self.leapfrog_noncmp_graph_runners(
+                    x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+            else:
+                x, p, force_b = self.leapfrog_noncmp_fft(x, p, dt, force_b)
 
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
@@ -2851,7 +2870,7 @@ class HmcSampler(object):
             # else:
             #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
 
-            if compact:
+            if True:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
             else:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_noncmptau(self.boson, tau_mask)               
