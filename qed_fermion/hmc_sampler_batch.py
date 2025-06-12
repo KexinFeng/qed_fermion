@@ -64,6 +64,8 @@ compact = int(os.getenv("compact", '1')) != 0
 print(f"compact turned on: {compact}")
 K = float(os.getenv("K", '1'))
 print(f"K: {K}")
+max_tau_block_idx = int(os.getenv("max_tau_block_idx", '10'))
+print(f"max_tau_block_idx: {max_tau_block_idx}")    
 
 lmd = float(os.getenv("lmd", '0.9'))
 print(f"lmd: {lmd}")
@@ -109,8 +111,7 @@ class HmcSampler(object):
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
         asym = self.Ltau // self.Lx // 10
-        self.max_tau_block_idx = 1 if asym >= 1 else 1
-        print(f"max_tau_block_idx: {self.max_tau_block_idx}")    
+        self.max_tau_block_idx = max_tau_block_idx if asym >= 1 else 1
         self.tau_block_size = self.Ltau // self.max_tau_block_idx
         dt_deque_max_len = 5 * self.max_tau_block_idx
         print(f"dt_deque_max_len: {dt_deque_max_len}")    
