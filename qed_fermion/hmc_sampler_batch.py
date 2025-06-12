@@ -1361,10 +1361,10 @@ class HmcSampler(object):
         xk_t = torch.zeros_like(xk_0)
         vk_t = torch.zeros_like(vk_0)
 
-        xk_t[..., 1:] = xk_0[..., 1:] * c[1:] + vk_0[..., 1:] / omega[1:] * s[1:]
-        vk_t[..., 1:] = -omega[..., 1:] * xk_0[..., 1:] * s[1:] + vk_0[..., 1:] * c[1:]
+        xk_t[..., 1:] = xk_0[..., 1:] * c[..., 1:] + vk_0[..., 1:] / omega[1:] * s[..., 1:]
+        vk_t[..., 1:] = -omega[..., 1:] * xk_0[..., 1:] * s[..., 1:] + vk_0[..., 1:] * c[..., 1:]
 
-        xk_t[..., 0] = xk_0[..., 0] + vk_0[..., 0]* delta_t;
+        xk_t[..., 0] = xk_0[..., 0] + vk_0[..., 0]* delta_t[..., 0];
         vk_t[..., 0] = vk_0[..., 0]
 
         # Transform back to position space
@@ -2870,7 +2870,7 @@ class HmcSampler(object):
             # else:
             #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
 
-            if True:
+            if compact:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
             else:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_noncmptau(self.boson, tau_mask)               
