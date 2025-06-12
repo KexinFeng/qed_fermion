@@ -2865,12 +2865,7 @@ class HmcSampler(object):
             tau_mask = torch.zeros((1, 1, 1, 1, self.Ltau), device=self.device, dtype=self.dtype)
             tau_mask[..., tau_start: tau_end] = 1.0
 
-            # if self.cuda_graph and self.max_iter in self.metropolis_graph_runners:
-            #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.metropolis_graph_runners[self.max_iter](self.boson, tau_mask)
-            # else:
-            #     boson_new_ref, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
-
-            if compact:
+            if True:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
             else:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_noncmptau(self.boson, tau_mask)               
