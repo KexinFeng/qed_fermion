@@ -2865,7 +2865,7 @@ class HmcSampler(object):
             tau_mask = torch.zeros((1, 1, 1, 1, self.Ltau), device=self.device, dtype=self.dtype)
             tau_mask[..., tau_start: tau_end] = 1.0
 
-            if True:
+            if compact:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_cmptau(self.boson, tau_mask)
             else:
                 boson_new, H_old, H_new, cg_converge_iter, cg_r_err = self.leapfrog_proposer5_noncmptau(self.boson, tau_mask)               
@@ -3106,7 +3106,7 @@ class HmcSampler(object):
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
                 
-                data_folder = script_path + "/check_points/hmc_check_point_noncmp_bench/"
+                data_folder = script_path + "/check_points/hmc_check_point_noncmp_benc1h/"
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)  
 
@@ -3124,12 +3124,12 @@ class HmcSampler(object):
                'delta_t_list': self.delta_t_list}
 
         # Save to file
-        data_folder = script_path + "/check_points/hmc_check_point_noncmp_bench/"
+        data_folder = script_path + "/check_points/hmc_check_point_noncmp_bench1/"
         file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(res, data_folder, file_name)  
 
         # Save stream data
-        data_folder = script_path + "/check_points/hmc_check_point_noncmp_bench/"
+        data_folder = script_path + "/check_points/hmc_check_point_noncmp_benc1h/"
         file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
 
@@ -3206,7 +3206,7 @@ class HmcSampler(object):
 
         class_name = __file__.split('/')[-1].replace('.py', '')
         method_name = "totol_monit"
-        save_dir = os.path.join(script_path, f"./figures/{class_name}_noncmp_bench")
+        save_dir = os.path.join(script_path, f"./figures/{class_name}_noncmp_benc1h")
         os.makedirs(save_dir, exist_ok=True) 
         file_path = os.path.join(save_dir, f"{method_name}_{self.specifics}.pdf")
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -3221,7 +3221,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
 
     # Lx, Ly, Ltau = 20, 20, 20
     Lx, Ly, Ltau = Lsize
-    filename = script_path + f"/check_points/hmc_check_point_noncmp_bench/ckpt_N_{specifics}_step_{step}.pt"
+    filename = script_path + f"/check_points/hmc_check_point_noncmp_benc1h/ckpt_N_{specifics}_step_{step}.pt"
 
     # filename = "/Users/kx/Desktop/hmc/fignote/local_vs_hmc_check/stat_check2/hmc_sampler_batch_rndm_real_space/hmc_check_point/ckpt_N_hmc_6_Ltau_10_Nstp_10000_Jtau_0.5_K_1_dtau_0.1_step_10000.pt"
 
@@ -3255,7 +3255,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
     # Save plot
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens"
-    save_dir = os.path.join(script_path, f"./figures/{class_name}_noncmp_bench")
+    save_dir = os.path.join(script_path, f"./figures/{class_name}_noncmp_benc1h")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -3299,7 +3299,7 @@ def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001,
     # Save_plot 
     class_name = __file__.split('/')[-1].replace('.py', '')
     method_name = "greens_loglog"
-    save_dir = os.path.join(script_path, f"./figures/{class_name}_noncmp_bench")
+    save_dir = os.path.join(script_path, f"./figures/{class_name}_noncmp_benc1h")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_{specifics}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")

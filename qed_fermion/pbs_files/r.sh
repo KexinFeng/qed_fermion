@@ -1,9 +1,10 @@
-mkdir -p report_noncmp_bench
+mkdir -p report_noncmp_bench1
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
 
 J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
+J_array=$(echo '1.0')
 L_array=$(echo '6 8 10')  # 10 h (-2)
 
 # J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
