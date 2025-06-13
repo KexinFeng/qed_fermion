@@ -3214,7 +3214,7 @@ class HmcSampler(object):
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")
 
-def load_visualize_final_greens_loglog(Lsize=(20, 20, 20), step=1000001, 
+def load_visualize_final_obsr(Lsize=(20, 20, 20), step=1000001, 
                                        specifics='', plot_anal=True):
     """
     Visualize green functions with error bar
@@ -3399,7 +3399,7 @@ if __name__ == '__main__':
 
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
-    load_visualize_final_greens_loglog((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
+    load_visualize_final_obsr((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
 
     plt.show()
 
