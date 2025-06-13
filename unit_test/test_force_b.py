@@ -38,7 +38,7 @@ def test():
 
                         # Check the dot product
                         dot_product = -torch.dot((x_last - x).view(-1), (force_b_tau_manual).reshape(-1))[None]
-                        action_difference = hmc.action_boson_tau_cmp(x_last) - hmc.action_boson_tau_cmp(x)
+                        action_difference = hmc.action_boson_tau(x_last) - hmc.action_boson_tau(x)
 
                         print(dot_product, action_difference)
                         # Use torch.testing.assert_close for comparison
@@ -80,12 +80,12 @@ def test_auto_d1():
                         with torch.enable_grad():
                             assert x.grad is None
                             x_grad = x.clone().requires_grad_(True)
-                            Sb_tau = hmc.action_boson_tau_cmp(x_grad)
+                            Sb_tau = hmc.action_boson_tau(x_grad)
                             force_b_tau_manual = -torch.autograd.grad(Sb_tau, x_grad, create_graph=False)[0]
 
                         # Check the dot product
                         dot_product = -torch.dot((x_last - x).view(-1), (force_b_tau_manual).reshape(-1))[None]
-                        action_difference = hmc.action_boson_tau_cmp(x_last) - hmc.action_boson_tau_cmp(x)
+                        action_difference = hmc.action_boson_tau(x_last) - hmc.action_boson_tau(x)
 
                         print(dot_product, action_difference)
                         # Use torch.testing.assert_close for comparison
@@ -106,7 +106,7 @@ def test_auto_d_vs_manual_d():
     # Compute forces
     with torch.enable_grad():
         assert x.grad is None
-        Sb_tau = hmc.action_boson_tau_cmp(x)
+        Sb_tau = hmc.action_boson_tau(x)
         force_b_tau = -torch.autograd.grad(Sb_tau, x, create_graph=False)[0]
     
     force_b_tau_manual = hmc.force_b_tau_cmp(x)
