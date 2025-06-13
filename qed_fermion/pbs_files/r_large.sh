@@ -1,4 +1,4 @@
-mkdir -p report_large_bench
+mkdir -p report_noncmp_large
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -27,6 +27,7 @@ L_array=$(echo '40 36 30 20 16 12 10')
 
 Nstep=10000
 
+export suffix=noncmp_large
 export debug=0
 export asym=1
 export cuda_graph=1
@@ -38,7 +39,7 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo L${L}a${asym}J${J})
+                config=$(echo L${L}a${asym}J${J}K${K})
                 echo $config
                 export J Nstep L
                 #

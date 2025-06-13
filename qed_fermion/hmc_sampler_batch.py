@@ -66,8 +66,7 @@ K = float(os.getenv("K", '1'))
 print(f"K: {K}")
 max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
 print(f"max_tau_block_idx: {max_tau_block_idx}")  
-
-suffix = "noncmp_bench1"
+suffix = os.getenv("suffix", 'bench')
 
 lmd = float(os.getenv("lmd", '0.9'))
 print(f"lmd: {lmd}")
