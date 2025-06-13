@@ -1340,6 +1340,14 @@ class HmcSampler(object):
 
         return force
 
+    def monopole(self, boson):
+        """
+        boson:  [bs, 2, Lx, Ly, Ltau]
+        monopole: 
+        """       
+        curl = self.curl_phi(boson)  # [bs, Lx, Ly, Ltau]
+        S = self.K * torch.sum(torch.cos(curl), dim=(1, 2, 3))
+
     def harmonic_tau(self, x0, p0, delta_t):
         """
         x:  [bs, 2, Lx, Ly, Ltau]
