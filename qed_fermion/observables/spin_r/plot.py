@@ -27,7 +27,8 @@ def plot_spin_r():
     Stau_list_hmc = []
     Stau_list_tau = []
 
-    Lx, Ly, Ltau = 10, 10, 100
+    Lx = 10
+    Ltau = int(10 * Lx)
     beta = int(Ltau * 0.1)
     N = Lx * Lx * beta
 
