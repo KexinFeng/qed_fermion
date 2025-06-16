@@ -1,4 +1,5 @@
-mkdir -p report_noncmp_large
+cd "$(dirname "$0")"
+mkdir -p report_cmp_large2
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -19,7 +20,7 @@ mkdir -p report_noncmp_large
 J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
-L_array=$(echo '40 36 30 20 16 12 10')
+L_array=$(echo '40 36 30 20 16 12 10 8 6')
 
 
 # J_array=$(echo '1.0')
@@ -27,12 +28,12 @@ L_array=$(echo '40 36 30 20 16 12 10')
 
 Nstep=10000
 
-export suffix=noncmp_large
+export suffix=cmp_large2
 export debug=0
 export asym=1
 export cuda_graph=1
 export Nrv=20
-export compact=0
+export compact=1
 export K=1
 
 for L in $L_array; do

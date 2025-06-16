@@ -1,4 +1,5 @@
-mkdir -p report_noncmp_bench_K0
+cd "$(dirname "$0")"
+mkdir -p report_noncmp_bench_K0_sup
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -27,7 +28,7 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 
 Nstep=10000
 
-export suffix=noncmp_bench_K0
+export suffix=noncmp_bench_K0_sup
 export debug=0
 export asym=1
 export cuda_graph=1
@@ -44,7 +45,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=3-00:00:00 \
+                --time=2-00:00:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc.cmd
