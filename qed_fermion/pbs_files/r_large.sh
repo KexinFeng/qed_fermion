@@ -1,5 +1,5 @@
 cd "$(dirname "$0")"
-mkdir -p report_cmp_large3_asym4
+mkdir -p report_cmp_large4_Nrv40
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
@@ -21,7 +21,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
-L_array=$(echo '24 20 16 12 10 8 6')
+# L_array=$(echo '24 20 16 12 10 8 6')
 
 
 # J_array=$(echo '1.0')
@@ -29,11 +29,11 @@ L_array=$(echo '24 20 16 12 10 8 6')
 
 Nstep=10000
 
-export suffix=cmp_large3_asym4
+export suffix=cmp_large4_Nrv40
 export debug=0
-export asym=4
+export asym=1
 export cuda_graph=1
-export Nrv=30
+export Nrv=40
 export compact=1
 export K=1
 
