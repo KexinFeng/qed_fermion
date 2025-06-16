@@ -104,7 +104,7 @@ def plot_spin_r():
 
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
-    plt.title('Spin-Spin Correlation vs Distance (x-direction, Raw Values)', fontsize=16)
+
     plt.legend(fontsize=10)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()

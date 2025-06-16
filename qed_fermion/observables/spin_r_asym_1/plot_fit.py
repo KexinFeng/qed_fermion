@@ -105,17 +105,19 @@ def plot_spin_r():
         log_corr = np.log(spin_corr_fit)
         coeffs = np.polyfit(log_r, log_corr, 1)
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
-        # Plot data
-        plt.errorbar(r_values, spin_corr_values, yerr=spin_corr_errors, 
-                    linestyle='-', marker='o', lw=2, color=color, 
-                    label=f'L={Lx} (norm={spin_corr_values[0]:.3f})', markersize=8, alpha=0.8)
-        # Plot fit
-        plt.plot(r_fit, fit_line, '--', color=color, alpha=0.6, 
+        # Plot data and fit in log-log space
+        plt.errorbar(r_fit, spin_corr_fit, yerr=spin_corr_err_fit, 
+                     linestyle='-', marker='o', lw=1.5, color=color, 
+                     label=f'L={Lx}', markersize=8, alpha=0.8)
+        plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                  label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
+        
+    plt.xscale('log')
+    plt.yscale('log')
 
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
-    plt.title('Spin-Spin Correlation vs Distance (x-direction, Raw Values)', fontsize=16)
+
     plt.legend(fontsize=10)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
