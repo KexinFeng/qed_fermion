@@ -216,7 +216,7 @@ if __name__ == '__main__':
         # Run
         for J in Js:
             for bid in range(bs):
-                for part_id in range(num_parts):
+                for part_id in tqdm(range(num_parts)):
                     output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     clear(output_folder)
                     execute_bash_scripts(output_folder)
