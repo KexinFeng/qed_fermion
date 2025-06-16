@@ -64,7 +64,8 @@ def plot_spin_r():
         
         # Average over equilibrated timesteps and batch dimension
         spsm_r_eq = spsm_r[seq_idx].mean(dim=0)  # Average over timesteps: [batch_size, Ly, Lx]
-        spsm_r_avg = spsm_r_eq.mean(dim=0) / 1       # Average over batches: [Ly, Lx]
+        spsm_r_avg = spsm_r_eq.mean(dim=0)       # Average over batches: [Ly, Lx]
+        spsm_r_avg = spsm_r_avg.abs()            # Take absolute value for correlation
         
         # Convert to numpy for easier manipulation
         spsm_r_np = spsm_r_avg.numpy()

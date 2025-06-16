@@ -17,6 +17,41 @@ import time
 
 process = psutil.Process(os.getpid())
 
+# Env Parameters
+debug_mode = int(os.getenv("debug", '0')) != 0
+print(f"debug_mode: {debug_mode}")
+if not debug_mode:
+    import matplotlib
+    matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
+
+cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
+print(f"cuda_graph: {cuda_graph}")
+mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
+print(f"mass_mode: {mass_mode}")
+compact = int(os.getenv("compact", '0')) != 0
+print(f"compact turned on: {compact}")
+K = float(os.getenv("K", '1'))
+print(f"K: {K}")
+max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
+print(f"max_tau_block_idx: {max_tau_block_idx}")  
+suffix = os.getenv("suffix", 'bench')
+
+Nrv = int(os.getenv("Nrv", '30'))
+print(f"Nrv: {Nrv}")
+os.environ["Nrv"] = str(Nrv)
+
+lmd = float(os.getenv("lmd", '0.9'))
+print(f"lmd: {lmd}")
+lambda_ = float(os.getenv("lambda_", '0.05'))
+print(f"lambda_: {lambda_}")
+sig_min = float(os.getenv("sig_min", '0.8'))
+print(f"sig_min: {sig_min}")
+sig_max = float(os.getenv("sig_max", '1.2'))
+print(f"sig_max: {sig_max}")
+gear0_steps = int(os.getenv("gear0_steps", '1000'))
+print(f"gear0_steps: {gear0_steps}")
+
+
 # matplotlib.use('MacOSX')
 plt.ion()
 import scipy.sparse as sp
@@ -49,35 +84,6 @@ cg_dtype = torch.complex64
 print(f"dtype: {dtype}")
 print(f"cdtype: {cdtype}")
 print(f"cg_cdtype: {cg_dtype}")
-
-debug_mode = int(os.getenv("debug", '0')) != 0
-print(f"debug_mode: {debug_mode}")
-if not debug_mode:
-    import matplotlib
-    matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
-
-cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
-print(f"cuda_graph: {cuda_graph}")
-mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
-print(f"mass_mode: {mass_mode}")
-compact = int(os.getenv("compact", '0')) != 0
-print(f"compact turned on: {compact}")
-K = float(os.getenv("K", '1'))
-print(f"K: {K}")
-max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
-print(f"max_tau_block_idx: {max_tau_block_idx}")  
-suffix = os.getenv("suffix", 'bench')
-
-lmd = float(os.getenv("lmd", '0.9'))
-print(f"lmd: {lmd}")
-lambda_ = float(os.getenv("lambda_", '0.05'))
-print(f"lambda_: {lambda_}")
-sig_min = float(os.getenv("sig_min", '0.8'))
-print(f"sig_min: {sig_min}")
-sig_max = float(os.getenv("sig_max", '1.2'))
-print(f"sig_max: {sig_max}")
-gear0_steps = int(os.getenv("gear0_steps", '1000'))
-print(f"gear0_steps: {gear0_steps}")
 
 # dt_deque_max_len = 5 * 10
 sigma_mini_batch_size = 50 if debug_mode else 1000

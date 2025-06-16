@@ -62,6 +62,7 @@ def plot_spin_r():
         # Average over equilibrated timesteps and batch dimension
         spsm_r_eq = spsm_r[seq_idx].mean(dim=0)  # Average over timesteps: [batch_size, Ly, Lx]
         spsm_r_avg = spsm_r_eq.mean(dim=0)       # Average over batches: [Ly, Lx]
+        spsm_r_avg = spsm_r_avg.abs()            # Take absolute value for correlation
         
         # Convert to numpy for easier manipulation
         spsm_r_np = spsm_r_avg.numpy()
@@ -101,7 +102,7 @@ def plot_spin_r():
                     label=f'L={Lx} (norm={spin_corr_values[0]:.3f})', markersize=4, alpha=0.8)
         
         dbstop = 1
-    
+
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
     plt.title('Spin-Spin Correlation vs Distance (x-direction, Raw Values)', fontsize=16)
@@ -109,17 +110,21 @@ def plot_spin_r():
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
-    # Save the plot
+    # Save the plot (linear axes)
     save_dir = os.path.join(script_path, "./figures/spin_r")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_distance_x_direction_raw.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Raw values figure saved at: {file_path}")
-    
+
+    # Save the plot with log-log axes
+    plt.xscale('log')
+    plt.yscale('log')
+    file_path_log = os.path.join(save_dir, "spin_r_vs_distance_x_direction_raw_loglog.pdf")
+    plt.savefig(file_path_log, format="pdf", bbox_inches="tight")
+    print(f"Raw values (log-log) figure saved at: {file_path_log}")
+
     plt.show()
-    
-    # Create normalized plot
-    plt.figure(figsize=(12, 10))
  
 
 if __name__ == '__main__':
