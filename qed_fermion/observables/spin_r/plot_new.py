@@ -24,12 +24,13 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40]
+    lattice_sizes = [6, 8, 10, 12, 16]
     
     # HMC data folder
-    hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large/hmc_check_point_large"
-    
+    hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large/new/hmc_check_point_cmp_large2"
+
     # Sampling parameters
-    start = 3000  # Skip initial equilibration steps
+    start = 5000  # Skip initial equilibration steps
     sample_step = 1
     
     plt.figure(figsize=(12, 10))
@@ -38,14 +39,16 @@ def plot_spin_r():
     all_data = {}
     
     for i, Lx in enumerate(lattice_sizes):
+        vs = Lx * Lx
+
         # Construct filename for this lattice size
         Ltau = int(10 * Lx)
         hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_True_step_10000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
         
         if not os.path.exists(hmc_filename):
-            print(f"File not found: {hmc_filename}")
-            continue
+            raise FileNotFoundError(f"File not found: {hmc_filename}")
+            
             
         # Load checkpoint data
         res = torch.load(hmc_filename, map_location='cpu')
@@ -61,7 +64,7 @@ def plot_spin_r():
         
         # Average over equilibrated timesteps and batch dimension
         spsm_r_eq = spsm_r[seq_idx].mean(dim=0)  # Average over timesteps: [batch_size, Ly, Lx]
-        spsm_r_avg = spsm_r_eq.mean(dim=0)       # Average over batches: [Ly, Lx]
+        spsm_r_avg = spsm_r_eq.mean(dim=0) / 1       # Average over batches: [Ly, Lx]
         
         # Convert to numpy for easier manipulation
         spsm_r_np = spsm_r_avg.numpy()
