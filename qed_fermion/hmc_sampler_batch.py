@@ -20,9 +20,6 @@ process = psutil.Process(os.getpid())
 # Env Parameters
 debug_mode = int(os.getenv("debug", '0')) != 0
 print(f"debug_mode: {debug_mode}")
-if not debug_mode:
-    import matplotlib
-    matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
 cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
 print(f"cuda_graph: {cuda_graph}")
@@ -51,6 +48,12 @@ print(f"sig_max: {sig_max}")
 gear0_steps = int(os.getenv("gear0_steps", '1000'))
 print(f"gear0_steps: {gear0_steps}")
 
+buffer = False
+
+# Plot settings
+if not debug_mode:
+    import matplotlib
+    matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
 
 # matplotlib.use('MacOSX')
 plt.ion()
@@ -172,7 +175,7 @@ class HmcSampler(object):
         self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
 
-        if self.Lx <= 10:
+        if self.Lx <= 10 and buffer:
             # boson_seq
             self.boson_seq_buffer = torch.zeros(self.stream_write_rate, self.bs, 2*self.Lx*self.Ly*self.Ltau, device='cpu', dtype=dtype)
 
@@ -2987,7 +2990,7 @@ class HmcSampler(object):
                 self.cg_iter_list[i] = cg_converge_iter_cpu
             self.cg_r_err_list[i] = cg_r_err_cpu
             self.delta_t_list[i] = delta_t_cpu
-            if self.Lx <= 10:
+            if self.Lx <= 10 and buffer:
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
             self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
             self.spsm_k_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
@@ -3146,7 +3149,7 @@ class HmcSampler(object):
         file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
         self.save_to_file(res, data_folder, file_name)  
 
-        if self.Lx <= 10:
+        if self.Lx <= 10 and buffer:
             # Save stream data
             data_folder = script_path + f"/check_points/hmc_check_point_{suffix}"
             file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
