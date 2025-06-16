@@ -124,6 +124,7 @@ def plot_spin_r():
     print(f"Raw values (log-log) figure saved at: {file_path_log}")
 
     plt.show()
+
  
 
 if __name__ == '__main__':
