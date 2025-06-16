@@ -23,7 +23,7 @@ def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
     
     # Define lattice sizes to analyze
-    lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40]
     
     # HMC data folder
     hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large/hmc_check_point_large"
@@ -32,7 +32,7 @@ def plot_spin_r():
     start = 3000  # Skip initial equilibration steps
     sample_step = 1
     
-    plt.figure(figsize=(12, 10))
+    plt.figure(figsize=(8, 6))
     
     # Store data for normalization analysis
     all_data = {}
@@ -44,8 +44,7 @@ def plot_spin_r():
         hmc_filename = os.path.join(hmc_folder, hmc_file)
         
         if not os.path.exists(hmc_filename):
-            print(f"File not found: {hmc_filename}")
-            continue
+            raise FileNotFoundError(f"File not found: {hmc_filename}")
             
         # Load checkpoint data
         res = torch.load(hmc_filename, map_location='cpu')
