@@ -1,4 +1,5 @@
-cd /Users/kx/Desktop/hmc/qed_fermion/qed_fermion/post_processors_noncmp/6x60_bs2
+cd "$(dirname "$0")"
+
 export Lx=6
 export Ltau=60
 python3 load_write2file_convert.py
