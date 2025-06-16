@@ -36,7 +36,7 @@ max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
 print(f"max_tau_block_idx: {max_tau_block_idx}")  
 suffix = os.getenv("suffix", 'bench')
 
-Nrv = int(os.getenv("Nrv", '30'))
+Nrv = int(os.getenv("Nrv", '20'))
 print(f"Nrv: {Nrv}")
 os.environ["Nrv"] = str(Nrv)
 
