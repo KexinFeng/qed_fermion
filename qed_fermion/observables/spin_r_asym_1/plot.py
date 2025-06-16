@@ -23,7 +23,7 @@ def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
     
     # Define lattice sizes to analyze
-    lattice_sizes = [10, 12, 16, 20, 30, 36, 40]
+    lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40]
     
     # HMC data folder
     hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large/hmc_check_point_large"
@@ -99,7 +99,7 @@ def plot_spin_r():
         color = f"C{i}"
         plt.errorbar(r_values, spin_corr_values, yerr=spin_corr_errors, 
                     linestyle='-', marker='o', lw=2, color=color, 
-                    label=f'L={Lx} (norm={spin_corr_values[0]:.3f})', markersize=4, alpha=0.8)
+                    label=f'L={Lx} (norm={spin_corr_values[0]:.3f})', markersize=8, alpha=0.8)
         
         dbstop = 1
 
