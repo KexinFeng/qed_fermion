@@ -18,20 +18,20 @@ sys.path.insert(0, script_path + '/../../../')
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
 
-loge_r_l12 = np.array([-0.000672932415154438,
+loge_r_l20 = np.array([-0.000672932415154438,
 1.1003491771532000,
 1.6095347046200500,
 1.9497992418294800,
 2.202148897512390])
 
-loge_corr_l12 = np.array([-2.8412555154432400,
+loge_corr_l20 = np.array([-2.8412555154432400,
 -6.0591656638588000,
 -7.766746891295630,
 -8.746590453269150,
 -9.20296831127156])
 
-r_l12 = np.exp(loge_r_l12)
-corr_l12 = np.exp(loge_corr_l12)
+r_l20 = np.exp(loge_r_l20)
+corr_l20 = np.exp(loge_corr_l20)
 
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
@@ -85,7 +85,7 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(0, Lx // 2 + 1, 2):
+        for r in range(1, Lx // 2 + 1, 2):
             x = r
             y = 0  
             
@@ -111,9 +111,9 @@ def plot_spin_r():
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
         # Only use r > 0 for log-log fit to avoid log(0)
-        r_fit = np.array(r_values[1:5])
-        spin_corr_fit = np.array(spin_corr_values[1:5])
-        spin_corr_err_fit = np.array(spin_corr_errors[1:5])
+        r_fit = np.array(r_values[0:5])
+        spin_corr_fit = np.array(spin_corr_values[0:5])
+        spin_corr_err_fit = np.array(spin_corr_errors[0:5])
 
         # Linear fit in log-log space
         log_r = np.log(r_fit)
@@ -130,8 +130,8 @@ def plot_spin_r():
         
         dbstop = 1
     
-    # Plot the r_l12 and corr_l12 data on the same plot for comparison
-    plt.plot(r_l12, corr_l12, 's--', color='black', label='L12 dqmc', markersize=8, alpha=0.99)
+    # Plot the r_l20 and corr_l20 data on the same plot for comparison
+    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.99)
         
     plt.xscale('log')
     plt.yscale('log')
