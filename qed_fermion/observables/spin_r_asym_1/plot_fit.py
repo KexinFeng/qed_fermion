@@ -18,6 +18,20 @@ sys.path.insert(0, script_path + '/../../../')
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
 
+loge_r_l12 = np.array([-0.000672932415154438,
+1.1003491771532000,
+1.6095347046200500,
+1.9497992418294800,
+2.202148897512390])
+
+loge_corr_l12 = np.array([-2.8412555154432400,
+-6.0591656638588000,
+-7.766746891295630,
+-8.746590453269150,
+-9.20296831127156])
+
+r_l12 = np.exp(loge_r_l12)
+corr_l12 = np.exp(loge_corr_l12)
 
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
@@ -115,6 +129,9 @@ def plot_spin_r():
                  label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
         dbstop = 1
+    
+    # Plot the r_l12 and corr_l12 data on the same plot for comparison
+    plt.plot(r_l12, corr_l12, 's--', color='black', label='L12 dqmc', markersize=8, alpha=0.99)
         
     plt.xscale('log')
     plt.yscale('log')
