@@ -71,7 +71,7 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(0, Lx // 2 + 1):
+        for r in range(0, Lx // 2 + 1, 2):
             x = r
             y = 0  
             
@@ -97,20 +97,23 @@ def plot_spin_r():
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
         # Only use r > 0 for log-log fit to avoid log(0)
-        r_fit = np.array(r_values[1:])
-        spin_corr_fit = np.array(spin_corr_values[1:])
-        spin_corr_err_fit = np.array(spin_corr_errors[1:])
+        r_fit = np.array(r_values[1:5])
+        spin_corr_fit = np.array(spin_corr_values[1:5])
+        spin_corr_err_fit = np.array(spin_corr_errors[1:5])
+
         # Linear fit in log-log space
         log_r = np.log(r_fit)
         log_corr = np.log(spin_corr_fit)
         coeffs = np.polyfit(log_r, log_corr, 1)
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
+
         # Plot data and fit in log-log space
-        plt.errorbar(r_fit, spin_corr_fit, yerr=spin_corr_err_fit, 
-                     linestyle='-', marker='o', lw=1.5, color=color, 
-                     label=f'L={Lx}', markersize=8, alpha=0.8)
+        plt.errorbar(r_values[1:], spin_corr_values[1:], yerr=spin_corr_errors[1:], 
+                     linestyle='', marker='o', lw=1.5, color=color, 
+                     label=f'L={Lx}', markersize=8, alpha=0.99)
         plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                  label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
+        
         dbstop = 1
         
     plt.xscale('log')
