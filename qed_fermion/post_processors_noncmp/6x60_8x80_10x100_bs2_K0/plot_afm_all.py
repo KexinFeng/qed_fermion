@@ -120,20 +120,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         filename = hmc_folder + f"/ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_{J}_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
         data = torch.load(filename, map_location='cpu')
         spsm_k_list = data['spsm_k_list'][start_dqmc:end_dqmc]
-        spsm_k_mean = spsm_k_list.mean(axis=(0, 1))
-        # spsm_k_err = spsm_k_list.err(axis=(0,)).mean(axis=0)
-
-        r_afm = 1 - spsm_k_mean[1, 0] / spsm_k_mean[0, 0]
-        # Error propagation for r_afm = 1 - spsm_k_mean[1, 0] / spsm_k_mean[0, 0]
-        A = spsm_k_mean[1, 0]
-        B = spsm_k_mean[0, 0]
-        # Estimate errors using std over samples
-        A_err = spsm_k_list[:, 1, 0].std() / np.sqrt(len(spsm_k_list))
-        B_err = spsm_k_list[:, 0, 0].std() / np.sqrt(len(spsm_k_list))
-        r_afm_err = np.sqrt((A_err / B) ** 2 + (A * B_err / B ** 2) ** 2)
-
-        ys.append(r_afm)
-        yerrs.append(r_afm_err)
+        r_afm = 1 - spsm_k_list[..., 1, 0] / spsm_k_list[..., 0, 0]
+        ys.append(r_afm.mean())
+        yerrs.append(r_afm.std())
         xs.append(J)
 
     plt.errorbar(np.array(xs), np.array(ys), yerr=np.array(yerrs), 

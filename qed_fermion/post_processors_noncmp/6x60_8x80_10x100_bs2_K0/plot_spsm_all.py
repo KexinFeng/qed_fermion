@@ -98,49 +98,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
 
 
     # # ========== Spin order ========= #
-    # # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
-    # r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
-    # r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
-
-    # # Plot the batch mean
-    # plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
-    #              linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
-    
-    # ---- Load dqmc and plot ----
-    filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_coratio.dat"
-    data = np.genfromtxt(filename)
-    plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
-    
-    # ---- Load hmc and plot ----
-    xs = []
-    ys = []
-    yerrs = []
-    for J in Js:
-        filename = hmc_folder + f"/ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_{J}_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
-        data = torch.load(filename, map_location='cpu')
-        spsm_k_list = data['spsm_k_list'][start_dqmc:end_dqmc]
-        spsm_k_mean = spsm_k_list.mean(axis=(0, 1))
-        # spsm_k_err = spsm_k_list.err(axis=(0,)).mean(axis=0)
-
-        r_afm = 1 - spsm_k_mean[1, 0] / spsm_k_mean[0, 0]
-        # Error propagation for r_afm = 1 - spsm_k_mean[1, 0] / spsm_k_mean[0, 0]
-        A = spsm_k_mean[1, 0]
-        B = spsm_k_mean[0, 0]
-        # Estimate errors using std over samples
-        A_err = spsm_k_list[:, 1, 0].std() / np.sqrt(len(spsm_k_list))
-        B_err = spsm_k_list[:, 0, 0].std() / np.sqrt(len(spsm_k_list))
-        r_afm_err = np.sqrt((A_err / B) ** 2 + (A * B_err / B ** 2) ** 2)
-
-        ys.append(r_afm)
-        yerrs.append(r_afm_err)
-        xs.append(J)
-
-    plt.errorbar(np.array(xs), np.array(ys), yerr=np.array(yerrs), 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}')
-    
-    # # ----
-
     # # plt.errorbar(Js, spin_order_values, yerr=spin_order_errors, 
     # #             linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
     
@@ -155,11 +112,26 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     # plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
     #              linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
-    # # ---- Load dqmc and plot ----
-    # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    # data = np.genfromtxt(dqmc_filename)
-    # plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-    #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+    # ---- Load dqmc and plot ----
+    filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
+    data = np.genfromtxt(filename)
+    plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
+                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+    
+    # ---- Load hmc and plot ----
+    xs = []
+    ys = []
+    yerrs = []
+    for J in Js:
+        filename = hmc_folder + f"/ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_{J}_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
+        data = torch.load(filename, map_location='cpu')
+        spsm_k_list = data['spsm_k_list'][start_dqmc:end_dqmc]
+        ys.append(spsm_k_list.mean(axis=(0, 1))[0, 0])
+        yerrs.append(spsm_k_list.std(axis=(0,)).mean(axis=(0,))[0, 0])
+        xs.append(J)
+
+    plt.errorbar(np.array(xs), np.array(ys) / vs, yerr=np.array(yerrs)/ vs, 
+                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}')
 
 
 if __name__ == '__main__':
@@ -184,15 +156,15 @@ if __name__ == '__main__':
 
     # Plot setting
     plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('afm', fontsize=14)
+    plt.ylabel('S_AF / Ns', fontsize=14)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
     
     plt.show(block=False)
     # Save plot
-    method_name = "afm_ratio"
-    save_dir = os.path.join(script_path, f"./figures/afm")
+    method_name = "spin_order"
+    save_dir = os.path.join(script_path, f"./figures/spin_order")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
