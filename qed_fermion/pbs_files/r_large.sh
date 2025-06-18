@@ -20,6 +20,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
+L_array=$(echo '50 46 40 36')
 # L_array=$(echo '24 20 16 12 10 8 6')
 
 
@@ -28,14 +29,14 @@ L_array=$(echo '40 36 30 20 16 12 10 8 6')
 
 Nstep=10000
 
-export suffix=cmp_large5_dtau2
+export suffix=cmp_large6_tuneNrv
 export debug=0
-export asym=2
+export asym=1
 export cuda_graph=1
-export Nrv=40
 export compact=1
 export K=1
-export dtau=0.2
+export dtau=0.1
+export precon=0
 
 for L in $L_array; do
         #
