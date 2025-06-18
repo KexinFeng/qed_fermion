@@ -50,61 +50,65 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     
     # plt.figure(figsize=(8, 6))
     
-    # for J in Js:
-    #     # Initialize data collection arrays for this J value
-    #     all_data = []
+    for J in Js:
+        # Initialize data collection arrays for this J value
+        all_data = []
         
-    #     # Calculate the number of parts
-    #     num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
+        # Calculate the number of parts
+        num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
         
-    #     # Loop through all batches and parts
-    #     for bid in range(bs):
-    #         # if not bid == 0: continue
-    #         for part_id in range(num_parts):
-    #             input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-    #             name = f"spsm.bin"
-    #             ftdqmc_filename = os.path.join(input_folder, name)
+        # Loop through all batches and parts
+        for bid in range(bs):
+            # if not bid == 0: continue
+            for part_id in range(num_parts):
+                input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+                name = f"spsm.bin"
+                ftdqmc_filename = os.path.join(input_folder, name)
                 
-    #             try:
-    #                 part_data = np.genfromtxt(ftdqmc_filename)
-    #                 all_data.append(part_data)
-    #                 print(f'Loaded ftdqmc data: {ftdqmc_filename}')
-    #             except (FileNotFoundError, ValueError) as e:
-    #                 raise RuntimeError(f'Error loading {ftdqmc_filename}: {str(e)}') from e
+                try:
+                    part_data = np.genfromtxt(ftdqmc_filename)
+                    all_data.append(part_data)
+                    print(f'Loaded ftdqmc data: {ftdqmc_filename}')
+                except (FileNotFoundError, ValueError) as e:
+                    raise RuntimeError(f'Error loading {ftdqmc_filename}: {str(e)}') from e
         
-    #     # Combine all parts' data
-    #     data = np.concatenate(all_data)
-    #     data = data.reshape(bs, -1, vs, 4)
-    #     # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
-    #     # [num_sample]
-    #     r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
+        # Combine all parts' data
+        data = np.concatenate(all_data)
+        data = data.reshape(bs, -1, vs, 4)
+        # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
+        # [num_sample]
+        r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
 
-    #     # spin order
-    #     spin_order = np.mean(data[..., 0, 2], axis=1)
-    #     spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
-    #     spin_order_values.append(spin_order)
-    #     spin_order_errors.append(spin_order_err)
+        # # spin order
+        # spin_order = np.mean(data[..., 0, 2], axis=1)
+        # spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
+        # spin_order_values.append(spin_order)
+        # spin_order_errors.append(spin_order_err)
 
-    #     # r_afm = spin_order
-    #     rtol = data[:, :, :, 3] / data[:, :, :, 2]
-    #     r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
+        # r_afm = spin_order
+        rtol = data[:, :, :, 3] / data[:, :, :, 2]
+        r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
         
-    #     # Calculate mean and error for plotting
-    #     r_afm_mean = np.mean(r_afm, axis=1)
-    #     r_afm_error = np.mean(r_afm_err, axis=1)
+        # Calculate mean and error for plotting
+        r_afm_mean = np.mean(r_afm, axis=1)
+        r_afm_error = np.mean(r_afm_err, axis=1)
         
-    #     r_afm_values.append(r_afm_mean)
-    #     r_afm_errors.append(r_afm_error)
+        r_afm_values.append(r_afm_mean)
+        r_afm_errors.append(r_afm_error)
 
 
-    # # ========== Spin order ========= #
-    # # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
-    # r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
-    # r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
+    # ========== Spin order ========= #
+    # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
+    r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
+    r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
 
-    # # Plot the batch mean
-    # plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
-    #              linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+    # Plot the batch mean
+    if Lx == 6:
+        plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
+                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+    else:
+        plt.errorbar(Js[:-1], r_afm_values[:, 1][:-1], yerr=r_afm_errors[:, 1][:-1],
+                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
     
     # ---- Load dqmc and plot ----
     filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_coratio.dat"
@@ -130,36 +134,16 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         # Estimate errors using std over samples
         A_err = spsm_k_list[:, 1, 0].std() / np.sqrt(len(spsm_k_list))
         B_err = spsm_k_list[:, 0, 0].std() / np.sqrt(len(spsm_k_list))
-        r_afm_err = np.sqrt((A_err / B) ** 2 + (A * B_err / B ** 2) ** 2)
+        rtol_A = A_err / A if A != 0 else 0
+        rtol_B = B_err / B if B != 0 else 0
+        r_afm_err = abs(rtol_B - rtol_A) * (1 - r_afm)
 
         ys.append(r_afm)
         yerrs.append(r_afm_err)
         xs.append(J)
 
     plt.errorbar(np.array(xs), np.array(ys), yerr=np.array(yerrs), 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}')
-    
-    # # ----
-
-    # # plt.errorbar(Js, spin_order_values, yerr=spin_order_errors, 
-    # #             linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
-    
-    # # Stack spin_order_values and spin_order_errors to arrays of shape [Js_num, bs]
-    # spin_order_values = np.stack(spin_order_values, axis=0)  # shape: [Js_num, bs]
-    # spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
-
-    # # Filter out outliers in spin_order_values (values > 100)
-    # spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
-
-    # # Plot the batch mean
-    # plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
-    #              linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
-
-    # # ---- Load dqmc and plot ----
-    # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    # data = np.genfromtxt(dqmc_filename)
-    # plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-    #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+                fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}')
 
 
 if __name__ == '__main__':
@@ -187,7 +171,7 @@ if __name__ == '__main__':
     plt.ylabel('afm', fontsize=14)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
-    plt.legend()
+    plt.legend(ncol=3)
     
     plt.show(block=False)
     # Save plot

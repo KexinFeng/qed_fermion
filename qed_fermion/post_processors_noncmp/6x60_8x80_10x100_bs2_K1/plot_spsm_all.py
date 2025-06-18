@@ -106,11 +106,10 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
 
     # Filter out outliers in spin_order_values (values > 100)
-    spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
+    spin_order_values = np.where(spin_order_values > 10, np.nan, spin_order_values)
 
     # Plot the batch mean
-    plt.errorbar(Js[:-1], spin_order_values[:, 1][:-1] / vs, yerr=spin_order_errors[:, 1][:-1] / vs,
-                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+    plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs, linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     # ---- Load dqmc and plot ----
     filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
@@ -162,7 +161,7 @@ if __name__ == '__main__':
     plt.ylabel('S_AF / Ns', fontsize=14)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
-    plt.legend()
+    plt.legend(ncol=3)
     
     plt.show(block=False)
     # Save plot
