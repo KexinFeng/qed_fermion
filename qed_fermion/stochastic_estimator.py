@@ -25,6 +25,8 @@ Nrv = int(os.getenv("Nrv", '20'))
 print(f"Nrv: {Nrv}")
 max_iter_se = int(os.getenv("max_iter_se", '100'))
 print(f"max_iter_se: {max_iter_se}")
+precon_on = int(os.getenv("precon", '1')) == 1
+print(f"precon_on: {precon_on}")
 
 class StochaticEstimator:
     # This function computes the fermionic green's function, mainly four-point function. The aim is to surrogate the postprocessing of the HMC boson samples. For a given boson, the M(boson) is the determined, so is M_inv aka green's function.
@@ -58,13 +60,13 @@ class StochaticEstimator:
         self.graph_memory_pool = hmc.graph_memory_pool
 
         # init
-        if hmc.precon_csr is None and hmc.dtau <= 0.1:
+        if hmc.precon_csr is None and hmc.dtau <= 0.1 and precon_on:
             hmc.reset_precon()
 
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
         print(f"Nrv: {self.Nrv}")
-        print(f"max_iter_se: {self.max_iter_se}")
+        print(f"max_iter_se: {hmc._MAX_ITERS_TO_CAPTURE[0]}")
         # Capture
         if self.cuda_graph_se:
             print("Initializing CUDA graph for get_fermion_obsr.........")
@@ -75,7 +77,7 @@ class StochaticEstimator:
             self.graph_memory_pool = self.graph_runner.capture(
                                         dummy_bosons, 
                                         dummy_eta, 
-                                        max_iter_se=self.max_iter_se,
+                                        max_iter_se=hmc._MAX_ITERS_TO_CAPTURE[0],
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
             print('')
