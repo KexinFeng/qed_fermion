@@ -33,15 +33,17 @@ loge_corr_l20 = np.array([-2.8412555154432400,
 r_l20 = np.exp(loge_r_l20)
 corr_l20 = np.exp(loge_corr_l20)
 
+# HMC data folder
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large4_Nrv40/hmc_check_point_cmp_large4_Nrv40"
+   
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
     
     # Define lattice sizes to analyze
+    lattice_sizes = [6, 8, 10, 12, 16, 20, 24]
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40]
-    
-    # HMC data folder
-    hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large/hmc_check_point_large"
-    
+    asym = 1
+
     # Sampling parameters
     start = 3000  # Skip initial equilibration steps
     sample_step = 1
@@ -53,7 +55,7 @@ def plot_spin_r():
     
     for i, Lx in enumerate(lattice_sizes):
         # Construct filename for this lattice size
-        Ltau = int(10 * Lx)
+        Ltau = int(asym * 10 * Lx)
         hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_True_step_10000.pt"
         hmc_filename = os.path.join(hmc_folder, hmc_file)
         
@@ -124,14 +126,14 @@ def plot_spin_r():
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                      linestyle='', marker='o', lw=1.5, color=color, 
-                     label=f'L={Lx}', markersize=8, alpha=0.99)
+                     label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
         plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                  label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
         dbstop = 1
     
     # Plot the r_l20 and corr_l20 data on the same plot for comparison
-    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.99)
+    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
         
     plt.xscale('log')
     plt.yscale('log')
