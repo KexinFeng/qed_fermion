@@ -35,10 +35,10 @@ from load_write2file_convert import time_execution
 
 
 @time_execution
-def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
+def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     Lx, Ly, Ltau = Lsize
 
-    i1, i2, i3 = ipair*3, ipair*3 + 1, ipair*3 + 2
+    i1, i2 = ipair
 
     Js = [1, 1.5, 2, 2.3, 2.5, 3]
     r_afm_values = []
@@ -106,34 +106,17 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
 
     # Filter out outliers in spin_order_values (values > 100)
-    spin_order_values = np.where(spin_order_values > 10, np.nan, spin_order_values)
+    spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
 
     # Plot the batch mean
-    plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs, linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+    plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
+                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     # ---- Load dqmc and plot ----
-    filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    data = np.genfromtxt(filename)
+    dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
+    data = np.genfromtxt(dqmc_filename)
     plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}', alpha=0.6)
-    
-    # ---- Load hmc and plot ----
-    xs = []
-    ys = []
-    yerrs = []
-    for J in Js:
-        filename = hmc_folder + f"/ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_{J}_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
-        data = torch.load(filename, map_location='cpu')
-        spsm_k_list = data['spsm_k_list'][start_dqmc:end_dqmc]
-        ys.append(spsm_k_list.mean(axis=(0, 1))[0, 0])
-        yerrs.append(
-            spsm_k_list.std(axis=(0,)).mean(axis=(0,))[0, 0] / 
-            np.sqrt(spsm_k_list.shape[0] * spsm_k_list.shape[1])
-        )
-        xs.append(J)
-
-    plt.errorbar(np.array(xs), np.array(ys) / vs, yerr=np.array(yerrs)/ vs, 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}', alpha=0.6)
+                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
 
 
 if __name__ == '__main__':
@@ -143,17 +126,16 @@ if __name__ == '__main__':
     for idx, Lx in enumerate([6, 8, 10]):
         Ltau = Lx * 10
 
-        asym = int(Ltau / Lx * 0.1)
+        asym = Ltau / Lx * 0.1
 
         part_size = 500
         start_dqmc = 5000
         end_dqmc = 10000
 
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench1/"
-        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp/"
-        dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_noncompact_kexin_hk_avg/"
+        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
+        dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
 
-        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=idx)
+        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1))
         dbstop = 1
 
     # Plot setting
@@ -161,7 +143,7 @@ if __name__ == '__main__':
     plt.ylabel('S_AF / Ns', fontsize=14)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
-    plt.legend(ncol=3)
+    plt.legend()
     
     plt.show(block=False)
     # Save plot

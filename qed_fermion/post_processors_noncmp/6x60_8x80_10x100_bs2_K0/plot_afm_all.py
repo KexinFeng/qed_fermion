@@ -132,8 +132,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         A = spsm_k_mean[1, 0]
         B = spsm_k_mean[0, 0]
         # Estimate errors using std over samples
-        A_err = spsm_k_list[:, 1, 0].std() / np.sqrt(len(spsm_k_list))
-        B_err = spsm_k_list[:, 0, 0].std() / np.sqrt(len(spsm_k_list))
+        A_err = std_root_n(spsm_k_list[..., 1, 0].numpy(), axis=0, lag_sum=500)[0]
+        B_err = std_root_n(spsm_k_list[..., 0, 0].numpy(), axis=0, lag_sum=500)[0]
         rtol_A = A_err / A if A != 0 else 0
         rtol_B = B_err / B if B != 0 else 0
         r_afm_err = np.sqrt(rtol_B**2 + rtol_A**2) * (1 - r_afm)
