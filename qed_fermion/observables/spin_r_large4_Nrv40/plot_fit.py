@@ -49,7 +49,10 @@ def plot_spin_r():
     sample_step = 1
     
     plt.figure(figsize=(8, 6))
-    
+
+    # Plot the r_l20 and corr_l20 data on the same plot for comparison
+    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+       
     # Store data for normalization analysis
     all_data = {}
     
@@ -113,13 +116,14 @@ def plot_spin_r():
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
         # Only use r > 0 for log-log fit to avoid log(0)
-        r_fit = np.array(r_values[0:5])
-        spin_corr_fit = np.array(spin_corr_values[0:5])
-        spin_corr_err_fit = np.array(spin_corr_errors[0:5])
+        r_fit = np.array(r_values[1:6])
+        spin_corr_fit = np.array(spin_corr_values[1:6])
+        spin_corr_err_fit = np.array(spin_corr_errors[1:6])
 
-        # Linear fit in log-log space
+        # # Linear fit in log-log space
         log_r = np.log(r_fit)
         log_corr = np.log(spin_corr_fit)
+        
         coeffs = np.polyfit(log_r, log_corr, 1)
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
@@ -129,11 +133,39 @@ def plot_spin_r():
                      label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
         plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                  label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
+
+        # # Semi-log fit: fit log_corr vs r (i.e., log-linear fit)
+        # coeffs_semilog = np.polyfit(r_fit, log_corr, 1)
+        # fit_line_semilog = np.exp(coeffs_semilog[1]) * np.exp(coeffs_semilog[0] * r_fit)
+        
+        # Plot data and fit in semi-log space (log-linear)
+        # plt.figure(figsize=(8, 6))
+
+        # plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=np.array(spin_corr_errors[0:]), 
+        #          linestyle='', marker='o', lw=1.5, color=color, 
+        #          label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
+        # plt.plot(r_fit, fit_line_semilog, '-', color=color, alpha=0.6, lw=1.5, 
+        #      label=f'Smlog Fit L={Lx}: log(y)~{coeffs_semilog[0]:.2f}x')
+        
+        # plt.xscale('linear')
+        # plt.yscale('log')
+
+        # plt.xlabel('Distance r (lattice units)', fontsize=14)
+        # plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+
+        # plt.legend(fontsize=10)
+        # plt.grid(True, alpha=0.3)
+        # plt.tight_layout()
+        
+        # # Save the plot for this Lx in a subfolder
+        # save_dir = os.path.join(script_path, f"./figures/spin_r_fit/per_Lx")
+        # os.makedirs(save_dir, exist_ok=True)
+        # file_path = os.path.join(save_dir, f"spin_r_vs_x_fit_smlg_Lx{Lx}.pdf")
+        # plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        # print(f"Figure for Lx={Lx} saved at: {file_path}")
+        # plt.close()
         
         dbstop = 1
-    
-    # Plot the r_l20 and corr_l20 data on the same plot for comparison
-    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
         
     plt.xscale('log')
     plt.yscale('log')
