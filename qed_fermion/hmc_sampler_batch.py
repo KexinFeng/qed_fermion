@@ -33,9 +33,20 @@ max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
 print(f"max_tau_block_idx: {max_tau_block_idx}")  
 suffix = os.getenv("suffix", 'bench')
 
-Nrv = int(os.getenv("Nrv", '20'))
+Lx = int(os.getenv("L", '6'))
+asym = float(os.environ.get("asym", '1'))
+Ltau = int(asym*Lx * 10)  # dtau=0.1
+print(f"Lx: {Lx}")
+print(f"Ltau: {Ltau}")
+vs = Lx * Lx * Ltau
+if 80000 <= vs < 640000: Nrv = 60  # 20 <= Lx < 40
+elif vs < 1250000: Nrv = 40 # Lx < 20 or 40 <= Lx < 50 
+else: Nrv = 20  # Lx >= 50
+
+Nrv = int(os.getenv("Nrv", f'{Nrv}'))
 print(f"Nrv: {Nrv}")
 os.environ["Nrv"] = str(Nrv)
+
 dtau = float(os.getenv("dtau", '0.1'))
 print(f"dtau: {dtau}")
 
@@ -3298,13 +3309,11 @@ def load_visualize_final_obsr(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '5000'))
-    Lx = int(os.getenv("L", '6'))
-    # Ltau = int(os.getenv("Ltau", '10'))
-    # print(f'J={J} \nNstep={Nstep}')
-    asym = float(os.environ.get("asym", '1'))
+    # Lx = int(os.getenv("L", '6'))
 
-    Ltau = int(asym*Lx * 10) # dtau=0.1
-    # Ltau = 10 # dtau=0.1
+    # asym = float(os.environ.get("asym", '1'))
+
+    # Ltau = int(asym*Lx * 10) # dtau=0.1
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)

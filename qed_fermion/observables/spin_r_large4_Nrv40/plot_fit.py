@@ -167,8 +167,8 @@ def plot_spin_r():
         
         dbstop = 1
         
-    plt.xscale('log')
-    plt.yscale('log')
+        plt.xscale('log')
+        plt.yscale('log')
 
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
