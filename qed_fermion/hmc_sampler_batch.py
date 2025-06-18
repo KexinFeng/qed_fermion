@@ -265,7 +265,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [100, 200, 400]
-        self._MAX_ITERS_TO_CAPTURE = [100]
+        self._MAX_ITERS_TO_CAPTURE = [100] if dtau <= 0.1 else [500]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
