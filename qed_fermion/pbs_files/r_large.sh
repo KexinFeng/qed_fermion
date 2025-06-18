@@ -29,7 +29,7 @@ L_array=$(echo '50 46 40 36')
 
 Nstep=10000
 
-export suffix=cmp_large6_tuneNrv
+export suffix=cmp_large6_tuneNrv2
 export debug=0
 export asym=1
 export cuda_graph=1
