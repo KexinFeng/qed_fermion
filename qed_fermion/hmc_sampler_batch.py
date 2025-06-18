@@ -36,6 +36,8 @@ suffix = os.getenv("suffix", 'bench')
 Nrv = int(os.getenv("Nrv", '20'))
 print(f"Nrv: {Nrv}")
 os.environ["Nrv"] = str(Nrv)
+dtau = float(os.getenv("dtau", '0.1'))
+print(f"dtau: {dtau}")
 
 lmd = float(os.getenv("lmd", '0.9'))
 print(f"lmd: {lmd}")
@@ -131,7 +133,7 @@ class HmcSampler(object):
         # J = 0.5  # 0.5, 1, 3
         # self.dtau = 2/(J*self.Nf)
 
-        self.dtau = 0.1
+        self.dtau = dtau
         scale = self.dtau  
         # Lagrangian * dtau
         self.J = J / scale * self.Nf / 4
@@ -709,7 +711,7 @@ class HmcSampler(object):
         # Initialize variables
         x = torch.zeros_like(b).view(self.bs, -1)
         r = b.view(self.bs, -1) - _C.mhm_vec(boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
-        z = _C.precon_vec(r, self.precon_csr, self.Lx)
+        z = _C.precon_vec(r, self.precon_csr, self.Lx) if self.dtau <= 0.1 else r
 
         p = z
         rz_old = torch.einsum('bj,bj->b', r.conj(), z).real
@@ -774,7 +776,7 @@ class HmcSampler(object):
                 iterations += (active_bs == 1).view(-1).long()
 
             # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to rtL)
-            z = _C.precon_vec(r, self.precon_csr, self.Lx)
+            z = _C.precon_vec(r, self.precon_csr, self.Lx) if self.dtau <= 0.1 else r
             rz_new = torch.einsum('bj,bj->b', r.conj(), z).real
             beta = rz_new / rz_old
             p = z + beta.unsqueeze(-1) * p * active_bs
@@ -2851,7 +2853,9 @@ class HmcSampler(object):
             print("Initial device memory: ", d_mem_str)
             print('')
 
-        self.reset_precon()
+        if self.dtau <= 0.1:
+            self.reset_precon()
+            
         if self.cuda_graph:
             d_mem_str, d_mem1 = device_mem()
             print(f"After setting precon: {d_mem_str}, incr.by: {d_mem1 - d_mem0:.2f} MB\n")

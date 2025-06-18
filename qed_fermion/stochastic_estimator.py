@@ -58,7 +58,7 @@ class StochaticEstimator:
         self.graph_memory_pool = hmc.graph_memory_pool
 
         # init
-        if hmc.precon_csr is None:
+        if hmc.precon_csr is None and hmc.dtau <= 0.1:
             hmc.reset_precon()
 
     def init_cuda_graph(self):
