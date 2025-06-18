@@ -87,7 +87,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
 
         # r_afm = spin_order
         rtol = data[:, :, :, 3] / data[:, :, :, 2]
-        r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
+        r_afm_err = np.sqrt(rtol[:, :, 0]**2 + rtol[:, :, 1]**2) * (1 - r_afm)
         
         # Calculate mean and error for plotting
         r_afm_mean = np.mean(r_afm, axis=1)
@@ -136,7 +136,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         B_err = spsm_k_list[:, 0, 0].std() / np.sqrt(len(spsm_k_list))
         rtol_A = A_err / A if A != 0 else 0
         rtol_B = B_err / B if B != 0 else 0
-        r_afm_err = abs(rtol_B - rtol_A) * (1 - r_afm)
+        r_afm_err = np.sqrt(rtol_B**2 + rtol_A**2) * (1 - r_afm)
 
         ys.append(r_afm)
         yerrs.append(r_afm_err)
