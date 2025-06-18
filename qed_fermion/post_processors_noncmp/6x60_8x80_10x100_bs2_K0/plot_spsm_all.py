@@ -115,7 +115,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     data = np.genfromtxt(filename)
     plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}', alpha=0.6)
     
     # ---- Load hmc and plot ----
     xs = []
@@ -128,12 +128,12 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         ys.append(spsm_k_list.mean(axis=(0, 1))[0, 0])
         yerrs.append(
             spsm_k_list.std(axis=(0,)).mean(axis=(0,))[0, 0] / 
-            np.sqrt(spsm_k_list.shape[0])
+            np.sqrt(spsm_k_list.shape[0] * spsm_k_list.shape[1])
         )
         xs.append(J)
 
     plt.errorbar(np.array(xs), np.array(ys) / vs, yerr=np.array(yerrs)/ vs, 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}', alpha=0.8)
+                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}', alpha=0.6)
 
 
 if __name__ == '__main__':
