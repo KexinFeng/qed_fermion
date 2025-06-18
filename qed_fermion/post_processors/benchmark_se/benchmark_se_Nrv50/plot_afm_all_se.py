@@ -18,10 +18,10 @@ sys.path.insert(0, script_path + '/../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
-from load_write2file_convert import time_execution
+# from load_write2file_convert import time_execution
 
 
-@time_execution
+# @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     Lx, Ly, Ltau = Lsize
 
@@ -111,11 +111,11 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     # Calculate afm ratio as in r_afm
     afm_vals = 1 - spsm_k_mean[:, 0, 1] / spsm_k_mean[:, 0, 0]
     # Error propagation for ratio: err = |A/B| * sqrt((errA/A)^2 + (errB/B)^2)
-    errA = spsm_k_std[:, 0, 1]
-    errB = spsm_k_std[:, 0, 0]
+    errA = spsm_k_std[:, 0, 1] / np.sqrt(spsm_k_std.shape[0])
+    errB = spsm_k_std[:, 0, 0] / np.sqrt(spsm_k_std.shape[0])
     A = spsm_k_mean[:, 0, 1]
     B = spsm_k_mean[:, 0, 0]
-    afm_errs = np.abs(A/B) * np.sqrt((errA/A)**2 + (errB/B)**2)
+    afm_errs = np.abs(1 - A/B) * np.sqrt((errA/A)**2 + (errB/B)**2)
     plt.errorbar(Js, afm_vals, yerr=afm_errs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
 

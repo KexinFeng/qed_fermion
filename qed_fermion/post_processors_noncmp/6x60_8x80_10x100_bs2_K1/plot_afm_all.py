@@ -143,7 +143,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         xs.append(J)
 
     plt.errorbar(np.array(xs), np.array(ys), yerr=np.array(yerrs), 
-                fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}')
+                fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}', alpha=0.8)
 
 
 if __name__ == '__main__':

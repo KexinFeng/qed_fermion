@@ -17,12 +17,12 @@ sys.path.insert(0, script_path + '/../../../../')
 sys.path.insert(0, script_path + '/../')
 
 
-from load_write2file_convert import time_execution
+# from load_write2file_convert import time_execution
 
 
 bid = 1
 
-@time_execution
+# @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     Lx, Ly, Ltau = Lsize
 
@@ -113,7 +113,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
         # Compute spin order as sum of spsm_k_mean divided by vs
     spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    spin_pi_errs = spsm_k_res['std'][:, 0, 0]
+    spin_pi_errs = spsm_k_res['std'][:, 0, 0] / np.sqrt(spsm_k_res['std'].shape[0])  # [J/bs, Ly, Lx]
 
     plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')

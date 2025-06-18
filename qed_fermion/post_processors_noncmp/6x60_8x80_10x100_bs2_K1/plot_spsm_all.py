@@ -128,12 +128,12 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         ys.append(spsm_k_list.mean(axis=(0, 1))[0, 0])
         yerrs.append(
             spsm_k_list.std(axis=(0,)).mean(axis=(0,))[0, 0] / 
-            np.sqrt(spsm_k_list.shape[0] * spsm_k_list.shape[1])
+            np.sqrt(spsm_k_list.shape[0])
         )
         xs.append(J)
 
     plt.errorbar(np.array(xs), np.array(ys) / vs, yerr=np.array(yerrs)/ vs, 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}')
+                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hmcse_{Lx}x{Ltau}', alpha=0.8)
 
 
 if __name__ == '__main__':
