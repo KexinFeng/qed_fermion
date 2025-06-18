@@ -283,8 +283,8 @@ class HmcSampler(object):
         self.leapfrog_cmp_graph_runners = None
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
-        self._MAX_ITERS_TO_CAPTURE = [100, 200, 400]
-        self._MAX_ITERS_TO_CAPTURE = [100] if dtau <= 0.1 and precon_on else [400]
+        self._MAX_ITERS_TO_CAPTURE = [100, 200, 400] # [100] will lead 10^-2 rtol
+        self._MAX_ITERS_TO_CAPTURE = [300] if dtau <= 0.1 and precon_on else [400]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
 
