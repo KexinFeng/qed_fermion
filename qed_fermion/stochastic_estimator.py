@@ -1017,7 +1017,7 @@ class StochaticEstimator:
         """
         zsp_i sm_j = <c^+_i c_j><c_i c^+_j> = (delta_ij  - <c_j c^+_i>)<c_i c^+_j>
         = grupc(i, j) * grup(i, j) = (- grup(j, i) + delta_ij) * grup(i, j)
-        = - grup (D, 0) * grup(0, D) + grup(0, 0) * delta_{D, 0}, where Delta = i - j
+        = - grup (D, 0) * grup(0, D) + grup(0, 0) * delta_{D, 0}, where Delta = j - i
         = - GD0_G0D + G_D0 * delta_{D, 0}
 
         spsm: [Ly, Lx]
