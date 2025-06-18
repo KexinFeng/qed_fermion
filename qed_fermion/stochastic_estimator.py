@@ -344,8 +344,8 @@ class StochaticEstimator:
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
 
         # Get all unique pairs (s, s_prime) with s < s_prime
-        N = eta_ext_conj.shape[0]
-        s, s_prime = torch.triu_indices(N, N, offset=1, device=eta.device)
+        Nrv = eta_ext_conj.shape[0]
+        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
 
         # a = eta_ext_conj[s] * G_eta_ext[s_prime]
         # b = eta_ext_conj[s_prime] * G_eta_ext[s]
@@ -358,7 +358,7 @@ class StochaticEstimator:
         # G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), N)  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), Nrv)  # Adjust batch size based on memory constraints
         # batch_size = len(s)
         # num_loop = 10
         # batch_size = total_pairs // num_loop
