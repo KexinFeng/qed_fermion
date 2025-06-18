@@ -2932,7 +2932,8 @@ class HmcSampler(object):
                 start_time = time.perf_counter()
 
                 print(f"Step {i}: metropolis update took {(start_time - start_time0)*1:.2f} sec")
-            
+                sys.stdout.flush()
+
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
             if self.se.cuda_graph_se:
                 obsr = self.se.graph_runner(boson, eta)
@@ -2948,7 +2949,8 @@ class HmcSampler(object):
                 end_time = time.perf_counter()
             
                 print(f"Step {i}: Fermion computation took {(end_time - start_time)*1:.2f} sec")
-
+                sys.stdout.flush()
+                
             # Submit new task to the executor
             future = executor.submit(
                 async_cpu_computations, 
