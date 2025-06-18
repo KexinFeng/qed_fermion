@@ -127,8 +127,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         spsm_k_list = data['spsm_k_list'][start_dqmc:end_dqmc]
         ys.append(spsm_k_list.mean(axis=(0, 1))[0, 0])
         yerrs.append(
-            spsm_k_list.std(axis=(0,)).mean(axis=(0,))[0, 0] / 
-            np.sqrt(spsm_k_list.shape[0] * spsm_k_list.shape[1])
+            std_root_n(spsm_k_list.numpy(), axis=0, lag_sum=500)[0, 0, 0]
         )
         xs.append(J)
 
