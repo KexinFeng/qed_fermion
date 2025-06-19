@@ -20,6 +20,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
+L_array=$(echo '40')
 # L_array=$(echo '50 46 40 36')
 # L_array=$(echo '24 20 16 12 10 8 6')
 
@@ -28,15 +29,17 @@ L_array=$(echo '40 36 30 20 16 12 10 8 6')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
 Nstep=10000
+export debug=0
+export cuda_graph=1
 
 export suffix=noncmpK0_large1_spsm
-export debug=0
 export asym=1
-export cuda_graph=1
 export compact=0
 export K=0
 export dtau=0.1
 export precon=1
+
+export seed=42
 
 for L in $L_array; do
         #

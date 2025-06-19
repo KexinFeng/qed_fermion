@@ -24,7 +24,7 @@ print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 Nrv = int(os.getenv("Nrv", '20'))
 print(f"Nrv: {Nrv}")
 max_iter_se = int(os.getenv("max_iter_se", '100'))
-print(f"max_iter_se: {max_iter_se}")
+# print(f"max_iter_se: {max_iter_se}")
 precon_on = int(os.getenv("precon", '1')) == 1
 print(f"precon_on: {precon_on}")
 
@@ -360,7 +360,8 @@ class StochaticEstimator:
         # G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), int(Nrv*20))  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), int(Nrv*10))  # Adjust batch size based on memory constraints
+        print(f"Batch size for G_delta_0_G_0_delta_ext: {batch_size}")
         # batch_size = len(s)
         # num_loop = 10
         # batch_size = total_pairs // num_loop

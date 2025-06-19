@@ -118,7 +118,7 @@ start_total_monitor = 10 if debug_mode else 100
 start_load = 500
 
 # Set a random seed for reproducibility
-seed = 42
+seed = int(os.getenv("seed", '42'))
 np.random.seed(seed)
 torch.manual_seed(seed)
 if torch.cuda.is_available():
@@ -269,7 +269,7 @@ class HmcSampler(object):
         self.cg_rtol = 1e-9
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.max_iter = 1000
-        print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
+
         self.precon = None
         self.precon_csr = None
         self.plt_cg = False
@@ -287,6 +287,7 @@ class HmcSampler(object):
         self._MAX_ITERS_TO_CAPTURE = [400] if dtau <= 0.1 and precon_on else [800]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
+        print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
 
         # Debug
         torch.manual_seed(0)
@@ -341,7 +342,7 @@ class HmcSampler(object):
             self.force_graph_runners[max_iter] = graph_runner
             self.graph_memory_pool = graph_memory_pool
                 
-        print(f"force_f CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+        print(f"force_f CUDA graph initialization complete for max iter sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
     @time_execution
     def initialize_metropolis_graph(self):
@@ -376,7 +377,7 @@ class HmcSampler(object):
             self.graph_memory_pool = graph_memory_pool
 
         print(
-            f"leapfrog_proposer5_cmptau_graphrun CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+            f"leapfrog_proposer5_cmptau_graphrun CUDA graph initialization complete for max iter sizes: {self._MAX_ITERS_TO_CAPTURE}")
         
     @time_execution
     def initialize_leapfrog_cmp_graph(self):
@@ -415,7 +416,7 @@ class HmcSampler(object):
         self.graph_memory_pool = graph_memory_pool
 
         print(
-            f"leapfrog_cmp_graph CUDA graph initialization complete for batch sizes: {self._MAX_ITERS_TO_CAPTURE}")
+            f"leapfrog_cmp_graph CUDA graph initialization complete for max iter sizes: {self._MAX_ITERS_TO_CAPTURE}")
 
     @time_execution
     def init_stochastic_estimator(self):
