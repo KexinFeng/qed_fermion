@@ -20,7 +20,7 @@ def init_convex_seq_estimator(array):
     passes it to a MATLAB function to process the data, and then fetches the result
     from MATLAB and reshapes it back to the original shape.
 
-    Estimator is applied on the first axis of the input array.
+    Estimator is applied on the first axis of the input array, while the rest are treated as batches, which don't need to be flattened; the method will do the shaping automatically.
     """
     matlab_function_path = '/Users/kx/Desktop/hmc/qed_fermion/qed_fermion/utils/init_seq_matlab'
     eng = matlab.engine.start_matlab()
@@ -36,6 +36,9 @@ def init_convex_seq_estimator(array):
 
 
 def std_root_n(array, axis=None, unbiased=True, lag_sum=1):
+    """
+    lag_sum: twice the average decay length xi of autocorrelation function. total_std ~ 2 xi * std0. 
+    """
     std = np.std(array, axis=axis, ddof=1 if unbiased else 0)
     n = array.shape[axis] if axis is not None else array.size
     return std / np.sqrt(n / lag_sum)

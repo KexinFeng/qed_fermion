@@ -32,7 +32,7 @@ from load_write2file_convert import time_execution
 # start_dqmc = 5000
 # end_dqmc = 10000
 
-
+use_dqmc_post_processor = False
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
@@ -49,67 +49,67 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     vs = Lx**2
     
     # plt.figure(figsize=(8, 6))
-    
-    for J in Js:
-        # Initialize data collection arrays for this J value
-        all_data = []
-        
-        # Calculate the number of parts
-        num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
-        
-        # Loop through all batches and parts
-        for bid in range(bs):
-            # if not bid == 0: continue
-            for part_id in range(num_parts):
-                input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                name = f"spsm.bin"
-                ftdqmc_filename = os.path.join(input_folder, name)
-                
-                try:
-                    part_data = np.genfromtxt(ftdqmc_filename)
-                    all_data.append(part_data)
-                    print(f'Loaded ftdqmc data: {ftdqmc_filename}')
-                except (FileNotFoundError, ValueError) as e:
-                    raise RuntimeError(f'Error loading {ftdqmc_filename}: {str(e)}') from e
-        
-        # Combine all parts' data
-        data = np.concatenate(all_data)
-        data = data.reshape(bs, -1, vs, 4)
-        # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
-        # [num_sample]
-        r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
+    if use_dqmc_post_processor:
+        for J in Js:
+            # Initialize data collection arrays for this J value
+            all_data = []
+            
+            # Calculate the number of parts
+            num_parts = math.ceil((end_dqmc - start_dqmc) / part_size)
+            
+            # Loop through all batches and parts
+            for bid in range(bs):
+                # if not bid == 0: continue
+                for part_id in range(num_parts):
+                    input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
+                    name = f"spsm.bin"
+                    ftdqmc_filename = os.path.join(input_folder, name)
+                    
+                    try:
+                        part_data = np.genfromtxt(ftdqmc_filename)
+                        all_data.append(part_data)
+                        print(f'Loaded ftdqmc data: {ftdqmc_filename}')
+                    except (FileNotFoundError, ValueError) as e:
+                        raise RuntimeError(f'Error loading {ftdqmc_filename}: {str(e)}') from e
+            
+            # Combine all parts' data
+            data = np.concatenate(all_data)
+            data = data.reshape(bs, -1, vs, 4)
+            # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
+            # [num_sample]
+            r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
 
-        # # spin order
-        # spin_order = np.mean(data[..., 0, 2], axis=1)
-        # spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
-        # spin_order_values.append(spin_order)
-        # spin_order_errors.append(spin_order_err)
+            # # spin order
+            # spin_order = np.mean(data[..., 0, 2], axis=1)
+            # spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
+            # spin_order_values.append(spin_order)
+            # spin_order_errors.append(spin_order_err)
 
-        # r_afm = spin_order
-        rtol = data[:, :, :, 3] / data[:, :, :, 2]
-        r_afm_err = np.sqrt(rtol[:, :, 0]**2 + rtol[:, :, 1]**2) * (1 - r_afm)
+            # r_afm = spin_order
+            rtol = data[:, :, :, 3] / data[:, :, :, 2]
+            r_afm_err = np.sqrt(rtol[:, :, 0]**2 + rtol[:, :, 1]**2) * (1 - r_afm)
+            
+            # Calculate mean and error for plotting
+            r_afm_mean = np.mean(r_afm, axis=1)
+            r_afm_error = np.mean(r_afm_err, axis=1)
+            
+            r_afm_values.append(r_afm_mean)
+            r_afm_errors.append(r_afm_error)
+
+
+        # ========== Spin order ========= #
+        # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
+        r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
+        r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
+
+        # Plot the batch mean
+        if Lx == 6:
+            plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
+                    linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+        else:
+            plt.errorbar(Js[:-1], r_afm_values[:, 1][:-1], yerr=r_afm_errors[:, 1][:-1],
+                    linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
         
-        # Calculate mean and error for plotting
-        r_afm_mean = np.mean(r_afm, axis=1)
-        r_afm_error = np.mean(r_afm_err, axis=1)
-        
-        r_afm_values.append(r_afm_mean)
-        r_afm_errors.append(r_afm_error)
-
-
-    # ========== Spin order ========= #
-    # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
-    r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
-    r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
-
-    # Plot the batch mean
-    if Lx == 6:
-        plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
-                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
-    else:
-        plt.errorbar(Js[:-1], r_afm_values[:, 1][:-1], yerr=r_afm_errors[:, 1][:-1],
-                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
-    
     # ---- Load dqmc and plot ----
     filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_coratio.dat"
     data = np.genfromtxt(filename)
@@ -132,8 +132,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         A = spsm_k_mean[1, 0]
         B = spsm_k_mean[0, 0]
         # Estimate errors using std over samples
-        A_err = std_root_n(spsm_k_list[..., 1, 0].numpy(), axis=0, lag_sum=500)[0]
-        B_err = std_root_n(spsm_k_list[..., 0, 0].numpy(), axis=0, lag_sum=500)[0]
+        A_err = std_root_n(spsm_k_list[..., 1, 0].numpy(), axis=0, lag_sum=200)[0]
+        B_err = std_root_n(spsm_k_list[..., 0, 0].numpy(), axis=0, lag_sum=200)[0]
         rtol_A = A_err / A if A != 0 else 0
         rtol_B = B_err / B if B != 0 else 0
         r_afm_err = np.sqrt(rtol_B**2 + rtol_A**2) * (1 - r_afm)
