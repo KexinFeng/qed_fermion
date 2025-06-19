@@ -45,7 +45,7 @@ vs = Lx * Lx * Ltau
 # batch_size = Nrv  
 # Nrv = 40 at Lx=40, Ltau=400, fermion obsr: 6.00 sec, 6.1G;  metrop: 3.8 sec, 3.38G;
 # Nrv = 20 at Lx=40, Ltau=400, fermion obsr: 4.99 sec, 3.1G;  metrop: 3.8 sec, 3.36G;
-if 80000 <= vs <= 640000: Nrv = 80  # 20 <= Lx <= 40
+if 80000 <= vs <= 640000: Nrv = 40  # 20 <= Lx <= 40
 elif vs <= 2160000: Nrv = 40 # Lx < 20 or 40 < Lx <= 60 
 else: Nrv = 20  # Lx > 60
 

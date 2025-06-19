@@ -20,7 +20,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
-L_array=$(echo '50 46 40 36')
+# L_array=$(echo '50 46 40 36')
 # L_array=$(echo '24 20 16 12 10 8 6')
 
 
@@ -29,7 +29,7 @@ L_array=$(echo '50 46 40 36')
 
 Nstep=10000
 
-export suffix=cmp_large6_tuneNrv2
+export suffix=noncmpK0_large1
 export debug=0
 export asym=1
 export cuda_graph=1

@@ -360,7 +360,7 @@ class StochaticEstimator:
         # G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), Nrv)  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), int(Nrv*20))  # Adjust batch size based on memory constraints
         # batch_size = len(s)
         # num_loop = 10
         # batch_size = total_pairs // num_loop
