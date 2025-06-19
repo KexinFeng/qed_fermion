@@ -29,14 +29,14 @@ L_array=$(echo '40 36 30 20 16 12 10 8 6')
 
 Nstep=10000
 
-export suffix=noncmpK0_large1
+export suffix=noncmpK0_large1_spsm
 export debug=0
 export asym=1
 export cuda_graph=1
-export compact=1
-export K=1
+export compact=0
+export K=0
 export dtau=0.1
-export precon=0
+export precon=1
 
 for L in $L_array; do
         #
@@ -53,30 +53,6 @@ for L in $L_array; do
                 s_hmc.cmd
         done
 done
-
-# Nstep=100
-# bs=5
-# Ltau=200
-# for J in $J_array; do
-#         #
-#         config=$(echo local_J_${J}_Nstep_${Nstep}_bs_${bs}_Ltau_${Ltau})
-#         echo $config
-#         export J Nstep bs Ltau
-#         #
-#         sbatch --job-name=${config}_hmc \
-#         --time=0-24:00:00 \
-#         --qos=gpu \
-#         --mem-per-cpu=50G \
-#         s_local.cmd
-# done
-
-# qos=normal
-
-# sbatch --job-name=cg_convergence \
-#         --time=2-00:00:00 \
-#         --qos=normal \
-#         --mem-per-cpu=100G \
-#         s_cg.cmd
 
 
 # srun --pty --partition=interactive --qos=ood --mem=1G --cpus-per-task=1 --time=01:00:00 bash -i
