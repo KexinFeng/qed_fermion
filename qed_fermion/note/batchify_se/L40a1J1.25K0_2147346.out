@@ -1,0 +1,121 @@
+==========================================
+SLURM_JOB_ID        = 2147346
+SLURM_NODELIST      = SPG-5-7
+SLURM_NTASKS        = 1
+SLURM_CPUS_PER_TASK = 1
+This SLURM script is running on host SPG-5-7
+Working directory is /home/fengx463/hmc/qed_fermion/qed_fermion/pbs_files
+==========================================
+debug_mode: False
+cuda_graph: True
+mass_mode: 0
+compact turned on: False
+K: 0.0
+max_tau_block_idx: 1
+Lx: 40
+Ltau: 400
+Nrv: 40
+dtau: 0.1
+precon_on: True
+lmd: 0.9
+lambda_: 0.05
+sig_min: 0.8
+sig_max: 1.2
+gear0_steps: 1000
+BLOCK_SIZE: (4, 8)
+Nrv: 40
+precon_on: True
+BLOCK_SIZE: (4, 8)
+device: cuda
+dtype: torch.float32
+cdtype: torch.complex64
+cg_cdtype: torch.complex64
+sigma_mini_batch_size: 1000
+J=1.25 
+Nstep=10000 
+Lx=40 
+Ltau=400
+bs: 2
+dt_deque_max_len: 5
+lower_limit: 0.5, upper_limit: 0.8
+cg_rtol: 1e-09 max_iter: 400
+Initial device memory:  NVML Used: 1145.69 MB
+
+Loaded preconditioner from /home/fengx463/hmc/qed_fermion/qed_fermion/preconditioners/precon_ckpt_L_40_Ltau_400_dtau_0.1_t_1.pt
+After setting precon: NVML Used: 1785.69 MB, incr.by: 640.00 MB
+
+Initializing CUDA graph for leapfrog_cmp_graph.........
+Capturing CUDA graph for leapfrog_cmp_graph...
+leapfrog_cmp_graph CUDA Graph diff: 42.00 MB
+
+leapfrog_cmp_graph CUDA graph initialization complete for max iter sizes: [400]
+Execution time for initialize_leapfrog_cmp_graph: 0.13 seconds
+
+After init leapfrog_cmp_graph: NVML Used: 1667.69 MB, incr.by: -118.00 MB
+
+Initializing CUDA graph for force_f_fast.........
+Capturing CUDA graph for max_iter=400 (1/1)...
+force_f CUDA Graph diff: 1730.00 MB
+
+force_f CUDA graph initialization complete for max iter sizes: [400]
+Execution time for initialize_force_graph: 11.60 seconds
+
+After init force_graph: NVML Used: 3449.69 MB, incr.by: 1664.00 MB
+
+Nrv: 40
+max_iter_se: 400
+Initializing CUDA graph for get_fermion_obsr.........
+Before init se_graph: NVML Used: 3449.69 MB
+Inside capture start_mem_0: 3623.69 MB
+
+Batch size for G_delta_0_G_0_delta_ext: 4
+Batch size for G_delta_0_G_0_delta_ext: 4
+Batch size for G_delta_0_G_0_delta_ext: 4
+Batch size for G_delta_0_G_0_delta_ext: 4
+Batch size for G_delta_0_G_0_delta_ext: 4
+Batch size for G_delta_0_G_0_delta_ext: 4
+Inside capture start_mem: 7761.69 MB
+
+Batch size for G_delta_0_G_0_delta_ext: 4
+Batch size for G_delta_0_G_0_delta_ext: 4
+Inside capture end_mem: 8205.69 MB
+
+fermion_obsr CUDA Graph diff: 444.00 MB
+
+get_fermion_obsr CUDA graph initialization complete
+
+Execution time for init_stochastic_estimator: 63.98 seconds
+
+After init se_graph: NVML Used: 8205.69 MB, incr.by: 4756.00 MB
+
+Step 0: metropolis update took 6.45 sec
+Step 0: Fermion computation took 21.06 sec
+Memory usage at step 0: 963.04 MB
+Max memory usage: 3123.16 MB
+Current memory usage: 3044.93 MB
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Step 1000: metropolis update took 6.42 sec
+Step 1000: Fermion computation took 21.06 sec
+Memory usage at step 1000: 963.04 MB
+Max memory usage: 3123.16 MB
+Current memory usage: 3298.48 MB
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Figure saved at: /home/fengx463/hmc/qed_fermion/qed_fermion/./figures/hmc_sampler_batch_noncmpK0_large1_spsm/totol_monit_hmc_40_Ltau_400_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False.pdf
+Step 2000: metropolis update took 6.41 sec
+Step 2000: Fermion computation took 21.06 sec
