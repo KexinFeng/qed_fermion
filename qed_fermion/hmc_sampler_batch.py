@@ -284,7 +284,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         self._MAX_ITERS_TO_CAPTURE = [100, 200, 400] # [100] will lead 10^-2 rtol
-        self._MAX_ITERS_TO_CAPTURE = [400] if dtau <= 0.1 and precon_on else [800]
+        self._MAX_ITERS_TO_CAPTURE = [400] if dtau <= 0.1 and precon_on else [400]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")
