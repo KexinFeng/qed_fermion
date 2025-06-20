@@ -3106,17 +3106,19 @@ class HmcSampler(object):
         Visualize obsrv and accp in subplots.
         """
         # plt.figure()
-        fig, axes = plt.subplots(3, 2, figsize=(12, 7.5))
+        fig, axes = plt.subplots(3, 3, figsize=(12, 7.5))
         
         start = start_total_monitor  # to prevent from being out of scale due to init out-liers
         seq_idx = np.arange(start, self.cur_step, 1)
         seq_idx_all = np.arange(self.cur_step)
 
+        # Accp
         axes[1, 0].plot(self.accp_rate[seq_idx].cpu().numpy())
         axes[1, 0].set_xlabel("Steps")
         axes[1, 0].set_ylabel("Acceptance Rate")
         axes[1, 0].grid()
 
+        # G_list
         idx = [0, self.num_tau // 2, -2]
         # for b in range(self.G_list.size(1)):
         axes[0, 0].plot(self.G_list[seq_idx, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
@@ -3126,12 +3128,22 @@ class HmcSampler(object):
         axes[0, 0].set_title("Greens Function Over Steps")
         axes[0, 0].legend()
 
+        # spsm_r
+        axes[0, 2].plot(self.spsm[seq_idx, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
+        axes[0, 2].plot(self.spsm[seq_idx, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
+        axes[0, 2].plot(self.spsm[seq_idx, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
+        axes[0, 2].set_ylabel("Greens Function")
+        axes[0, 2].set_title("Greens Function Over Steps")
+        axes[0, 2].legend()
+
+        # S_plaq
         axes[0, 1].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
         # axes[0, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='S_tau')
         axes[0, 1].set_ylabel("$S_{plaq}$")
         axes[0, 1].legend()
         axes[0, 1].grid()
 
+        # S_tau
         # axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy() + self.S_plaq_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
         axes[1, 1].plot(self.S_tau_list[seq_idx].cpu().numpy(), '*', label='$S_{tau}$')
         axes[1, 1].set_ylabel("$S_{tau}$")
@@ -3152,7 +3164,7 @@ class HmcSampler(object):
             axes[2, 0].legend()
             axes[2, 0].grid()
 
-        # delta_t_iter
+        # delta_t
         axes[2, 1].plot(self.delta_t_list[seq_idx_all].cpu().numpy(), '*', label=r'$\delta t$')
         axes[2, 1].set_ylabel(r"$\delta t$")
         axes[2, 1].set_xlabel("Steps")
