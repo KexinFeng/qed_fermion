@@ -307,10 +307,10 @@ class HmcSampler(object):
         self.initialize_boson_pi_flux_randn_matfree()
 
     def initialize_specifics(self):      
-        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_cmp_{compact}"
+        self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_Nrv_{Nrv}_cmp_{compact}"
 
     def get_specifics(self):
-        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_cmp_{compact}"
+        return f"t_hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_t_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_Nrv_{Nrv}_cmp_{compact}"
 
     @time_execution
     # @profile
