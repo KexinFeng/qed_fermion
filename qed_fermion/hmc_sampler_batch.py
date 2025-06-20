@@ -3129,12 +3129,20 @@ class HmcSampler(object):
         axes[0, 0].legend()
 
         # spsm_r
-        axes[0, 2].plot(self.spsm[seq_idx, ..., idx[0]].mean(axis=1).cpu().numpy(), label=f'G[0]')
-        axes[0, 2].plot(self.spsm[seq_idx, ..., idx[1]].mean(axis=1).cpu().numpy(), label=f'G[{self.num_tau // 2}]')
-        axes[0, 2].plot(self.spsm[seq_idx, ..., idx[2]].mean(axis=1).cpu().numpy(), label=f'G[-2]')
-        axes[0, 2].set_ylabel("Greens Function")
-        axes[0, 2].set_title("Greens Function Over Steps")
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].mean(axis=1).numpy(), label=f'G[3]')
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].mean(axis=1).numpy(), label=f'G[5]')
+        axes[0, 2].set_ylabel("Spsm_r")
+        axes[0, 2].set_title("spsm_r Over Steps")
         axes[0, 2].legend()
+
+        # spsm_k
+        axes[1, 2].plot(self.spsm_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
+        axes[1, 2].plot(self.spsm_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
+        axes[1, 2].plot(self.spsm_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
+        axes[1, 2].set_ylabel("Spsm_k")
+        axes[1, 2].set_title("spsm_k Over Steps")
+        axes[1, 2].legend()
 
         # S_plaq
         axes[0, 1].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
