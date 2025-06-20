@@ -45,7 +45,7 @@ def plot_spin_r():
     asym = 2
 
     # Sampling parameters
-    start = 3000  # Skip initial equilibration steps
+    start = 6000  # Skip initial equilibration steps
     sample_step = 1
     
     plt.figure(figsize=(8, 6))

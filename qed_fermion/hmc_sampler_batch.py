@@ -3129,9 +3129,9 @@ class HmcSampler(object):
         axes[0, 0].legend()
 
         # spsm_r
-        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
-        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].mean(axis=1).numpy(), label=f'G[3]')
-        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].mean(axis=1).numpy(), label=f'G[5]')
+        # axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
         axes[0, 2].set_ylabel("Spsm_r")
         axes[0, 2].set_title("spsm_r Over Steps")
         axes[0, 2].legend()

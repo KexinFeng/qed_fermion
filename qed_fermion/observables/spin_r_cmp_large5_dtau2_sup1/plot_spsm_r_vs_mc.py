@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 
 # Set up script path and HMC data folder (same as plot_fit.py)
 script_path = os.path.dirname(os.path.abspath(__file__))
-hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large5_dtau2_sup1/hmc_check_point_cmp_large5_dtau2_sup1"
 
 # Choose lattice size (example: Lx=20)
-Lx = 30
-Ltau = int(10 * Lx)
-hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
+Lx = 20
+Ltau = int(20 * Lx)
+hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_1_dtau_0.2_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_True_step_10000.pt"
 hmc_filename = os.path.join(hmc_folder, hmc_file)
 
 if not os.path.exists(hmc_filename):
