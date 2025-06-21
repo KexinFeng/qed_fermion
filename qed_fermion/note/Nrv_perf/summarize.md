@@ -1,3 +1,103 @@
+## L10
+
+| Parameter                                | cL10a1J1.25K1_2149367<br>(Nrv=20) | cL10a1J1.25K1_2149362<br>(Nrv=40) |
+|-------------------------------------------|:----------------------------------:|:---------------------------------:|
+| **Nrv**                                  | 20                                 | 40                                |
+| **max_iter_se**                          | 400                                | 400                               |
+| **max_iter (CG)**                        | 400                                | 400                               |
+| **Batch size for G**                     | 2                                  | 4                                 |
+| **Step 0: Fermion computation (sec)**     | 0.09                               | 0.13                              |
+| **Step 0: Metropolis update (sec)**       | 0.55                               | 0.58                              |
+| **After init force_graph: NVML Used (MB)**| 1683.69                            | 1683.69                           |
+| **After init force_graph: incr.by (MB)**  | 578.00                             | 578.00                            |
+| **After init se_graph: NVML Used (MB)**   | 1947.69                            | 2009.69                           |
+| **After init se_graph: incr.by (MB)**     | 264.00                             | 326.00                            |
+
+---
+
+**Notes:**
+- **Batch size for G** is from "Batch size for G_delta_0_G_0_delta_ext".
+- **max_iter_se** and **max_iter (CG)** are fixed at 400 for all runs.
+- **Metropolis update time** and **force_graph memory** are nearly constant.
+- **Fermion computation time** and **se_graph memory usage** increase with `Nrv`.
+
+---
+
+## L16
+
+| Parameter                                | cL16a1J1.25K1_2149365<br>(Nrv=20) | cL16a1J1.25K1_2149360<br>(Nrv=40) |
+|-------------------------------------------|:----------------------------------:|:---------------------------------:|
+| **Nrv**                                  | 20                                 | 40                                |
+| **max_iter_se**                          | 400                                | 400                               |
+| **max_iter (CG)**                        | 400                                | 400                               |
+| **Batch size for G**                     | 2                                  | 4                                 |
+| **Step 0: Fermion computation (sec)**     | 0.18                               | 0.29                              |
+| **Step 0: Metropolis update (sec)**       | 0.85                               | 0.85                              |
+| **After init force_graph: NVML Used (MB)**| 1949.69                            | 1949.69                           |
+| **After init force_graph: incr.by (MB)**  | 842.00                             | 842.00                            |
+| **After init se_graph: NVML Used (MB)**   | 2325.69                            | 2501.69                           |
+| **After init se_graph: incr.by (MB)**     | 376.00                             | 552.00                            |
+
+---
+
+**Notes:**
+- **Batch size for G** is from "Batch size for G_delta_0_G_0_delta_ext".
+- **max_iter_se** and **max_iter (CG)** are fixed at 400 for all runs.
+- **Metropolis update time** and **force_graph memory** are nearly constant.
+- **Fermion computation time** and **se_graph memory usage** increase with `Nrv`.
+
+---
+
+## L20
+
+| Parameter                                | cL20a1J1.25K1_2149364<br>(Nrv=20) | cL20a1J1.25K1_2149359<br>(Nrv=40) |
+|-------------------------------------------|:----------------------------------:|:---------------------------------:|
+| **Nrv**                                  | 20                                 | 40                                |
+| **max_iter_se**                          | 400                                | 400                               |
+| **max_iter (CG)**                        | 400                                | 400                               |
+| **Batch size for G**                     | 2                                  | 4                                 |
+| **Step 0: Fermion computation (sec)**     | 0.37                               | 0.91                              |
+| **Step 0: Metropolis update (sec)**       | 1.42                               | 1.40                              |
+| **After init force_graph: NVML Used (MB)**| 2145.69                            | 2145.69                           |
+| **After init force_graph: incr.by (MB)**  | 1020.00                            | 1020.00                           |
+| **After init se_graph: NVML Used (MB)**   | 2649.69                            | 2965.69                           |
+| **After init se_graph: incr.by (MB)**     | 504.00                             | 820.00                            |
+
+---
+
+**Notes:**
+- **Batch size for G** is from "Batch size for G_delta_0_G_0_delta_ext".
+- **max_iter_se** and **max_iter (CG)** are fixed at 400 for all runs.
+- **Metropolis update time** and **force_graph memory** are nearly constant.
+- **Fermion computation time** and **se_graph memory usage** increase with `Nrv`.
+
+---
+
+## L30
+
+| Parameter                                | cL30a1J1.25K1_2149363<br>(Nrv=20) | cL30a1J1.25K1_2149358<br>(Nrv=40) |
+|-------------------------------------------|:----------------------------------:|:---------------------------------:|
+| **Nrv**                                  | 20                                 | 40                                |
+| **max_iter_se**                          | 400                                | 400                               |
+| **max_iter (CG)**                        | 400                                | 400                               |
+| **Batch size for G**                     | 2                                  | 4                                 |
+| **Step 0: Fermion computation (sec)**     | 2.33                               | 5.91                              |
+| **Step 0: Metropolis update (sec)**       | 2.93                               | 2.98                              |
+| **After init force_graph: NVML Used (MB)**| 2647.69                            | 2647.69                           |
+| **After init force_graph: incr.by (MB)**  | 1522.00                            | 1522.00                           |
+| **After init se_graph: NVML Used (MB)**   | 3793.69                            | 4743.69                           |
+| **After init se_graph: incr.by (MB)**     | 1146.00                            | 2096.00                           |
+
+---
+
+**Notes:**
+- **Batch size for G** is from "Batch size for G_delta_0_G_0_delta_ext".
+- **max_iter_se** and **max_iter (CG)** are fixed at 400 for all runs.
+- **Metropolis update time** and **force_graph memory** are nearly constant.
+- **Fermion computation time** and **se_graph memory usage** increase with `Nrv`.
+
+---
+
 # Nrv tune
 
 ## L36
