@@ -75,9 +75,9 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
 
 if __name__ == '__main__':
     # Create configs file
-    Lx = int(os.getenv("Lx", '6'))
+    Lx = int(os.getenv("Lx", '10'))
     print(f"Lx: {Lx}")
-    Ltau = int(os.getenv("Ltau", '60'))
+    Ltau = int(os.getenv("Ltau", '100'))
     print(f"Ltau: {Ltau}")
     Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench/"
     input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
     input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
-    # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
+    input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
 
     start = -50
     end = 10000

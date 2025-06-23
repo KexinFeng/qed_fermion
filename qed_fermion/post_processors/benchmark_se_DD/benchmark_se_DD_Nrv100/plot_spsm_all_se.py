@@ -52,7 +52,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
             # if not bid == 0: continue
             for part_id in range(num_parts):
                 input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                name = f"spsm.bin"
+                name = f"spsm.bin" # dimer_dimer
                 ftdqmc_filename = os.path.join(input_folder, name)
                 
                 try:
@@ -66,8 +66,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         data = np.concatenate(all_data)
         data = data.reshape(bs, -1, vs, 4)  # [bs, seq, vs, values(kx, ky,spin, err)]
         # data has shape [num_sample, vs, 4], where the last dim has entries: kx, ky, val, error. 
-        # [num_sample]
-        # r_afm = 1 - data[..., 1, 2] / data[..., 0, 2]
 
         # Slice
         data = data[:, start:, :, :]
@@ -77,17 +75,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         spin_order_err = np.mean(np.abs(data[..., 0, 3]), axis=1)
         spin_order_values.append(spin_order)
         spin_order_errors.append(spin_order_err)
-
-        # # r_afm = spin_order
-        # rtol = data[:, :, :, 3] / data[:, :, :, 2]
-        # r_afm_err = abs(rtol[:, :, 0] - rtol[:, :, 1]) * (1 - r_afm)
-        
-        # # Calculate mean and error for plotting
-        # r_afm_mean = np.mean(r_afm, axis=1)
-        # r_afm_error = np.mean(r_afm_err, axis=1)
-        
-        # r_afm_values.append(r_afm_mean)
-        # r_afm_errors.append(r_afm_error)
 
 
     # ========== Spin order ========= #
@@ -102,46 +89,41 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     plt.errorbar(Js, spin_order_values[:, bid] / vs, yerr=spin_order_errors[:, bid] / vs,
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
-    # # ---- Load dqmc and plot ---- # #
-    # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    # data = np.genfromtxt(dqmc_filename)
-    # plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
-    #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
     
-    # ---- Load and plot spsm_k.pt mean ---- #
+    # ---- Load and plot DD_r.pt mean ---- #
     if start != 0:
         output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     else:
         output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
-    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
-        # Compute spin order as sum of spsm_k_mean divided by vs
-    spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    spin_pi_errs = spsm_k_res['std'][:, 0, 0]
+    DD_r_file = os.path.join(output_dir, "spsm_k.pt")
+    DD_r_res = torch.load(DD_r_file, weights_only=False) # [J/bs, Ly, Lx]
+        # Compute spin order as sum of DD_r_mean divided by vs
+    DD_r0 = DD_r_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
+    DD_r0_err = DD_r_res['std'][:, 0, 0]
 
-    plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
+    plt.errorbar(Js, DD_r0, yerr=DD_r0_err, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
-    # ---- Load and plot spsm_k.pt mean groundtruth ---- #
-    output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
-    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
-        # Compute spin order as sum of spsm_k_mean divided by vs
-    spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    spin_pi_errs = spsm_k_res['std'][:, 0, 0]
+    # # ---- Load and plot spsm_k.pt mean groundtruth ---- #
+    # output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    # spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
+    # spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
+    #     # Compute spin order as sum of spsm_k_mean divided by vs
+    # spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
+    # spin_pi_errs = spsm_k_res['std'][:, 0, 0]
 
-    plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
+    # plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
+    #              fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
     
 
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 100
+    Nrv = 40
     mxitr = 400
 
-    sizes = [6, 8]
+    sizes = [6, 8, 10]
 
     plt.figure(figsize=(8, 6))
     for idx, Lx in enumerate(sizes):
@@ -162,15 +144,15 @@ if __name__ == '__main__':
 
     # Plot setting
     plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('S_AF / Ns', fontsize=14)
-    # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
+    plt.ylabel('DD_r=0', fontsize=14)
+    # plt.title(f'dimer_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
     
     plt.show(block=False)
     # Save plot
-    method_name = "spin_order"
-    save_dir = os.path.join(script_path, f"./figures_start{start}/spin_order")
+    method_name = "dimer_order"
+    save_dir = os.path.join(script_path, f"./figures_start{start}/dimer_order")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
