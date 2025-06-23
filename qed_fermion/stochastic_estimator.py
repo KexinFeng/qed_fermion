@@ -63,6 +63,9 @@ class StochaticEstimator:
         if hmc.precon_csr is None and hmc.dtau <= 0.1 and precon_on:
             hmc.reset_precon()
 
+        # Cache
+        self.set_eta_G_eta_cache = {}
+
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
         print(f"Nrv: {self.Nrv}")
@@ -201,7 +204,7 @@ class StochaticEstimator:
         # Compute the four-point green's function
         # G_ij ~ (G eta)_i eta_j
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
-        if b in self.G_eta:
+        if b in self.set_eta_G_eta_cache:
             return 
 
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
@@ -214,7 +217,7 @@ class StochaticEstimator:
         G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
 
-        self.G_eta[b] = G_eta
+        self.set_eta_G_eta_cache[b] = G_eta
 
         # print("max_pcg_iter:", cnt[:5])
         # print("err:", err[:5])
@@ -1292,10 +1295,10 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta, b)
-            GD0_G0D = self.G_delta_0_G_0_delta_ext(b) # [Ltau, Ly, Lx]
-            GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
+            # GD0_G0D = self.G_delta_0_G_0_delta_ext_batch(b) # [Ltau, Ly, Lx]
+            # GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
 
-            # L0 = GD0_G0D[0, 0, 1]**2 * z4
+            L0 =             
 
             # L1_lft = -GD0_G0D
             # L1_lft[0, 0, 0] += GD0[0, 0, 0]
