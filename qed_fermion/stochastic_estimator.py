@@ -1227,11 +1227,10 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta, b)
-            GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ltau, Ly, Lx]
-            GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
+            GD0_G0D = self.G_delta_0_G_0_delta_ext_batch(b) # [Ltau, Ly, Lx]
+            GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
 
-            spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
-            spsm_r[b] = spsm_r_per_b
+            spsm_r[b] = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
             # spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
             spsm_k_abs[b] = self.spsm_k(spsm_r[b]).abs()  # [Ly, Lx]
 
