@@ -47,7 +47,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     os.makedirs(output_dir, exist_ok=True)
     boson_conf = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
     spsm_k = []
-    DD_r = []
+    DD_k = []
     for boson in tqdm(boson_conf):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
         if se.cuda_graph_se:
@@ -55,20 +55,20 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
         else:
             obsr = se.get_fermion_obsr(boson.to(se.device), eta)
         spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        DD_r.append(obsr['DD_r'].cpu().numpy())
+        DD_k.append(obsr['DD_k'].cpu().numpy())
         
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
-    DD_r = np.array(DD_r)  # [seq, J/bs, Ly, Lx]
+    DD_k = np.array(DD_k)  # [seq, J/bs, Ly, Lx]
     spsm_k_mean = spsm_k.mean(axis=0)  # [J/bs, Ly, Lx]
     spsm_k_std = spsm_k.std(axis=0)  # [J/bs, Ly, Lx]
-    DD_r_mean = DD_r.mean(axis=0)  # [J/bs, Ly, Lx]
-    DD_r_std = DD_r.std(axis=0)  # [J/bs, Ly, Lx]
+    DD_k_mean = DD_k.mean(axis=0)  # [J/bs, Ly, Lx]
+    DD_k_std = DD_k.std(axis=0)  # [J/bs, Ly, Lx]
 
     output_file = os.path.join(output_dir, "spsm_k.pt")
     torch.save({'mean': spsm_k_mean, 
                 'std': spsm_k_std, 
-                'DD_r_mean': DD_r, 
-                'DD_r_std': DD_r}, 
+                'DD_k_mean': DD_k_mean, 
+                'DD_k_std': DD_k_std}, 
                 output_file)
     print(f"Saved: {output_file}")
 

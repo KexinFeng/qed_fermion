@@ -52,7 +52,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
             # if not bid == 0: continue
             for part_id in range(num_parts):
                 input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                name = f"spsm.bin" # dimer_dimer
+                name = f"dimerx.bin" # dimer_dimer
                 ftdqmc_filename = os.path.join(input_folder, name)
                 
                 try:
@@ -90,18 +90,18 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     
-    # ---- Load and plot DD_r.pt mean ---- #
+    # ---- Load and plot DD_k.pt mean ---- #
     if start != 0:
         output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     else:
         output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
-    DD_r_file = os.path.join(output_dir, "spsm_k.pt")
-    DD_r_res = torch.load(DD_r_file, weights_only=False) # [J/bs, Ly, Lx]
-        # Compute spin order as sum of DD_r_mean divided by vs
-    DD_r0 = DD_r_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    DD_r0_err = DD_r_res['std'][:, 0, 0]
+    DD_k_file = os.path.join(output_dir, "spsm_k.pt")
+    DD_k_res = torch.load(DD_k_file, weights_only=False) # [J/bs, Ly, Lx]
+        # Compute spin order as sum of DD_k_mean divided by vs
+    DD_k0 = DD_k_res['DD_k_mean'][:, 0, 0]  # [J/bs, Ly, Lx]
+    DD_k0_err = DD_k_res['DD_k_std'][:, 0, 0]
 
-    plt.errorbar(Js, DD_r0, yerr=DD_r0_err, 
+    plt.errorbar(Js, DD_k0, yerr=DD_k0_err, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
