@@ -397,12 +397,12 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
 
-    def G_delta_delta_G_0_0_ext_batch(self, b):
+    def G_delta_delta_G_0_0_ext_batch(self, b, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
-        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
-        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj().view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1).view(-1, 2 * self.Ltau, self.Ly, self.Lx)
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         Nrv = eta_ext_conj.shape[0]
@@ -420,11 +420,10 @@ class StochaticEstimator:
             s_batch = s[start_idx:end_idx]
             s_prime_batch = s_prime[start_idx:end_idx]
             
-            a = eta_ext_conj[s_batch] * G_eta_ext[s_batch]
-            b = eta_ext_conj[s_prime_batch] * G_eta_ext[s_prime_batch]
-
-            a = a.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
-            b = b.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+            # a = eta_ext_conj[s_batch] * G_eta_ext[s_batch]
+            # b = eta_ext_conj[s_prime_batch] * G_eta_ext[s_prime_batch]
+            a = torch.roll(eta_ext_conj[s_batch], shifts=a_xi, dims=-1) * torch.roll(G_eta_ext[s_batch], shifts=a_G_xi, dims=-1)
+            b = torch.roll(eta_ext_conj[s_prime_batch], shifts=b_xi, dims=-1) * torch.roll(G_eta_ext[s_prime_batch], shifts=b_G_xi, dims=-1)
 
             a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
             b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
