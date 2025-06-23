@@ -1324,10 +1324,10 @@ class StochaticEstimator:
 
             L5_lft = -self.G_delta_0_G_0_delta_ext_batch(b, a_G_xi=-1, b_xi=-1)
             L5_lft[0, 0, 0] += GD0[0, 0, 0]
-            L5_rgt = self.G_delta_delta_G_0_0_ext_batch(b, a_xi=-1, b_G_xi=-1)
+            L5_rgt = -L0_lft
             L5 = L5_lft * L5_rgt  # [Ltau, Ly, Lx]
 
-            L6_lft = -self.G_delta_delta_G_0_0_ext_batch(b, a_G_xi=-1, b_xi=-1)
+            L6_lft = L0_rgt
             L6_rgt = self.G_delta_0_G_0_delta_ext_batch(b, a_xi=-1, b_G_xi=-1)
             L6 = L6_lft * L6_rgt  # [Ltau, Ly, Lx]
 
