@@ -295,7 +295,7 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0.view(self.Ltau, self.Ly, self.Lx)
 
-
+    # -------- Ext methods --------
     def G_delta_0_G_delta_0_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
@@ -317,7 +317,6 @@ class StochaticEstimator:
         G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
-
 
     def G_delta_delta_G_0_0_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -342,8 +341,8 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
 
-
-    def G_delta_0_G_0_delta_ext(self, b):
+    # -------- Batched methods --------
+    def G_delta_0_G_0_delta_ext_batch(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
@@ -381,6 +380,123 @@ class StochaticEstimator:
 
             a = eta_ext_conj[s_batch] * G_eta_ext[s_prime_batch]
             b = eta_ext_conj[s_prime_batch] * G_eta_ext[s_batch]
+
+            a = a.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+            b = b.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+
+            a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_sum += batch_result.sum(dim=0)
+
+        G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
+
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
+    def G_delta_delta_G_0_0_ext_batch(self, b):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
+
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        # Get all unique pairs (s, s_prime) with s < s_prime
+        Nrv = eta_ext_conj.shape[0]
+        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        print(f"Batch size for G_delta_delta_G_0_0_ext: {batch_size}")
+
+        G_delta_delta_G_0_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
+                                              dtype=eta_ext_conj.dtype, device=eta.device)
+        total_pairs = len(s)
+        for start_idx in range(0, total_pairs, batch_size):
+            end_idx = min(start_idx + batch_size, total_pairs)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+            
+            a = eta_ext_conj[s_batch] * G_eta_ext[s_batch]
+            b = eta_ext_conj[s_prime_batch] * G_eta_ext[s_prime_batch]
+
+            a = a.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+            b = b.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+
+            a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+
+            G_delta_delta_G_0_0_sum += batch_result.sum(dim=0)
+
+        G_delta_delta_G_0_0 = G_delta_delta_G_0_0_sum / total_pairs
+
+        return G_delta_delta_G_0_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
+    def G_0_delta_G_0_delta_ext_batch(self, b):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
+
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        # Get all unique pairs (s, s_prime) with s < s_prime
+        Nrv = eta_ext_conj.shape[0]
+        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        print(f"Batch size for G_0_delta_G_0_delta_ext: {batch_size}")
+
+        G_0_delta_G_0_delta_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
+                                              dtype=eta_ext_conj.dtype, device=eta.device)
+        total_pairs = len(s)
+        for start_idx in range(0, total_pairs, batch_size):
+            end_idx = min(start_idx + batch_size, total_pairs)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            a = G_eta_ext[s_batch] * G_eta_ext[s_prime_batch]
+            b = eta_ext_conj[s_batch] * eta_ext_conj[s_prime_batch]
+
+            a = a.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+            b = b.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+
+            a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+
+            G_0_delta_G_0_delta_sum += batch_result.sum(dim=0)
+
+        G_0_delta_G_0_delta = G_0_delta_G_0_delta_sum / total_pairs
+
+        return G_0_delta_G_0_delta.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
+    def G_delta_0_G_delta_0_ext_batch(self, b):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
+
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        # Get all unique pairs (s, s_prime) with s < s_prime
+        Nrv = eta_ext_conj.shape[0]
+        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        print(f"Batch size for G_delta_0_G_delta_0_ext: {batch_size}")
+
+        G_delta_0_G_delta_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
+                                              dtype=eta_ext_conj.dtype, device=eta.device)
+        total_pairs = len(s)
+        for start_idx in range(0, total_pairs, batch_size):
+            end_idx = min(start_idx + batch_size, total_pairs)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+            
+            a = eta_ext_conj[s_batch] * eta_ext_conj[s_prime_batch]
+            b = G_eta_ext[s_batch] * G_eta_ext[s_prime_batch]
 
             a = a.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
             b = b.view(-1, 2 * self.Ltau, self.Ly, self.Lx)
