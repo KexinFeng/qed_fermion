@@ -1209,6 +1209,7 @@ class StochaticEstimator:
             szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
         obsr = {}
+        # for b in range(self.bs):
         obsr.update(self.get_spsm(bosons, eta))
         obsr.update(self.get_dimer_dimer(bosons, eta))
         self.reset_cache()
@@ -1342,6 +1343,10 @@ class StochaticEstimator:
 
         obsr = {}
         obsr['DD_r'] = DD_r
+
+        DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
+        obsr['DD_k'] = DD_k
         return obsr
     
     def reset_cache(self):
