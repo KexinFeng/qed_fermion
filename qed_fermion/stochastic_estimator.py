@@ -57,6 +57,7 @@ class StochaticEstimator:
         self.cdtype = hmc.cdtype
         
         self.graph_runner = FermionObsrGraphRunner(self)
+        self.dimer_graph_runner = DimerGraphRunner(self)
         self.graph_memory_pool = hmc.graph_memory_pool
 
         # init
@@ -217,10 +218,10 @@ class StochaticEstimator:
         G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
 
-        self.set_eta_G_eta_cache[b] = G_eta
-
         # print("max_pcg_iter:", cnt[:5])
         # print("err:", err[:5])
+
+        self.set_eta_G_eta_cache[b] = G_eta
 
   
     def test_fft_negate_k3(self):
@@ -1211,6 +1212,13 @@ class StochaticEstimator:
             spsm: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
             szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
         """
+        obsr = {}
+        obsr.update(self.get_spsm(bosons, eta))
+        obsr.update(self.get_dimer_dimer(bosons, eta))
+        self.reset_cache()
+        return obsr
+
+    def get_spsm(self, bosons, eta):
         bs, _, Lx, Ly, Ltau = bosons.shape
         spsm_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
         spsm_k_abs = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
@@ -1227,8 +1235,6 @@ class StochaticEstimator:
             spsm_r[b] = spsm_r_per_b
             # spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
             spsm_k_abs[b] = self.spsm_k(spsm_r[b]).abs()  # [Ly, Lx]
-
-            # szsz[b] = 0.5 * spsm[b]
 
         obsr = {}
         obsr['spsm_r'] = spsm_r
@@ -1349,7 +1355,6 @@ class StochaticEstimator:
         """
         self.set_eta_G_eta_cache = {}
     
-
 
 if __name__ == "__main__":  
     # Set random seed for reproducibility

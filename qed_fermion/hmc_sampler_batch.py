@@ -195,6 +195,7 @@ class HmcSampler(object):
         
         self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.dimer_dimer_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
 
         if self.Lx <= 10 and buffer:
             # boson_seq
@@ -2906,7 +2907,7 @@ class HmcSampler(object):
         futures = {}
 
         # Define CPU computations to run asynchronously
-        def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+        def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, dimer_dimer_r_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
             # Update metrics
             self.accp_list[i] = accp_cpu
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -2928,6 +2929,7 @@ class HmcSampler(object):
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
             self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
             self.spsm_k_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
+            self.dimer_dimer_r_list[i] = dimer_dimer_r_cpu  # [bs, Lx, Ly] 
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -2962,6 +2964,7 @@ class HmcSampler(object):
 
             spsm_r = obsr['spsm_r']  # [bs, Ly, Lx]
             spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]
+            dimer_dimer_r = obsr['DD_r'] # [bs, Lx, Ly]
 
             if i % 1000 == 0:  # Print timing every 100 steps
                 if torch.cuda.is_available():
@@ -2978,6 +2981,7 @@ class HmcSampler(object):
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
                 spsm_r.cpu() if spsm_r.is_cuda else spsm_r.clone(),
                 spsm_k_abs.cpu() if spsm_k_abs.is_cuda else spsm_k_abs.clone(),
+                dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
                 cg_r_err.cpu() if cg_r_err.is_cuda else cg_r_err.clone(), 
