@@ -1,8 +1,7 @@
-mkdir -p report_se
-
+cd "$(dirname "$0")"
 
 Nrv_array=$(echo '100')
-L_array=$(echo '6 8')  # 10 h (-2)
+L_array=$(echo '6')  # 10 h (-2)
 
 export debug=0
 export cuda_graph=0

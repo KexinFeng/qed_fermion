@@ -57,7 +57,6 @@ class StochaticEstimator:
         self.cdtype = hmc.cdtype
         
         self.graph_runner = FermionObsrGraphRunner(self)
-        self.dimer_graph_runner = DimerGraphRunner(self)
         self.graph_memory_pool = hmc.graph_memory_pool
 
         # init
@@ -1227,7 +1226,7 @@ class StochaticEstimator:
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
-            self.set_eta_G_eta(boson, eta)
+            self.set_eta_G_eta(boson, eta, b)
             GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ltau, Ly, Lx]
             GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
 
