@@ -191,7 +191,7 @@ class StochaticEstimator:
         torch.testing.assert_close(self.G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
   
-    def set_eta_G_eta(self, boson, eta):
+    def set_eta_G_eta(self, boson, eta, b):
         """
         Compute the four-point green's function
 
@@ -201,6 +201,9 @@ class StochaticEstimator:
         # Compute the four-point green's function
         # G_ij ~ (G eta)_i eta_j
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
+        if b in self.G_eta:
+            return 
+
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
@@ -208,8 +211,10 @@ class StochaticEstimator:
         psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
 
         self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
-        self.G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
+        G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
         self.hmc_sampler.bs = bs
+
+        self.G_eta[b] = G_eta
 
         # print("max_pcg_iter:", cnt[:5])
         # print("err:", err[:5])
@@ -231,9 +236,9 @@ class StochaticEstimator:
         torch.testing.assert_close(ks_neg, ks_neg_ref, rtol=1e-2, atol=5e-2)
 
     # -------- FFT methods --------
-    def G_delta_0(self):
+    def G_delta_0(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         # Build augmented eta and G_eta
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
@@ -252,9 +257,9 @@ class StochaticEstimator:
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)   # [Ltau, Ly, Lx]
         return G_delta_0
 
-    def G_delta_0_ext(self):
+    def G_delta_0_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
@@ -271,9 +276,9 @@ class StochaticEstimator:
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau]
 
-    def G_delta_0_G_delta_0(self):
+    def G_delta_0_G_delta_0(self, b):
         eta_conj = self.eta.conj()  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         N = eta_conj.shape[0]
@@ -291,9 +296,9 @@ class StochaticEstimator:
         return G_delta_0_G_delta_0.view(self.Ltau, self.Ly, self.Lx)
 
 
-    def G_delta_0_G_delta_0_ext(self):
+    def G_delta_0_G_delta_0_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
@@ -314,9 +319,9 @@ class StochaticEstimator:
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
 
 
-    def G_delta_delta_G_0_0_ext(self):
+    def G_delta_delta_G_0_0_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
@@ -338,9 +343,9 @@ class StochaticEstimator:
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
 
 
-    def G_delta_0_G_0_delta_ext(self):
+    def G_delta_0_G_0_delta_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
@@ -392,9 +397,9 @@ class StochaticEstimator:
 
 
     # -------- Primitive methods --------
-    def G_delta_0_primitive(self):
+    def G_delta_0_primitive(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
         eta_conj = eta.conj()
         G_eta = G_eta
 
@@ -419,7 +424,7 @@ class StochaticEstimator:
 
     def G_delta_0_primitive_ext(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
@@ -448,9 +453,9 @@ class StochaticEstimator:
         return G_mean.view(Ltau2, Ly, Lx)[:self.Ltau]
 
 
-    def G_delta_0_G_delta_0_primitive(self):
+    def G_delta_0_G_delta_0_primitive(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         # Compute the four-point Green's function estimator
         # G_ijkl = <eta_i^* G_eta_j eta_k^* G_eta_l>
@@ -475,9 +480,9 @@ class StochaticEstimator:
         return GG_mean.view(self.Ltau, self.Ly, self.Lx)
 
 
-    def G_delta_0_G_delta_0_primitive_ext(self):
+    def G_delta_0_G_delta_0_primitive_ext(self, b):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[b]  # [Nrv, Ltau * Ly * Lx]
 
         eta_ext = torch.cat([eta, -eta], dim=1)
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
@@ -1025,10 +1030,14 @@ class StochaticEstimator:
 
         spsm: [Ly, Lx]
         """
-        spsm = -GD0_G0D[0]  # [Ly, Lx]
-        spsm[0, 0] += GD0[0, 0, 0]
-        spsm = spsm.real
-        return spsm
+        spsm = -GD0_G0D  # [Ltau, Ly, Lx]
+        spsm[0, 0, 0] += GD0[0, 0, 0]  
+        return spsm.real[0]  # Return only tau=0 slice: [Ly, Lx]
+    
+        # spsm = -GD0_G0D[0]  # [Ly, Lx]
+        # spsm[0, 0] += GD0[0, 0, 0]
+        # spsm = spsm.real
+        # return spsm
     
     def spsm_r_minus_bg(self, GD0_G0D, GD0):
         """
@@ -1146,6 +1155,62 @@ class StochaticEstimator:
         obsr['spsm_k_abs'] = spsm_k_abs
         return obsr
 
+    def get_dimer_dimer(self, bosons, eta):
+        """
+        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
+
+        Returns:
+            spsm: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+        """
+        bs, _, Lx, Ly, Ltau = bosons.shape
+        DD_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
+        DD_k = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
+        
+        for b in range(bs):
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+
+            self.set_eta_G_eta(boson, eta, b)
+            GD0_G0D = self.G_delta_0_G_0_delta_ext(b) # [Ltau, Ly, Lx]
+            GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
+
+            # L0 = GD0_G0D[0, 0, 1]**2 * z4
+
+            # L1_lft = -GD0_G0D
+            # L1_lft[0, 0, 0] += GD0[0, 0, 0]
+            # L1 = L1_lft**2 * z2
+
+            # L2_lft = -torch.roll(GD0_G0D, shifts=-1, dims=2)  # translate by (0, 0, -1) in (Ltau, Ly, Lx)
+            # L2_lft[0, 0, -1] += GD0[0, 0, 0]
+            # L2_rgt = -torch.roll(GD0_G0D, shifts=1, dims=2)  # translate by (0, 0, 1) in (Ltau, Ly, Lx)
+            # L2_rgt[0, 0, 1] += GD0[0, 0, 0]
+            # L2 = L2_lft * L2_rgt * z2
+
+            # L3_lft = GD0[0, 0, 1]**2
+            # L3_rgt = - 
+
+
+            GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ltau, Ly, Lx]
+            GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
+
+            spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
+            spsm_r[b] = spsm_r_per_b
+            # spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
+            spsm_k_abs[b] = self.spsm_k(spsm_r[b]).abs()  # [Ly, Lx]
+
+            # szsz[b] = 0.5 * spsm[b]
+
+        obsr = {}
+        obsr['spsm_r'] = spsm_r
+        obsr['spsm_k_abs'] = spsm_k_abs
+        return obsr
+    
+    def reset_cache(self):
+        """
+        Reset the cache for Green's functions.
+        """
+        self.set_eta_G_eta_cache = {}
+    
 
 
 if __name__ == "__main__":  
