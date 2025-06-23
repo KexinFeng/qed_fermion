@@ -5,7 +5,7 @@ Nrv_array=$(echo '100')
 L_array=$(echo '6 8')  # 10 h (-2)
 
 export debug=0
-export cuda_graph=1
+export cuda_graph=0
 export mxitr=400  # 1000
 
 for Nrv in $Nrv_array; do
