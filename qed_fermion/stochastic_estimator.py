@@ -1282,6 +1282,11 @@ class StochaticEstimator:
         bs, _, Lx, Ly, Ltau = bosons.shape
         DD_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
         DD_k = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
+
+        z2 = self.hmc.Nf**2 - 1
+        z4 = z2*z2
+        z3 = self.hmc.Nf ** 3 - 2 * self.hmc.Nf + 1/self.hmc.Nf
+        z1 = -self.hmc.Nf + 1/self.hmc.Nf
         
         for b in range(bs):
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
