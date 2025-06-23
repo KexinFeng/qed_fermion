@@ -1295,38 +1295,56 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
 
             self.set_eta_G_eta(boson, eta, b)
-            # GD0_G0D = self.G_delta_0_G_0_delta_ext_batch(b) # [Ltau, Ly, Lx]
-            # GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
+            GD0_G0D = self.G_delta_0_G_0_delta_ext_batch(b) # [Ltau, Ly, Lx]
+            GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
 
-            L0 =             
-
-            # L1_lft = -GD0_G0D
-            # L1_lft[0, 0, 0] += GD0[0, 0, 0]
-            # L1 = L1_lft**2 * z2
-
-            # L2_lft = -torch.roll(GD0_G0D, shifts=-1, dims=2)  # translate by (0, 0, -1) in (Ltau, Ly, Lx)
-            # L2_lft[0, 0, -1] += GD0[0, 0, 0]
-            # L2_rgt = -torch.roll(GD0_G0D, shifts=1, dims=2)  # translate by (0, 0, 1) in (Ltau, Ly, Lx)
-            # L2_rgt[0, 0, 1] += GD0[0, 0, 0]
-            # L2 = L2_lft * L2_rgt * z2
-
-            # L3_lft = GD0[0, 0, 1]**2
-            # L3_rgt = - 
+            L0_lft = -self.G_delta_delta_G_0_0_ext_batch(b, a_xi=-1, b_G_xi=-1)
+            L0_rgt = -self.G_delta_delta_G_0_0_ext_batch(b, a_G_xi=-1, b_xi=-1)
+            L0 = L0_lft * L0_rgt  # [Ltau, Ly, Lx]
 
 
-            GD0_G0D = self.G_delta_0_G_0_delta_ext() # [Ltau, Ly, Lx]
-            GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
+            L1_lft = -GD0_G0D
+            L1_lft[0, 0, 0] += GD0[0, 0, 0]
+            L1 = L1_lft**2 # [Ltau, Ly, Lx]
 
-            spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
-            spsm_r[b] = spsm_r_per_b
-            # spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
-            spsm_k_abs[b] = self.spsm_k(spsm_r[b]).abs()  # [Ly, Lx]
+            L2_lft = -torch.roll(GD0_G0D, shifts=-1, dims=2)  # translate by (0, 0, -1) in (Ltau, Ly, Lx)
+            L2_lft[0, 0, -1] += GD0[0, 0, 0]
+            L2_rgt = -torch.roll(GD0_G0D, shifts=1, dims=2)  # translate by (0, 0, 1) in (Ltau, Ly, Lx)
+            L2_rgt[0, 0, 1] += GD0[0, 0, 0]
+            L2 = L2_lft * L2_rgt # [Ltau, Ly, Lx]
 
-            # szsz[b] = 0.5 * spsm[b]
+            L3_lft = self.G_delta_delta_G_0_0_ext_batch(b, a_xi=-1, b_xi=-1)  
+            L3_rgt = -self.G_delta_0_G_0_delta_ext_batch(b, a_G_xi=-1, b_G_xi=-1)  
+            L3_rgt[0, 0, -1] += GD0[0, 0, -2]
+            L3 = L3_lft * L3_rgt  # [Ltau, Ly, Lx]
+
+            L4_lft = -self.G_delta_delta_G_0_0_ext_batch(b, a_G_xi=-1, b_G_xi=-1)
+            L4_rgt = self.G_delta_0_G_0_delta_ext_batch(b, a_xi=-1, b_xi=-1)
+            L4 = L4_lft * L4_rgt  # [Ltau, Ly, Lx]
+
+            L5_lft = -self.G_delta_0_G_0_delta_ext_batch(b, a_G_xi=-1, b_xi=-1)
+            L5_lft[0, 0, 0] += GD0[0, 0, 0]
+            L5_rgt = self.G_delta_delta_G_0_0_ext_batch(b, a_xi=-1, b_G_xi=-1)
+            L5 = L5_lft * L5_rgt  # [Ltau, Ly, Lx]
+
+            L6_lft = -self.G_delta_delta_G_0_0_ext_batch(b, a_G_xi=-1, b_xi=-1)
+            L6_rgt = self.G_delta_0_G_0_delta_ext_batch(b, a_xi=-1, b_G_xi=-1)
+            L6 = L6_lft * L6_rgt  # [Ltau, Ly, Lx]
+
+            L7_lft = -self.G_delta_0_G_delta_0(b, a_xi_prime=-1, b_G_xi=-1)
+            L7_lft[0, 0, -1] += GD0[0, 0, 2]
+            L7_rgt = self.G_0_delta_G_0_delta_ext_batch(b, a_G_xi_prime=-1, b_xi_prime=-1)
+            L7 = L7_lft * L7_rgt  # [Ltau, Ly, Lx]
+
+            L8_lft = self.G_0_delta_G_0_delta_ext_batch(b, a_G_xi_prime=-1, b_xi=-1)
+            L8_rgt = -self.G_delta_0_G_delta_0(b, a_xi_prime=-1, b_G_xi_prime=-1)
+            L8_rgt[0, 0, 0] += GD0[0, 0, 0]
+            L8 = L8_lft * L8_rgt  # [Ltau, Ly, Lx]
+
+            DD_r[b] = (z4*L0 + z2*L1 + z2*L2 + z3*L3 + z3*L4 + z3*L5 + z3*L6 + z1*L7 + z1*L8).real[0]  # [Ly, Lx]
 
         obsr = {}
-        obsr['spsm_r'] = spsm_r
-        obsr['spsm_k_abs'] = spsm_k_abs
+        obsr['DD_r'] = DD_r
         return obsr
     
     def reset_cache(self):
