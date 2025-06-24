@@ -367,7 +367,9 @@ class StochaticEstimator:
 
         # Batch processing to avoid OOM
         batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
-        print(f"Batch size for G_delta_0_G_0_delta_ext: {batch_size}")
+        if a_xi == a_G_xi == b_xi == b_G_xi ==0:
+            print(f"Batch size for G_delta_0_G_0_delta_ext: {batch_size}")
+        
         # batch_size = len(s)
         # num_loop = 10
         # batch_size = total_pairs // num_loop
