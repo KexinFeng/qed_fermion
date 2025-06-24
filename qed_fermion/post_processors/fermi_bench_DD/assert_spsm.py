@@ -36,9 +36,9 @@ for bid in range(bs):
     )
     print(f"Assertion passed for batch id {bid}")
     max_abs_diff = np.max(np.abs(spsm_k_dqmc[:, 2] - spsm_k_se))
-    print(f"Max abs diff for batch id {bid}: {max_abs_diff}")
+    print(f"Max abs diff for batch id {bid}: {max_abs_diff:.3g}")
     max_rel_diff = np.max(np.abs((spsm_k_dqmc[:, 2] - spsm_k_se) / spsm_k_se))
-    print(f"Max rel diff for batch id {bid}: {max_rel_diff}")
+    print(f"Max rel diff for batch id {bid}: {max_rel_diff:.3g}")
 
 
 
