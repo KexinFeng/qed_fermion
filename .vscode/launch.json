@@ -13,7 +13,7 @@
             "env": {
                 "debug": "1",
                 "cuda_graph": "1",
-                "Nrv": "40",
+                "Nrv": "100",
                 "CUDA_LAUNCH_BLOCKING": "1",
             }
         }

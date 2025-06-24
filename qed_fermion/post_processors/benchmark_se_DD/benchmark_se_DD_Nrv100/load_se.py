@@ -45,10 +45,10 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
         se.init_cuda_graph()
     # eta = se.random_vec_bin()
     os.makedirs(output_dir, exist_ok=True)
-    boson_conf = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
+    boson_seq = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:]
     spsm_k = []
     DD_k = []
-    for boson in tqdm(boson_conf):  # boson: [J/bs, 2, Lx, Ly, Ltau]
+    for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
         if se.cuda_graph_se:
             obsr = se.graph_runner(boson.to(se.device), eta)
@@ -75,9 +75,9 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
 
 if __name__ == '__main__':
     # Create configs file
-    Lx = int(os.getenv("Lx", '10'))
+    Lx = int(os.getenv("Lx", '6'))
     print(f"Lx: {Lx}")
-    Ltau = int(os.getenv("Ltau", '100'))
+    Ltau = int(os.getenv("Ltau", '60'))
     print(f"Ltau: {Ltau}")
     Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
