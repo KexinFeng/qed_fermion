@@ -117,10 +117,10 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
             std_root_n(spsm_k_list.numpy(), axis=0, lag_sum=200)[0, 0, 0]
         )
 
-        # Test spsm_k lag_sum, which is at least 5000
-        gamma0 = std_root_n(spsm_k_list.numpy(), axis=0, lag_sum=1)[1] * spsm_k_list.shape[0]**0.5
-        total_err = init_convex_seq_estimator(data['spsm_k_list'][:, 1])
-        print(f'J={J}, lag_sum: {(total_err/gamma0)**2}')
+        # # Test spsm_k lag_sum, which is at least 5000
+        # gamma0 = std_root_n(spsm_k_list.numpy(), axis=0, lag_sum=1)[1] * spsm_k_list.shape[0]**0.5
+        # total_err = init_convex_seq_estimator(data['spsm_k_list'][:, 1])
+        # print(f'J={J}, lag_sum: {(total_err/gamma0)**2}')
         
         xs.append(J)
 
@@ -141,7 +141,7 @@ if __name__ == '__main__':
         start_dqmc = 5000
         end_dqmc = 10000
 
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench1/"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench1_K1/"
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp_K1/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_noncompact_kexin_hk_avg/"
 
