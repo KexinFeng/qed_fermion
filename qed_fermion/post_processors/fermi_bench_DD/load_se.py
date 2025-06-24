@@ -96,15 +96,15 @@ if __name__ == '__main__':
     # input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
     end = 10000
 
     @time_execution
     def iterate_func():
-        bosons = []
         for bid in range(bs):
+            bosons = []
             for J in Js:
 
                 hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
@@ -120,9 +120,9 @@ if __name__ == '__main__':
                 
                 bosons.append(boson_seq[:, bid])
 
-            bosons = torch.stack(bosons, dim=1).to(device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
+            bosons_tnsr = torch.stack(bosons, dim=1).to(device)  # [seq, J/bs, 2*Lx*Ly*Ltau]
             
             output_dir = script_path + f"/data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}/"
-            postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start, bid=bid)
+            postprocess_and_write_spsm(bosons_tnsr, output_dir, Lx, Ly, Ltau, Nrv=Nrv, mxitr=mxitr, start=start, bid=bid)
             
     iterate_func()
