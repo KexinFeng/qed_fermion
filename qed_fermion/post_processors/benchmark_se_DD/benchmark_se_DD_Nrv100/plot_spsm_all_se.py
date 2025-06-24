@@ -53,7 +53,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
                 # if not bid == 0: continue
                 for part_id in range(num_parts):
                     input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                    name = f"dimerx.bin" # dimer_dimer
+                    name = f"dimercorr.bin" # dimer_dimer
                     ftdqmc_filename = os.path.join(input_folder, name)
                     
                     try:
