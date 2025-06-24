@@ -1204,6 +1204,7 @@ class StochaticEstimator:
     def get_fermion_obsr(self, bosons, eta):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
+        eta: [Nrv, Ltau * Ly * Lx]
 
         Returns:
             spsm_r: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
@@ -1222,13 +1223,14 @@ class StochaticEstimator:
 
             obsrs.append(obsr)
         
-        self.reset_cache()
+            self.reset_cache()
 
         # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
         keys = obsrs[0].keys()
         consolidated_obsr = {}
         for key in keys:
             consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
+        
         return consolidated_obsr
 
     def get_spsm_per_b(self):

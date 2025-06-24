@@ -15,8 +15,8 @@ class FermionObsrGraphRunner:
     
     def capture(
         self,
-        bosons,
-        eta,
+        bosons, # [bs, 2, Lx, Ly, Ltau] 
+        eta,    # [Nrv, Ltau * Ly * Lx]
         # cuda_graph control parameters
         max_iter_se,
         graph_memory_pool=None,
@@ -78,8 +78,8 @@ class FermionObsrGraphRunner:
     
     def __call__(
         self,
-        bosons,
-        eta,
+        bosons, # [bs, 2, Lx, Ly, Ltau] 
+        eta,    # [Nrv, Ltau * Ly * Lx]
     ):
         """Execute the captured graph with the given inputs."""
         # Copy inputs to input buffers
