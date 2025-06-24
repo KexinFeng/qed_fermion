@@ -21,22 +21,23 @@ data_list = []
 for bid in range(bs):
     file_path = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_0.5_L_6_Ltau_10_bid{bid}_part_0_psz_500_start_5999_end_6000/spsm.bin"
     # Assuming torch.load is appropriate for loading the file
-    data_dqmc = np.genfromtxt(file_path)
-    
-    txt_file_path = script_path + f"/Nrv_200/spsm_k_b{bid}.txt"
-    data_se = np.genfromtxt(txt_file_path)
+    spsm_k_dqmc = np.genfromtxt(file_path)
+
+    se_file_path = script_path + f"/data_se_start-1/Lx_6_Ltau_10_Nrv_100_mxitr_400/spsm_k_b{bid}.pt"
+    data_se = torch.load(se_file_path, map_location='cpu', weights_only=False)
+    spsm_k_se = data_se['mean'][0].reshape(-1).astype(np.float64)  # [bs, kx, ky]
 
     # Compare the third column of data and data_se using torch.testing.assert_close
     torch.testing.assert_close(
-        torch.tensor(data_dqmc[:, 2]), 
-        torch.tensor(data_se[:, 2]), 
+        torch.tensor(spsm_k_dqmc[:, 2]), 
+        torch.tensor(spsm_k_se), 
         atol=3e-2, 
         rtol=0
     )
     print(f"Assertion passed for batch id {bid}")
-    max_abs_diff = np.max(np.abs(data_dqmc[:, 2] - data_se[:, 2]))
+    max_abs_diff = np.max(np.abs(spsm_k_dqmc[:, 2] - spsm_k_se))
     print(f"Max abs diff for batch id {bid}: {max_abs_diff}")
-    max_rel_diff = np.max(np.abs((data_dqmc[:, 2] - data_se[:, 2]) / data_se[:, 2]))
+    max_rel_diff = np.max(np.abs((spsm_k_dqmc[:, 2] - spsm_k_se) / spsm_k_se))
     print(f"Max rel diff for batch id {bid}: {max_rel_diff}")
 
 
