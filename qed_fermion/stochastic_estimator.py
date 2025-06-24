@@ -1232,6 +1232,38 @@ class StochaticEstimator:
             consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
         
         return consolidated_obsr
+    
+    def get_fermion_obsr_gt(self, bosons):
+        """
+        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
+        eta: [Nrv, Ltau * Ly * Lx]
+
+        Returns:
+            spsm_r: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            spsm_k: [bs, Ly, Lx] tensor.
+        """
+        bs = bosons.shape[0]
+        obsrs = []
+        for b in range(bs):
+            obsr = {}
+
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+            # self.set_eta_G_eta(boson, eta)
+
+            # obsr.update(self.get_spsm_per_b())
+            obsr.update(self.get_dimer_dimer_per_b_groundtruth(boson))
+
+            obsrs.append(obsr)
+        
+            # self.reset_cache()
+
+        # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
+        keys = obsrs[0].keys()
+        consolidated_obsr = {}
+        for key in keys:
+            consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
+        
+        return consolidated_obsr
 
     def get_spsm_per_b(self):
         if self.GD0_G0D is None:
@@ -1382,7 +1414,13 @@ class StochaticEstimator:
         DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
         obsr['DD_k'] = DD_k
         return obsr
-    
+
+    def get_dimer_dimer_per_b_groundtruth(self, boson):
+        Gij_gt = self.G_groundtruth(boson)
+        GD0 = self.G_delta_0_groundtruth_ext_fft(Gij_gt)
+        GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext_fft(Gij_gt)
+
+
     def reset_cache(self):
         """
         Reset the cache for Green's functions.
