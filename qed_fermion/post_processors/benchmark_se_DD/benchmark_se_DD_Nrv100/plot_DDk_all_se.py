@@ -53,7 +53,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
                 # if not bid == 0: continue
                 for part_id in range(num_parts):
                     input_folder = root_folder + f"/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start_dqmc}_end_{end_dqmc}/"
-                    name = f"spsm.bin" # spsm
+                    name = f"dimercorr.bin" # dimer_dimer
                     ftdqmc_filename = os.path.join(input_folder, name)
                     
                     try:
@@ -93,18 +93,18 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
                      linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'dqmc_{Lx}x{Ltau}')
 
     
-    # ---- Load and plot spsm_k.pt mean ---- #
+    # ---- Load and plot DD_k.pt mean ---- #
     if start != 0:
         output_dir = os.path.join(script_path, f"data_se_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     else:
         output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
-    spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-    spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
-        # Compute spin order as sum of spsm_k_mean divided by vs
-    spsm_k0 = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    spsm_k0_err = spsm_k_res['std'][:, 0, 0]
+    DD_k_file = os.path.join(output_dir, "spsm_k.pt")
+    DD_k_res = torch.load(DD_k_file, weights_only=False) # [J/bs, Ly, Lx]
+        # Compute spin order as sum of DD_k_mean divided by vs
+    DD_k0 = DD_k_res['DD_k_mean'][:, 0, 0]  # [J/bs, Ly, Lx]
+    DD_k0_err = DD_k_res['DD_k_std'][:, 0, 0]
 
-    plt.errorbar(Js, spsm_k0 / vs, yerr=spsm_k0_err / vs, 
+    plt.errorbar(Js, DD_k0 / vs, yerr=DD_k0_err / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
@@ -154,8 +154,8 @@ if __name__ == '__main__':
     
     plt.show(block=False)
     # Save plot
-    method_name = "spsm_order"
-    save_dir = os.path.join(script_path, f"./figures_start{start}/spsm_order")
+    method_name = "dimer_order"
+    save_dir = os.path.join(script_path, f"./figures_start{start}/dimer_order")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
