@@ -204,8 +204,6 @@ class StochaticEstimator:
         # Compute the four-point green's function
         # G_ij ~ (G eta)_i eta_j
         # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
-        if b in self.set_eta_G_eta_cache:
-            return 
 
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
@@ -220,7 +218,7 @@ class StochaticEstimator:
         # print("max_pcg_iter:", cnt[:5])
         # print("err:", err[:5])
 
-        self.set_eta_G_eta_cache[b] = G_eta
+        self.G_eta = G_eta
 
   
     def test_fft_negate_k3(self):
@@ -347,7 +345,7 @@ class StochaticEstimator:
     # -------- Batched methods --------
     def G_delta_0_G_0_delta_ext_batch(self, b, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
-        G_eta = self.set_eta_G_eta_cache[b]  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
         eta_ext_conj = torch.cat([eta, -eta], dim=1).conj().view(-1, 2 * self.Ltau, self.Ly, self.Lx)
         G_eta_ext = torch.cat([G_eta, -G_eta], dim=1).view(-1, 2 * self.Ltau, self.Ly, self.Lx)
@@ -1205,14 +1203,48 @@ class StochaticEstimator:
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
 
         Returns:
-            spsm: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
-            szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+            spsm_r: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            spsm_k: [bs, Ly, Lx] tensor.
         """
-        obsr = {}
-        # for b in range(self.bs):
-        obsr.update(self.get_spsm(bosons, eta))
-        obsr.update(self.get_dimer_dimer(bosons, eta))
+        obsrs = []
+        for b in range(self.bs):
+            obsr = {}
+
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+            self.set_eta_G_eta(boson, eta, b)
+
+            obsr.update(self.get_spsm_per_b(bosons, b))
+            obsr.update(self.get_dimer_dimer_per_b(bosons, b))
+
+            obsrs.append(obsr)
+        
         self.reset_cache()
+
+        # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
+        keys = obsrs[0].keys()
+        consolidated_obsr = {}
+        for key in keys:
+            consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
+        return consolidated_obsr
+
+    def get_spsm_per_b(self, bosons):
+        bs, _, Lx, Ly, Ltau = bosons.shape
+
+        if self.GD0_G0D is None:
+            GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
+            self.GD0_G0D = GD0_G0D
+
+        if self.GD0 is None:
+            GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
+            self.GD0 = GD0
+
+        spsm_r = self.spsm_r(self.GD0_G0D, self.GD0)  # [Ly, Lx]
+        spsm_k_abs = self.spsm_k(spsm_r).abs()  # [Ly, Lx]
+
+        # Output
+        obsr = {}
+        obsr['spsm_r'] = spsm_r
+        obsr['spsm_k_abs'] = spsm_k_abs
         return obsr
 
     def get_spsm(self, bosons, eta):
@@ -1272,75 +1304,75 @@ class StochaticEstimator:
         obsr['spsm_k_abs'] = spsm_k_abs
         return obsr
 
-    def get_dimer_dimer(self, bosons, eta):
+    def get_dimer_dimer_per_b(self, bosons):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
 
         Returns:
-            spsm: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
-            szsz: [bs, Ly, Lx] tensor, szsz[i, j, tau] = <c^+_i c_i> * <c^+_j c_j>
+            DD_r: [bs, Ly, Lx] tensor
+            DD_k: [bs, Ly, Lx] tensor
         """
         bs, _, Lx, Ly, Ltau = bosons.shape
-        DD_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
-        # DD_k = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
 
         z2 = self.hmc_sampler.Nf**2 - 1
         z4 = z2*z2
         z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
         z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
         
-        for b in range(bs):
-            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+        # Compute green's functions
+        if self.GD0_G0D is None:
+            self.GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
+        if self.GD0 is None:
+            self.GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
 
-            self.set_eta_G_eta(boson, eta, b)
-            GD0_G0D = self.G_delta_0_G_0_delta_ext_batch(b) # [Ltau, Ly, Lx]
-            GD0 = self.G_delta_0_ext(b) # [Ltau, Ly, Lx]
+        GD0_G0D = self.GD0_G0D  # [Ltau, Ly, Lx]
+        GD0 = self.GD0  # [Ltau, Ly, Lx]
 
-            L0_lft = -self.G_delta_delta_G_0_0_ext_batch(b, a_xi=-1, b_G_xi=-1)
-            L0_rgt = -self.G_delta_delta_G_0_0_ext_batch(b, a_G_xi=-1, b_xi=-1)
-            L0 = L0_lft * L0_rgt  # [Ltau, Ly, Lx]
+        L0_lft = -self.G_delta_delta_G_0_0_ext_batch(a_xi=-1, b_G_xi=-1)
+        L0_rgt = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_xi=-1)
+        L0 = L0_lft * L0_rgt  # [Ltau, Ly, Lx]
 
+        L1_lft = -GD0_G0D
+        L1_lft[0, 0, 0] += GD0[0, 0, 0]
+        L1 = L1_lft**2 # [Ltau, Ly, Lx]
 
-            L1_lft = -GD0_G0D
-            L1_lft[0, 0, 0] += GD0[0, 0, 0]
-            L1 = L1_lft**2 # [Ltau, Ly, Lx]
+        L2_lft = -torch.roll(GD0_G0D, shifts=-1, dims=2)  # translate by (0, 0, -1) in (Ltau, Ly, Lx)
+        L2_lft[0, 0, -1] += GD0[0, 0, 0]
+        L2_rgt = -torch.roll(GD0_G0D, shifts=1, dims=2)  # translate by (0, 0, 1) in (Ltau, Ly, Lx)
+        L2_rgt[0, 0, 1] += GD0[0, 0, 0]
+        L2 = L2_lft * L2_rgt # [Ltau, Ly, Lx]
 
-            L2_lft = -torch.roll(GD0_G0D, shifts=-1, dims=2)  # translate by (0, 0, -1) in (Ltau, Ly, Lx)
-            L2_lft[0, 0, -1] += GD0[0, 0, 0]
-            L2_rgt = -torch.roll(GD0_G0D, shifts=1, dims=2)  # translate by (0, 0, 1) in (Ltau, Ly, Lx)
-            L2_rgt[0, 0, 1] += GD0[0, 0, 0]
-            L2 = L2_lft * L2_rgt # [Ltau, Ly, Lx]
+        L3_lft = self.G_delta_delta_G_0_0_ext_batch(a_xi=-1, b_xi=-1)  
+        L3_rgt = -self.G_delta_0_G_0_delta_ext_batch(a_G_xi=-1, b_G_xi=-1)  
+        L3_rgt[0, 0, -1] += GD0[0, 0, -2]
+        L3 = L3_lft * L3_rgt  # [Ltau, Ly, Lx]
 
-            L3_lft = self.G_delta_delta_G_0_0_ext_batch(b, a_xi=-1, b_xi=-1)  
-            L3_rgt = -self.G_delta_0_G_0_delta_ext_batch(b, a_G_xi=-1, b_G_xi=-1)  
-            L3_rgt[0, 0, -1] += GD0[0, 0, -2]
-            L3 = L3_lft * L3_rgt  # [Ltau, Ly, Lx]
+        L4_lft = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_G_xi=-1)
+        L4_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_xi=-1)
+        L4 = L4_lft * L4_rgt  # [Ltau, Ly, Lx]
 
-            L4_lft = -self.G_delta_delta_G_0_0_ext_batch(b, a_G_xi=-1, b_G_xi=-1)
-            L4_rgt = self.G_delta_0_G_0_delta_ext_batch(b, a_xi=-1, b_xi=-1)
-            L4 = L4_lft * L4_rgt  # [Ltau, Ly, Lx]
+        L5_lft = -self.G_delta_0_G_0_delta_ext_batch(a_G_xi=-1, b_xi=-1)
+        L5_lft[0, 0, 0] += GD0[0, 0, 0]
+        L5_rgt = -L0_lft
+        L5 = L5_lft * L5_rgt  # [Ltau, Ly, Lx]
 
-            L5_lft = -self.G_delta_0_G_0_delta_ext_batch(b, a_G_xi=-1, b_xi=-1)
-            L5_lft[0, 0, 0] += GD0[0, 0, 0]
-            L5_rgt = -L0_lft
-            L5 = L5_lft * L5_rgt  # [Ltau, Ly, Lx]
+        L6_lft = L0_rgt
+        L6_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_G_xi=-1)
+        L6 = L6_lft * L6_rgt  # [Ltau, Ly, Lx]
 
-            L6_lft = L0_rgt
-            L6_rgt = self.G_delta_0_G_0_delta_ext_batch(b, a_xi=-1, b_G_xi=-1)
-            L6 = L6_lft * L6_rgt  # [Ltau, Ly, Lx]
+        L7_lft = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi=-1)
+        L7_lft[0, 0, -1] += GD0[0, 0, 2]
+        L7_rgt = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi_prime=-1)
+        L7 = L7_lft * L7_rgt  # [Ltau, Ly, Lx]
 
-            L7_lft = -self.G_delta_0_G_delta_0_ext_batch(b, a_xi_prime=-1, b_G_xi=-1)
-            L7_lft[0, 0, -1] += GD0[0, 0, 2]
-            L7_rgt = self.G_0_delta_G_0_delta_ext_batch(b, a_G_xi_prime=-1, b_xi_prime=-1)
-            L7 = L7_lft * L7_rgt  # [Ltau, Ly, Lx]
+        L8_lft = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi=-1)
+        L8_rgt = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi_prime=-1)
+        L8_rgt[0, 0, 0] += GD0[0, 0, 0]
+        L8 = L8_lft * L8_rgt  # [Ltau, Ly, Lx]
 
-            L8_lft = self.G_0_delta_G_0_delta_ext_batch(b, a_G_xi_prime=-1, b_xi=-1)
-            L8_rgt = -self.G_delta_0_G_delta_0_ext_batch(b, a_xi_prime=-1, b_G_xi_prime=-1)
-            L8_rgt[0, 0, 0] += GD0[0, 0, 0]
-            L8 = L8_lft * L8_rgt  # [Ltau, Ly, Lx]
+        DD_r = (z4*L0 + z2*L1 + z2*L2 + z3*L3 + z3*L4 + z3*L5 + z3*L6 + z1*L7 + z1*L8).real[0]  # [Ly, Lx]
 
-            DD_r[b] = (z4*L0 + z2*L1 + z2*L2 + z3*L3 + z3*L4 + z3*L5 + z3*L6 + z1*L7 + z1*L8).real[0]  # [Ly, Lx]
-
+        # Output
         obsr = {}
         obsr['DD_r'] = DD_r
 
@@ -1353,7 +1385,8 @@ class StochaticEstimator:
         """
         Reset the cache for Green's functions.
         """
-        self.set_eta_G_eta_cache = {}
+        self.GD0_G0D = None
+        self.GD0 = None
     
 
 if __name__ == "__main__":  
