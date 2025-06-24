@@ -18,6 +18,7 @@ sys.path.insert(0, script_path + '/../../../')
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
 use_dqmc_post_processor = False
+batch_id = 1
 
 # @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
@@ -94,7 +95,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         spin_order_values = np.where(spin_order_values > 10, np.nan, spin_order_values)
 
         # Plot the batch mean
-        plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs, linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+        plt.errorbar(Js, spin_order_values[:, batch_id] / vs, yerr=spin_order_errors[:, batch_id] / vs, linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
 
     # ---- Load dqmc and plot ----
     filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
@@ -133,8 +134,9 @@ if __name__ == '__main__':
         start_dqmc = 5000
         end_dqmc = 10000
 
-        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench_K0_sup/"
-        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp/"
+        # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench_K0_sup/"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/K0_deprecated/hmc_check_point_noncmp_bench_K0"
+        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp_K0/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K0.0_tuneJ_b{asym:.1g}l_noncompact_kexin_hk_avg/"
 
         plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=idx)

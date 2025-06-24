@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
     # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
     # input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench_K0"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/K0_deprecated/hmc_check_point_noncmp_bench_K0"
 
     @time_execution
     def iterate_func():
@@ -208,7 +208,7 @@ if __name__ == '__main__':
                     output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp_K0/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     os.makedirs(output_folder, exist_ok=True)
 
-                    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.1g}_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_{end}.pt"
+                    hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{end}_bs{bs}_Jtau_{J:.1g}_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_{end}.pt"
 
                     load_write2file2(output_folder, Lsize=(Lx, Lx, Ltau), hmc_filename=input_folder + hmc_filename, bid=bid, starts=[part_id * part_size + start], sample_steps=[1], ends=[min(end, (part_id+1) * part_size + start)])
         

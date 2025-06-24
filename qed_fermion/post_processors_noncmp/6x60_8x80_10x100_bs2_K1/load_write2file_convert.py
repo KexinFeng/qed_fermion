@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
     # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
     # input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point/"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench1"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench1_K1"
 
     @time_execution
     def iterate_func():

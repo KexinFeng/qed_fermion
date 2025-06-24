@@ -142,7 +142,7 @@ if __name__ == '__main__':
         end_dqmc = 10000
 
         hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench1/"
-        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp/"
+        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp_K1/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_noncompact_kexin_hk_avg/"
 
         plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=idx)
