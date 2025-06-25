@@ -1219,7 +1219,7 @@ class StochaticEstimator:
             self.set_eta_G_eta(boson, eta)
 
             obsr.update(self.get_spsm_per_b())
-            obsr.update(self.get_dimer_dimer_per_b())
+            # obsr.update(self.get_dimer_dimer_per_b())
 
             obsrs.append(obsr)
         

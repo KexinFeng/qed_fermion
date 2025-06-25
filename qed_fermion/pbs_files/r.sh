@@ -1,5 +1,4 @@
 cd "$(dirname "$0")"
-mkdir -p report_noncmp_bench_K0_sup
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
