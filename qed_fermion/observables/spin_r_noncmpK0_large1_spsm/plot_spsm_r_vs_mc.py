@@ -9,7 +9,7 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Choose lattice size (example: Lx=20)
-Lx = 30
+Lx = 40
 Ltau = int(10 * Lx)
 hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
 hmc_filename = os.path.join(hmc_folder, hmc_file)

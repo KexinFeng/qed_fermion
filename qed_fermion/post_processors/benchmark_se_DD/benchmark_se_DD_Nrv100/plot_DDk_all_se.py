@@ -72,8 +72,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
             data = data[:, start:, :, :]
 
             # spin order
-            spin_order = np.mean(data[:, :, 0, 2], axis=1) # [bs]
-            spin_order_err = np.mean(np.abs(data[:, :, 0, 3]), axis=1) # [bs]
+            spin_order = np.mean(data[:, :, vs//2, 2], axis=1) # [bs]
+            spin_order_err = np.mean(np.abs(data[:, :, vs//2, 3]), axis=1) # [bs]
             spin_order_values.append(spin_order)
             spin_order_errors.append(spin_order_err)
 
@@ -100,9 +100,10 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         output_dir = os.path.join(script_path, f"data_se/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
     DD_k_file = os.path.join(output_dir, "spsm_k.pt")
     DD_k_res = torch.load(DD_k_file, weights_only=False) # [J/bs, Ly, Lx]
-        # Compute spin order as sum of DD_k_mean divided by vs
-    DD_k0 = DD_k_res['DD_k_mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    DD_k0_err = DD_k_res['DD_k_std'][:, 0, 0]
+    
+    # Compute spin order as sum of DD_k_mean divided by vs
+    DD_k0 = DD_k_res['DD_k_mean'].reshape(-1, vs)[:, vs//2]  # [J/bs, Ly, Lx]
+    DD_k0_err = DD_k_res['DD_k_std'].reshape(-1, vs)[:, vs//2]
 
     plt.errorbar(Js, DD_k0 / vs, yerr=DD_k0_err / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
