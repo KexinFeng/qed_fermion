@@ -79,7 +79,7 @@ if __name__ == '__main__':
     print(f"Lx: {Lx}")
     Ltau = int(os.getenv("Ltau", '10'))
     print(f"Ltau: {Ltau}")
-    Nrv = int(os.getenv("Nrv", '100'))
+    Nrv = int(os.getenv("Nrv", '200'))
     print(f"Nrv: {Nrv}")
     mxitr = int(os.getenv("mxitr", '400'))
     print(f"mxitr: {mxitr}")
@@ -96,6 +96,7 @@ if __name__ == '__main__':
     # input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
+    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
     input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
@@ -104,6 +105,7 @@ if __name__ == '__main__':
     @time_execution
     def iterate_func():
         for bid in range(bs):
+            if bid > 0: continue
             bosons = []
             for J in Js:
 

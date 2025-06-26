@@ -1218,11 +1218,11 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            # obsr.update(self.get_spsm_per_b())
+            obsr.update(self.get_spsm_per_b())
             obsr.update(self.get_dimer_dimer_per_b())
 
             obsrs.append(obsr)
-        
+
             self.reset_cache()
 
         # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
@@ -1250,12 +1250,12 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             # self.set_eta_G_eta(boson, eta)
 
-            # obsr.update(self.get_spsm_per_b())
+            obsr.update(self.get_spsm_per_b())
             obsr.update(self.get_dimer_dimer_per_b_groundtruth(boson))
 
             obsrs.append(obsr)
         
-            # self.reset_cache()
+            self.reset_cache()
 
         # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
         keys = obsrs[0].keys()
@@ -1364,47 +1364,47 @@ class StochaticEstimator:
 
         L0_lft = -self.G_delta_delta_G_0_0_ext_batch(a_xi=-1, b_G_xi=-1)
         L0_rgt = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_xi=-1)
-        L0 = L0_lft * L0_rgt  # [Ltau, Ly, Lx]
+        L0 = z4 * (L0_lft * L0_rgt)  # [Ltau, Ly, Lx]
 
         L1_lft = -GD0_G0D
         L1_lft[0, 0, 0] += GD0[0, 0, 0]
-        L1 = L1_lft**2 # [Ltau, Ly, Lx]
+        L1 = z2 * (L1_lft**2) # [Ltau, Ly, Lx]
 
         L2_lft = -torch.roll(GD0_G0D, shifts=-1, dims=2)  # translate by (0, 0, -1) in (Ltau, Ly, Lx)
         L2_lft[0, 0, -1] += GD0[0, 0, 0]
         L2_rgt = -torch.roll(GD0_G0D, shifts=1, dims=2)  # translate by (0, 0, 1) in (Ltau, Ly, Lx)
         L2_rgt[0, 0, 1] += GD0[0, 0, 0]
-        L2 = L2_lft * L2_rgt # [Ltau, Ly, Lx]
+        L2 = z2 * (L2_lft * L2_rgt) # [Ltau, Ly, Lx]
 
         L3_lft = self.G_delta_delta_G_0_0_ext_batch(a_xi=-1, b_xi=-1)  
         L3_rgt = -self.G_delta_0_G_0_delta_ext_batch(a_G_xi=-1, b_G_xi=-1)  
         L3_rgt[0, 0, -1] += GD0[0, 0, -2]
-        L3 = L3_lft * L3_rgt  # [Ltau, Ly, Lx]
+        L3 = z3 * (L3_lft * L3_rgt)  # [Ltau, Ly, Lx]
 
         L4_lft = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_G_xi=-1)
         L4_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_xi=-1)
-        L4 = L4_lft * L4_rgt  # [Ltau, Ly, Lx]
+        L4 = z3 * (L4_lft * L4_rgt)  # [Ltau, Ly, Lx]
 
         L5_lft = -self.G_delta_0_G_0_delta_ext_batch(a_G_xi=-1, b_xi=-1)
         L5_lft[0, 0, 0] += GD0[0, 0, 0]
         L5_rgt = -L0_lft
-        L5 = L5_lft * L5_rgt  # [Ltau, Ly, Lx]
+        L5 = z3 * (L5_lft * L5_rgt)  # [Ltau, Ly, Lx]
 
         L6_lft = L0_rgt
         L6_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_G_xi=-1)
-        L6 = L6_lft * L6_rgt  # [Ltau, Ly, Lx]
+        L6 = z3 * (L6_lft * L6_rgt)  # [Ltau, Ly, Lx]
 
         L7_lft = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi=-1)
         L7_lft[0, 0, -1] += GD0[0, 0, 2]
         L7_rgt = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi_prime=-1)
-        L7 = L7_lft * L7_rgt  # [Ltau, Ly, Lx]
+        L7 = z1 * (L7_lft * L7_rgt)  # [Ltau, Ly, Lx]
 
         L8_lft = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi=-1)
         L8_rgt = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi_prime=-1)
         L8_rgt[0, 0, 0] += GD0[0, 0, 0]
-        L8 = L8_lft * L8_rgt  # [Ltau, Ly, Lx]
+        L8 = z1 * (L8_lft * L8_rgt)  # [Ltau, Ly, Lx]
 
-        DD_r = (z4*L0 + z2*L1 + z2*L2 + z3*L3 + z3*L4 + z3*L5 + z3*L6 + z1*L7 + z1*L8).real[0]  # [Ly, Lx]
+        DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
 
         # Output
         obsr = {}
