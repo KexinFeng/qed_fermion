@@ -1157,7 +1157,7 @@ class StochaticEstimator:
         spsm: [Ly, Lx]
         """
         spsm = self.spsm_r(GD0_G0D, GD0)
-        spsm -= (GD0[0, 0, 0]**2).abs()
+        # spsm -= (GD0[0, 0, 0]**2).abs() # This is wrong background
         return spsm
     
     def spsm_k(self, spsm_r):
@@ -1329,8 +1329,8 @@ class StochaticEstimator:
             GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext_fft(Gij_gt)
 
             spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
-            # spsm_r[b] = spsm_r_per_b
-            spsm_r[b] = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
+            spsm_r[b] = spsm_r_per_b
+            spsm_r_mgb = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
             spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
 
             # szsz[b] = 0.5 * spsm[b]

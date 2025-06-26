@@ -50,15 +50,16 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     DD_k = []
     for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-        # if se.cuda_graph_se:
-        #     obsr = se.graph_runner(boson.to(se.device), eta)
-        # else:
-        #     obsr = se.get_fermion_obsr(boson.to(se.device), eta)
+        if se.cuda_graph_se:
+            obsr = se.graph_runner(boson.to(se.device), eta)
+        else:
+            obsr = se.get_fermion_obsr(boson.to(se.device), eta)
 
         obsr_gt = se.get_fermion_obsr_groundtruth(boson.to(se.device))
-        # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
 
-        # spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Lx, Ly]
+        spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Lx, Ly]
         spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Lx, Ly]
         dbstop = 1
         
@@ -102,7 +103,7 @@ if __name__ == '__main__':
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    # input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
+    input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
     end = 10000
