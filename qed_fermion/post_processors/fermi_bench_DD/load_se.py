@@ -59,6 +59,8 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
 
         # spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Lx, Ly]
+        spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Lx, Ly]
+        dbstop = 1
         
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
     DD_k = np.array(DD_k)  # [seq, J/bs, Ly, Lx]
@@ -99,8 +101,8 @@ if __name__ == '__main__':
     # input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
-    # input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    # input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
     end = 10000
