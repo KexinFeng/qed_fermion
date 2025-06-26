@@ -71,4 +71,39 @@ torch.testing.assert_close(spsm_bin_col2, spsm_k_flat, rtol=1e-5, atol=1e-5)
 print("spsm.bin column 3 matches spsm_k.")
 
 
+def fourier_trans_eqt(gr, list_, listk, a1_p, a2_p, b1_p, b2_p, filek):
+    """
+    Python translation of the Fortran subroutine fourier_trans_eqt.
+    Args:
+        gr: complex tensor, shape [lq]
+        list_: integer tensor, shape [lq, 2]
+        listk: integer tensor, shape [lq, 2]
+        a1_p, a2_p: real vectors, shape [2]
+        b1_p, b2_p: real vectors, shape [2]
+        filek: output filename
+    """
+    lq = gr.shape[0]
+    gk = torch.zeros(lq, dtype=torch.cdouble)
+    # Precompute phase factors
+    for imj in range(lq):
+        # aimj_p = list(imj,1)*a1_p + list(imj,2)*a2_p
+        aimj_p = list_[imj, 0] * a1_p + list_[imj, 1] * a2_p
+        for nk in range(lq):
+            # xk_p = listk(nk,1)*b1_p + listk(nk,2)*b2_p
+            xk_p = listk[nk, 0] * b1_p + listk[nk, 1] * b2_p
+            # zexpiqr(imj,nk) = exp(1j * dot(xk_p, aimj_p))
+            phase = torch.exp(1j * torch.dot(xk_p, aimj_p))
+            gk[nk] += gr[imj] / phase
+    gk = gk / lq
+
+    return gk
+
+    # Write to file
+    with open(filek, "a") as f:
+        for nk in range(lq):
+            xk_p = listk[nk, 0] * b1_p + listk[nk, 1] * b2_p
+            # Write as 4e16.8: xk_p[0], xk_p[1], gk[nk].real, gk[nk].imag
+            f.write(f"{xk_p[0]:16.8e} {xk_p[1]:16.8e} {gk[nk].real:16.8e} {gk[nk].imag:16.8e}\n")
+
+
 
