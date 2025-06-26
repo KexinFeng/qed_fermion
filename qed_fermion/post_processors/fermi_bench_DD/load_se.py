@@ -9,7 +9,7 @@ import os
 script_path = os.path.dirname(os.path.abspath(__file__))
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../../../')
+sys.path.insert(0, script_path + '/../../../')
 import time
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
