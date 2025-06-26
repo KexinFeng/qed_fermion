@@ -1330,7 +1330,7 @@ class StochaticEstimator:
 
             spsm_r_per_b = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
             spsm_r[b] = spsm_r_per_b
-            spsm_r_mgb = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
+            # spsm_r_mgb = self.spsm_r_minus_bg(GD0_G0D, GD0)  # [Ly, Lx]
             spsm_k_abs[b] = self.spsm_k(spsm_r_per_b).abs()  # [Ly, Lx]
 
             # szsz[b] = 0.5 * spsm[b]
