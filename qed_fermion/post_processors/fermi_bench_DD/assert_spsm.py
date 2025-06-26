@@ -15,14 +15,16 @@ import sys
 sys.path.insert(0, script_path + '/../../../')
 
 bs = 5
+Nrv = 200
 
 # Check spsm_k
 for bid in range(bs):
+    if bid > 0 : continue
     file_path = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_0.5_L_6_Ltau_10_bid{bid}_part_0_psz_500_start_5999_end_6000/spsm.bin"
     # Assuming torch.load is appropriate for loading the file
     DD_k_dqmc = np.genfromtxt(file_path)
 
-    se_file_path = script_path + f"/data_se_start-1/Lx_6_Ltau_10_Nrv_100_mxitr_400/spsm_k_b{bid}.pt"
+    se_file_path = script_path + f"/data_se_start-1/Lx_6_Ltau_10_Nrv_{Nrv}_mxitr_400/spsm_k_b{bid}.pt"
     data_se = torch.load(se_file_path, map_location='cpu', weights_only=False)
     DD_k_se = data_se['mean'][0].reshape(-1).astype(np.float64)  # [bs, kx, ky]
 
@@ -41,11 +43,12 @@ for bid in range(bs):
 
 # Check DD_k
 for bid in range(bs):
+    if bid > 0 : continue
     file_path = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_0.5_L_6_Ltau_10_bid{bid}_part_0_psz_500_start_5999_end_6000/dimercorr.bin"
     # Assuming torch.load is appropriate for loading the file
     DD_k_dqmc = np.genfromtxt(file_path)
 
-    se_file_path = script_path + f"/data_se_start-1/Lx_6_Ltau_10_Nrv_100_mxitr_400/spsm_k_b{bid}.pt"
+    se_file_path = script_path + f"/data_se_start-1/Lx_6_Ltau_10_Nrv_{Nrv}_mxitr_400/spsm_k_b{bid}.pt"
     data_se = torch.load(se_file_path, map_location='cpu', weights_only=False)
     DD_k_se = data_se['DD_k_mean'][0].reshape(-1).astype(np.float64)  # [bs, kx, ky]
 
