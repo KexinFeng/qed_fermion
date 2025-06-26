@@ -148,7 +148,7 @@ if __name__ == '__main__':
 
     # Plot setting
     plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('DD_k=0', fontsize=14)
+    plt.ylabel('DD_k=M', fontsize=14)
     # plt.title(f'dimer_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()

@@ -10,7 +10,17 @@ Lx, Ly = 6, 6
 vs = Lx * Ly
 Ltau = 10
 
-spsm_r = torch.tensor([ 
+spsm_r_se = torch.tensor([2.5111786e-01, -2.9179718e-02, -4.0418954e-04, -1.0177700e-04,
+        4.5716908e-04, -2.8477559e-02, -2.9097188e-02,  4.5887064e-04,
+        4.0912809e-04,  5.8519357e-04, -5.1524254e-05, -1.6313390e-04,
+        3.1936483e-04, -8.4689767e-05, -3.8653976e-04,  1.7881603e-04,
+       -5.2283780e-05,  1.1808661e-04, -6.3349941e-04, -8.1725520e-05,
+       -1.9718637e-04,  4.9818901e-04, -8.7122608e-04,  1.3517730e-04,
+       -2.4679257e-04, -4.2752831e-04,  7.8549003e-04,  7.0176284e-05,
+       -5.9487886e-04, -5.3164427e-04, -2.9471984e-02,  2.5633283e-04,
+       -1.7589578e-04,  8.9146534e-04, -8.0439099e-04, -2.7944249e-04])
+
+spsm_r_dqmc = torch.tensor([ 
    7.5751588687437726E-002,
   -5.1221143245789781E-002,
    1.0827749302745038E-003,
@@ -49,8 +59,21 @@ spsm_r = torch.tensor([
    90.199212380576370
 ]).view(Ly, Lx)
 
-spsm_k = torch.fft.ifft2(spsm_r, (Ly, Lx), norm="forward")  # [Ly, Lx]
-spsm_k = reorder_fft_grid2(spsm_k) / vs / Ltau  # [Ly, Lx]
+spsm_r_dqmc /= Lx * Ly * Ltau
+
+sum_spsm_r = spsm_r_dqmc.mean()
+sum_spsm_r_se = spsm_r_se.mean()
+
+dbstop = 1
+
+spsm_k = torch.fft.ifft2(spsm_r_dqmc, (Ly, Lx), norm="forward")  # [Ly, Lx]
+spsm_k = reorder_fft_grid2(spsm_k) # [Ly, Lx]
+spsm_k_abs = spsm_k.view(-1).abs()  # [Ly * Lx]
+
+ky = torch.fft.fftfreq(Ly)
+kx = torch.fft.fftfreq(Lx)
+ks = torch.stack(torch.meshgrid(ky, kx, indexing='ij'), dim=-1) # [Ly, Lx, (ky, kx)]
+ks_ordered = reorder_fft_grid2(ks, dims=(0, 1)).view(-1)  # [Ly, Lx, 2]
 
 dbstop = 1
 
