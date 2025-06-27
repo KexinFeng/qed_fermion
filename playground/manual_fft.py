@@ -18,7 +18,7 @@ spsm_r_se = torch.tensor([2.5111786e-01, -2.9179718e-02, -4.0418954e-04, -1.0177
        -1.9718637e-04,  4.9818901e-04, -8.7122608e-04,  1.3517730e-04,
        -2.4679257e-04, -4.2752831e-04,  7.8549003e-04,  7.0176284e-05,
        -5.9487886e-04, -5.3164427e-04, -2.9471984e-02,  2.5633283e-04,
-       -1.7589578e-04,  8.9146534e-04, -8.0439099e-04, -2.7944249e-04])
+       -1.7589578e-04,  8.9146534e-04, -8.0439099e-04, -2.7944249e-04]).view(Ly, Lx)
 
 spsm_r_dqmc = torch.tensor([ 
    7.5751588687437726E-002,
@@ -61,14 +61,28 @@ spsm_r_dqmc = torch.tensor([
 
 spsm_r_dqmc /= Lx * Ly * Ltau
 
-sum_spsm_r = spsm_r_dqmc.mean()
+sum_spsm_r_dqmc = spsm_r_dqmc.mean()
 sum_spsm_r_se = spsm_r_se.mean()
 
 dbstop = 1
 
-spsm_k = torch.fft.ifft2(spsm_r_dqmc, (Ly, Lx), norm="forward")  # [Ly, Lx]
-spsm_k = reorder_fft_grid2(spsm_k) # [Ly, Lx]
-spsm_k_abs = spsm_k.view(-1).abs()  # [Ly * Lx]
+spsm_k_dqmc = torch.fft.ifft2(spsm_r_dqmc, (Ly, Lx), norm="forward")  # [Ly, Lx]
+spsm_k_dqmc = reorder_fft_grid2(spsm_k_dqmc) # [Ly, Lx]
+spsm_k_abs_dqmc = spsm_k_dqmc.view(-1).abs()  # [Ly * Lx]
+spsm_k_real_dqmc = spsm_k_dqmc.view(-1).real  # [Ly * Lx]
+spsm_k_imag_dqmc = spsm_k_dqmc.view(-1).imag  # [Ly * Lx]
+# Print the distance between spsm_k_abs_dqmc and spsm_k_real_dqmc
+distance = torch.norm(spsm_k_abs_dqmc - spsm_k_real_dqmc)
+print("Distance between spsm_k_abs_dqmc and spsm_k_real_dqmc:", distance.item())
+
+spsm_k_se = torch.fft.ifft2(spsm_r_se, (Ly, Lx), norm="forward")  # [Ly, Lx]
+spsm_k_se = reorder_fft_grid2(spsm_k_se) # [Ly, Lx]
+spsm_k_abs_se = spsm_k_se.view(-1).abs()  # [Ly * Lx]
+spsm_k_real_se = spsm_k_se.view(-1).real  # [Ly * Lx]
+spsm_k_imag_se = spsm_k_se.view(-1).imag  # [Ly * Lx]
+# Print the distance between spsm_k_abs_se and spsm_k_real_se
+distance_se = torch.norm(spsm_k_abs_se - spsm_k_real_se)
+print("Distance between spsm_k_abs_se and spsm_k_real_se:", distance_se.item())
 
 ky = torch.fft.fftfreq(Ly)
 kx = torch.fft.fftfreq(Lx)
@@ -77,56 +91,56 @@ ks_ordered = reorder_fft_grid2(ks, dims=(0, 1)).view(-1)  # [Ly, Lx, 2]
 
 dbstop = 1
 
-# Load the binary file as float64 and reshape to (-1, 3)
-spsm_bin = np.loadtxt(
-   "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_3_L_6_Ltau_10_bid0_part_0_psz_500_start_5999_end_6000/spsm.bin",
-   dtype=np.float64
-)
+# # Load the binary file as float64 and reshape to (-1, 3)
+# spsm_bin = np.loadtxt(
+#    "/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_3_L_6_Ltau_10_bid0_part_0_psz_500_start_5999_end_6000/spsm.bin",
+#    dtype=np.float64
+# )
 
-# Extract the third column (index 2)
-spsm_bin_col2 = torch.from_numpy(spsm_bin[:, 2])
+# # Extract the third column (index 2)
+# spsm_bin_col2 = torch.from_numpy(spsm_bin[:, 2])
 
-# Flatten spsm_k for comparison
-spsm_k_flat = spsm_k.flatten().real
+# # Flatten spsm_k for comparison
+# spsm_k_flat = spsm_k_dqmc.flatten().real
 
-# Check closeness
-torch.testing.assert_close(spsm_bin_col2, spsm_k_flat, rtol=1e-5, atol=1e-5)
-print("spsm.bin column 3 matches spsm_k.")
+# # Check closeness
+# torch.testing.assert_close(spsm_bin_col2, spsm_k_flat, rtol=1e-5, atol=1e-5)
+# print("spsm.bin column 3 matches spsm_k.")
 
 
-def fourier_trans_eqt(gr, list_, listk, a1_p, a2_p, b1_p, b2_p, filek):
-    """
-    Python translation of the Fortran subroutine fourier_trans_eqt.
-    Args:
-        gr: complex tensor, shape [lq]
-        list_: integer tensor, shape [lq, 2]
-        listk: integer tensor, shape [lq, 2]
-        a1_p, a2_p: real vectors, shape [2]
-        b1_p, b2_p: real vectors, shape [2]
-        filek: output filename
-    """
-    lq = gr.shape[0]
-    gk = torch.zeros(lq, dtype=torch.cdouble)
-    # Precompute phase factors
-    for imj in range(lq):
-        # aimj_p = list(imj,1)*a1_p + list(imj,2)*a2_p
-        aimj_p = list_[imj, 0] * a1_p + list_[imj, 1] * a2_p
-        for nk in range(lq):
-            # xk_p = listk(nk,1)*b1_p + listk(nk,2)*b2_p
-            xk_p = listk[nk, 0] * b1_p + listk[nk, 1] * b2_p
-            # zexpiqr(imj,nk) = exp(1j * dot(xk_p, aimj_p))
-            phase = torch.exp(1j * torch.dot(xk_p, aimj_p))
-            gk[nk] += gr[imj] / phase
-    gk = gk / lq
+# def fourier_trans_eqt(gr, list_, listk, a1_p, a2_p, b1_p, b2_p, filek):
+#     """
+#     Python translation of the Fortran subroutine fourier_trans_eqt.
+#     Args:
+#         gr: complex tensor, shape [lq]
+#         list_: integer tensor, shape [lq, 2]
+#         listk: integer tensor, shape [lq, 2]
+#         a1_p, a2_p: real vectors, shape [2]
+#         b1_p, b2_p: real vectors, shape [2]
+#         filek: output filename
+#     """
+#     lq = gr.shape[0]
+#     gk = torch.zeros(lq, dtype=torch.cdouble)
+#     # Precompute phase factors
+#     for imj in range(lq):
+#         # aimj_p = list(imj,1)*a1_p + list(imj,2)*a2_p
+#         aimj_p = list_[imj, 0] * a1_p + list_[imj, 1] * a2_p
+#         for nk in range(lq):
+#             # xk_p = listk(nk,1)*b1_p + listk(nk,2)*b2_p
+#             xk_p = listk[nk, 0] * b1_p + listk[nk, 1] * b2_p
+#             # zexpiqr(imj,nk) = exp(1j * dot(xk_p, aimj_p))
+#             phase = torch.exp(1j * torch.dot(xk_p, aimj_p))
+#             gk[nk] += gr[imj] / phase
+#     gk = gk / lq
 
-    return gk
+#     return gk
 
-    # Write to file
-    with open(filek, "a") as f:
-        for nk in range(lq):
-            xk_p = listk[nk, 0] * b1_p + listk[nk, 1] * b2_p
-            # Write as 4e16.8: xk_p[0], xk_p[1], gk[nk].real, gk[nk].imag
-            f.write(f"{xk_p[0]:16.8e} {xk_p[1]:16.8e} {gk[nk].real:16.8e} {gk[nk].imag:16.8e}\n")
+#     # Write to file
+#     with open(filek, "a") as f:
+#         for nk in range(lq):
+#             xk_p = listk[nk, 0] * b1_p + listk[nk, 1] * b2_p
+#             # Write as 4e16.8: xk_p[0], xk_p[1], gk[nk].real, gk[nk].imag
+#             f.write(f"{xk_p[0]:16.8e} {xk_p[1]:16.8e} {gk[nk].real:16.8e} {gk[nk].imag:16.8e}\n")
 
 
 
