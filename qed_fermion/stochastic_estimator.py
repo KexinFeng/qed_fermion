@@ -1416,9 +1416,25 @@ class StochaticEstimator:
         return obsr
 
     def get_dimer_dimer_per_b_groundtruth(self, boson):
-        Gij_gt = self.G_groundtruth(boson)
+        Gij_gt = self.G_groundtruth(boson) # [Ltau * Ly * Lx, Ltau * Ly * Lx]
         GD0 = self.G_delta_0_groundtruth_ext_fft(Gij_gt)
-        GD0_G0D = self.G_delta_0_G_0_delta_groundtruth_ext_fft(Gij_gt)
+        # Compute GcD0 from GD0 according to:
+        # grupc(j, i) = -grup(i, j) for i != j, grupc(i, i) = -grup(i, i) + 1
+        # Vectorized computation of GcD0 from GD0:
+        # GcD0[tau, y, x] = -GD0[-tau % Ltau, -y % Ly, -x % Lx] for (tau, y, x) != (0, 0, 0)
+        # and GcD0[0, 0, 0] = -GD0[0, 0, 0] + 1
+        Ltau, Ly, Lx = GD0.shape
+        idx_tau = torch.arange(Ltau, device=GD0.device)
+        idx_y = torch.arange(Ly, device=GD0.device)
+        idx_x = torch.arange(Lx, device=GD0.device)
+        tau_grid, y_grid, x_grid = torch.meshgrid(idx_tau, idx_y, idx_x, indexing='ij')
+        neg_tau = (-tau_grid) % Ltau
+        neg_y = (-y_grid) % Ly
+        neg_x = (-x_grid) % Lx
+        GcD0 = -GD0[neg_tau, neg_y, neg_x]
+        # Assert that GD0[neg_tau, neg_y, neg_x] == GD0[tau, y, x]
+        assert torch.allclose(GD0[neg_tau, neg_y, neg_x], GD0, rtol=1e-6, atol=1e-6), "GD0 symmetry check failed"
+        GcD0[0, 0, 0] = -GD0[0, 0, 0] + 1
 
 
     def reset_cache(self):
