@@ -1943,16 +1943,18 @@ class StochaticEstimator:
         z4 = z2*z2
         z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
         z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
-z4
-z2
-z2
-z3
-z3
-z3
-z3
-z1
-z1
-        DD_r = (self.L0() + self.L1() + self.L2() + self.L3() + self.L4() + self.L5() + self.L6() + self.L7() + self.L8()).real  # [Ly, Lx]
+        
+        DD_r = (
+            z4 * self.L0() +
+            z2 * self.L1() +
+            z2 * self.L2() +
+            z3 * self.L3() +
+            z3 * self.L4() +
+            z3 * self.L5() +
+            z3 * self.L6() +
+            z1 * self.L7() +
+            z1 * self.L8()
+        ).real  # [Ly, Lx]
 
         # Output
         obsr = {}
