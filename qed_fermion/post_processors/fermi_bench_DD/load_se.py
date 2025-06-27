@@ -115,7 +115,6 @@ if __name__ == '__main__':
     @time_execution
     def iterate_func():
         for bid in range(bs):
-            if bid > 0: continue
             bosons = []
             for J in Js:
 
