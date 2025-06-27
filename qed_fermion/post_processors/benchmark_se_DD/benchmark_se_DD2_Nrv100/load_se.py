@@ -41,6 +41,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
     se.max_iter_se = mxitr
+    se.num_samples = lambda nrv: nrv** 2 // 2
     if se.cuda_graph_se:
         se.init_cuda_graph()
 
@@ -53,7 +54,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
         
         # Randomly select num_samples from indices without replacement
         indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
-        num_samples = Nrv**2 * 10
+        num_samples = se.num_samples(Nrv)
         perm = torch.randperm(indices.shape[0], device=indices.device)
         indices = indices[perm[:num_samples]]
 
