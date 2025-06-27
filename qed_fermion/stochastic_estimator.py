@@ -1255,8 +1255,6 @@ class StochaticEstimator:
 
             obsrs.append(obsr)
         
-            self.reset_cache()
-
         # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
         keys = obsrs[0].keys()
         consolidated_obsr = {}
@@ -1365,7 +1363,7 @@ class StochaticEstimator:
         L0_lft = -self.G_delta_delta_G_0_0_ext_batch(a_xi=-1, b_G_xi=-1)
         L0_rgt = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_xi=-1)
         L0 = z4 * (L0_lft * L0_rgt)  # [Ltau, Ly, Lx]
-        print("L0:", L0.real)
+        print("L0:", L0.real[0])
 
         L1_lft = -GD0_G0D
         L1_lft[0, 0, 0] += GD0[0, 0, 0]
@@ -1446,18 +1444,20 @@ class StochaticEstimator:
         neg_y = (-y_grid) % Ly
         neg_x = (-x_grid) % Lx
         GcD0 = -GD0[neg_tau, neg_y, neg_x]
+
         # Assert that GD0[neg_tau, neg_y, neg_x] == GD0[tau, y, x]
         torch.testing.assert_close(GD0[neg_tau, neg_y, neg_x], GD0, rtol=5e-2, atol=5e-2)
         GcD0[0, 0, 0] = -GD0[0, 0, 0] + 1
         GcD0 = GcD0.squeeze(0)  # [Ly, Lx]
+        GD0 = GD0.squeeze(0)  # [Ly, Lx]
         torch.testing.assert_close(GcD0[neg_y[0], neg_x[0]], GcD0, rtol=3e-2, atol=5e-2)
 
         # Compute DD per line; below GD0 is treated as G0D
-        G0D = GD0
-        Gc0D = GcD0
-        # grup(i,iax)*grupc(j,jax)
+        G0D = GD0[neg_y[0], neg_x[0]]
+        Gc0D = GcD0[neg_y[0], neg_x[0]]
+
+        # grup(i,iax)*grupc(j,jax)* grupc(i,iax)  *grup(j,jax)
         L0_lft = G0D[0, 1] * Gc0D[0, 1]
-        # grupc(i,iax)  *grup(j,jax)
         L0_rgt = Gc0D[0, 1] * G0D[0, 1]
         L0 = z4 * (L0_lft * L0_rgt)
         print("L0:", L0.real)
@@ -1465,51 +1465,51 @@ class StochaticEstimator:
         # grupc(i,j)  *grup(i,j)  *grupc(iax,jax)*grup(iax,jax)*z2 
         L1_lft = Gc0D * G0D
         L1 = z2 * (L1_lft**2)
-        # print("L1:", L1.real)
+        print("L1:", L1.real.shape)
 
         # grupc(i,jax)*grup(i,jax)*grupc(iax,j)  *grup(iax,j)  *z2
         L2_lft = torch.roll(Gc0D, shifts=-1, dims=-1) * torch.roll(G0D, shifts=-1, dims=-1)
         L2_rgt = torch.roll(Gc0D, shifts=1, dims=-1) * torch.roll(G0D, shifts=1, dims=-1)
         L2 = z2 * (L2_lft * L2_rgt) # [Ltau, Ly, Lx]
-        # print("L2:", L2.real)
+        print("L2:", L2.real.shape)
 
         # grupc(i,jax)*grup(i,iax)*grup(iax,j)   *grup(j,jax)  *z3  
         L3_lft = torch.roll(Gc0D, shifts=-1, dims=-1) * G0D[0, 1]
         L3_rgt = torch.roll(G0D, shifts=1, dims=-1) * G0D[0, 1]
         L3 = z3 * (L3_lft * L3_rgt)  # [Ltau, Ly, Lx]
-        # print("L3:", L3.real)
+        print("L3:", L3.real.shape)
 
         # grupc(i,iax)*grup(i,jax)*grup(j,iax)   *grup(jax,j)  *z3
         L4_lft = Gc0D[0, 1] * torch.roll(G0D, shifts=-1, dims=-1)
         L4_rgt = torch.roll(GD0, shifts=1, dims=-1) * GD0[0, 1]
         L4 = z3 * (L4_lft * L4_rgt)
-        # print("L4:", L4.real)
+        print("L4:", L4.real.shape)
 
         # grupc(i,j)  *grup(i,iax)*grup(iax,jax) *grup(jax,j)  *z3
         L5_lft = Gc0D * G0D[0, 1]
         L5_rgt = G0D * GD0[0, 1]
         L5 = z3 * (L5_lft * L5_rgt)
-        # print("L5:", L5.real)
+        print("L5:", L5.real.shape)
 
         # grupc(i,iax)*grup(i,j)  *grup(jax,iax) *grup(j,jax)  *z3
         L6_lft = Gc0D[0, 1] * G0D
         L6_rgt = GD0 * G0D[0, 1]
         L6 = z3 * (L6_lft * L6_rgt)
-        # print("L6:", L6.real)
+        print("L6:", L6.real.shape)
 
         # grupc(i,jax)*grup(i,j)  *grup(iax,jax) *grup(j,iax)  *z1
         L7_lft = torch.roll(Gc0D, shifts=-1, dims=-1) * G0D
         L7_rgt = G0D * torch.roll(GD0, shifts=1, dims=-1)
         L7 = z1 * (L7_lft * L7_rgt)
-        # print("L7:", L7.real)
+        print("L7:", L7.real.shape)
 
         # grupc(i,j)  *grup(i,jax)*grup(jax,iax) *grup(iax,j)  *z1
         L8_lft = Gc0D * torch.roll(G0D, shifts=-1, dims=-1)
         L8_rgt = GD0 * torch.roll(G0D, shifts=1, dims=-1)
         L8 = z1 * (L8_lft * L8_rgt)
-        # print("L8:", L8.real)
+        print("L8:", L8.real.shape)
 
-        DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
+        DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real  # [Ly, Lx]
 
         # Output
         obsr = {}
