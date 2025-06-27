@@ -56,6 +56,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         else:
             obsr_se = se.get_fermion_obsr(boson.to(se.device), eta)
 
+        print("---------------------------------")
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
 
         # Diff
