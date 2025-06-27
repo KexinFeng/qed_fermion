@@ -124,7 +124,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 40
+    Nrv = 100
     mxitr = 400
 
     sizes = [6, 8, 10]
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         part_size = 500
         start_dqmc = 5000
         end_dqmc = 10000
-        start = -50
+        start = -10
 
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
         # dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
