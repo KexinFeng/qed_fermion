@@ -53,29 +53,28 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         # if se.cuda_graph_se:
         #     obsr = se.graph_runner(boson.to(se.device), eta)
         # else:
-        #     obsr = se.get_fermion_obsr(boson.to(se.device), eta)
+            # obsr = se.get_fermion_obsr(boson.to(se.device), eta)
 
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
         # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
-        spsm_k.append(spsm_k_gt)
+        # spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
+        # spsm_k.append(spsm_k_gt)
+        # spsm_k.append(spsm_k_gt)
         DD_k.append(obsr_gt['DD_k_abs'].cpu().numpy())
 
         # spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
         # spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
         dbstop = 1
         
-    spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
+    # spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
     DD_k = np.array(DD_k)  # [seq, J/bs, Ly, Lx]
-    spsm_k_mean = spsm_k.mean(axis=0)  # [J/bs, Ly, Lx]
-    spsm_k_std = spsm_k.std(axis=0)  # [J/bs, Ly, Lx]
+    # spsm_k_mean = spsm_k.mean(axis=0)  # [J/bs, Ly, Lx]
+    # spsm_k_std = spsm_k.std(axis=0)  # [J/bs, Ly, Lx]
     DD_k_mean = DD_k.mean(axis=0)  # [J/bs, Ly, Lx]
     DD_k_std = DD_k.std(axis=0)  # [J/bs, Ly, Lx]
 
     output_file = os.path.join(output_dir, f"spsm_k_b{bid}.pt")
-    torch.save({'spsm_k_mean': spsm_k_mean, 
-                'spsm_k_std': spsm_k_std, 
-                'DD_k_mean': DD_k_mean, 
+    torch.save({'DD_k_mean': DD_k_mean, 
                 'DD_k_std': DD_k_std}, 
                 output_file)
     print(f"Saved: {output_file}")
@@ -105,7 +104,7 @@ if __name__ == '__main__':
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
+    # input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
     end = 10000

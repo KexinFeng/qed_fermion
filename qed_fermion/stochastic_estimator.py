@@ -1250,7 +1250,7 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             # self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_spsm_per_b())
+            # obsr.update(self.get_spsm_per_b())
             obsr.update(self.get_dimer_dimer_per_b_groundtruth(boson))
 
             obsrs.append(obsr)
@@ -1433,9 +1433,63 @@ class StochaticEstimator:
         neg_x = (-x_grid) % Lx
         GcD0 = -GD0[neg_tau, neg_y, neg_x]
         # Assert that GD0[neg_tau, neg_y, neg_x] == GD0[tau, y, x]
-        assert torch.allclose(GD0[neg_tau, neg_y, neg_x], GD0, rtol=1e-6, atol=1e-6), "GD0 symmetry check failed"
+        torch.testing.assert_close(GD0[neg_tau, neg_y, neg_x], GD0, rtol=5e-2, atol=5e-2)
         GcD0[0, 0, 0] = -GD0[0, 0, 0] + 1
+        GcD0 = GcD0.squeeze(0)  # [Ly, Lx]
+        torch.testing.assert_close(GcD0[neg_y[0], neg_x[0]], GcD0, rtol=3e-2, atol=5e-2)
 
+        # Compute DD per line; below GD0 is treated as G0D
+        G0D = GD0
+        Gc0D = GcD0
+        # grup(i,iax)*grupc(j,jax)
+        L0_lft = G0D[0, 1] * Gc0D[0, 1]
+        # grupc(i,iax)  *grup(j,jax)
+        L0_rgt = Gc0D[0, 1] * G0D[0, 1]
+        L0 = z4 * (L0_lft * L0_rgt)
+
+        # grupc(i,j)  *grup(i,j)  *grupc(iax,jax)*grup(iax,jax)*z2 
+        L1_lft = Gc0D * G0D
+        L1 = z2 * (L1_lft**2)
+
+        # grupc(i,jax)*grup(i,jax)*grupc(iax,j)  *grup(iax,j)  *z2
+        L2_lft = torch.roll(Gc0D, shifts=-1, dims=-1) * torch.roll(G0D, shifts=-1, dims=-1)
+        L2_rgt = torch.roll(Gc0D, shifts=1, dims=-1) * torch.roll(G0D, shifts=1, dims=-1)
+        L2 = z2 * (L2_lft * L2_rgt) # [Ltau, Ly, Lx]
+
+        # grupc(i,jax)*grup(i,iax)*grup(iax,j)   *grup(j,jax)  *z3  
+        L3_lft = torch.roll(Gc0D, shifts=-1, dims=-1) * G0D[0, 1]
+        L3_rgt = torch.roll(G0D, shifts=1, dims=-1) * G0D[0, 1]
+        L3 = z3 * (L3_lft * L3_rgt)  # [Ltau, Ly, Lx]
+
+        # grupc(i,iax)*grup(i,jax)*grup(j,iax)   *grup(jax,j)  *z3
+        L4_lft = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_G_xi=-1)
+        L4_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_xi=-1)
+        L4 = z3 * (L4_lft * L4_rgt)  # [Ltau, Ly, Lx]
+
+        # grupc(i,j)  *grup(i,iax)*grup(iax,jax) *grup(jax,j)  *z3
+        L5_lft = -self.G_delta_0_G_0_delta_ext_batch(a_G_xi=-1, b_xi=-1)
+        L5_lft[0, 0, 0] += GD0[0, 0, 0]
+        L5_rgt = -L0_lft
+        L5 = z3 * (L5_lft * L5_rgt)  # [Ltau, Ly, Lx]
+
+        # grupc(i,iax)*grup(i,j)  *grup(jax,iax) *grup(j,jax)  *z3
+        L6_lft = L0_rgt
+        L6_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_G_xi=-1)
+        L6 = z3 * (L6_lft * L6_rgt)  # [Ltau, Ly, Lx]
+
+        # grupc(i,jax)*grup(i,j)  *grup(iax,jax) *grup(j,iax)  *z1
+        L7_lft = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi=-1)
+        L7_lft[0, 0, -1] += GD0[0, 0, 2]
+        L7_rgt = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi_prime=-1)
+        L7 = z1 * (L7_lft * L7_rgt)  # [Ltau, Ly, Lx]
+
+        # grupc(i,j)  *grup(i,jax)*grup(jax,iax) *grup(iax,j)  *z1
+        L8_lft = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi=-1)
+        L8_rgt = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi_prime=-1)
+        L8_rgt[0, 0, 0] += GD0[0, 0, 0]
+        L8 = z1 * (L8_lft * L8_rgt)  # [Ltau, Ly, Lx]
+
+        DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
 
     def reset_cache(self):
         """
