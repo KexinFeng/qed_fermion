@@ -397,55 +397,514 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
     
-    def L8(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
+    def L8(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
-
-        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj().view(-1, 2 * self.Ltau, self.Ly, self.Lx)
-        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1).view(-1, 2 * self.Ltau, self.Ly, self.Lx)
-
-        # Get all unique pairs (s, s_prime) with s < s_prime
-        Nrv = eta_ext_conj.shape[0]
-        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
-        Nrv = eta_ext_conj.shape[0]
-        # Generate all combinations of 4 indices from Nrv using torch
+        Nrv = eta_conj.shape[0]
         idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
         sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
-        # if a_xi == a_G_xi == b_xi == b_G_xi ==0:
-        #     print(f"Batch size for G_delta_0_G_0_delta_ext: {batch_size}")
-        
-        # batch_size = len(s)
-        # num_loop = 10
-        # batch_size = total_pairs // num_loop
-        G_delta_0_G_delta_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
-                                              dtype=eta_ext_conj.dtype, device=eta.device)
-        total_pairs = len(s)
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
 
-        for start_idx in range(0, total_pairs, batch_size):
-            end_idx = min(start_idx + batch_size, total_pairs)
-            s_batch = s[start_idx:end_idx]
-            s_prime_batch = s_prime[start_idx:end_idx]
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
 
-            # a = eta_ext_conj[s_batch] * G_eta_ext[s_prime_batch]
-            # b = eta_ext_conj[s_prime_batch] * G_eta_ext[s_batch]
-            a = torch.roll(eta_ext_conj[s_batch], shifts=a_xi, dims=-1) * torch.roll(G_eta_ext[s_prime_batch], shifts=a_G_xi, dims=-1)
-            b = torch.roll(eta_ext_conj[s_prime_batch], shifts=b_xi, dims=-1) * torch.roll(G_eta_ext[s_batch], shifts=b_G_xi, dims=-1)
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
 
-            a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
-            b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
-            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+            a = eta_conj[sa_batch] * \
+                G_eta[sb_batch] * \
+                torch.roll(eta_conj[sc_batch], shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch], shifts=-1, dims=-1)
+            
+            b = G_eta[sa_batch] * \
+                torch.roll(eta_conj[sb_batch], shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch], shifts=-1, dims=-1) * \
+                eta_conj[sd_batch]
+            
+            c = G_eta[sb_batch] *\
+                    torch.roll(eta_conj[sb_batch], shifts=-1, dims=-1) * \
+                    torch.roll(G_eta[sc_batch], shifts=-1, dims=-1) * \
+                    torch.roll(eta_conj[sc_batch], shifts=-1, dims=-1) * \
+                    torch.roll(G_eta[sd_batch], shifts=-1, dims=-1) * \
+                    eta_conj[sd_batch]
 
-            G_delta_0_G_delta_0_sum += batch_result.sum(dim=0)
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-        G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
-        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+        G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
+        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+    
+    def L7(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = eta_conj[sa_batch] * \
+                G_eta[sb_batch] * \
+                torch.roll(G_eta[sc_batch], shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch], shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sa_batch], shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sb_batch], shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch], shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch], shifts=0, dims=-1)
+            
+            c = torch.roll(G_eta[sb_batch], shifts=-1, dims=-1) *\
+                torch.roll(eta_conj[sb_batch], shifts=0, dims=-1) * \
+                torch.roll(G_eta[sc_batch], shifts=-2, dims=-1) * \
+                torch.roll(eta_conj[sc_batch], shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch], shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch], shifts=-2, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
+        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    def L6(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(G_eta[sa_batch], shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sa_batch], shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch], shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch], shifts=-1, dims=-1)
+            
+            b = torch.roll(eta_conj[sb_batch], shifts=0, dims=-1) * \
+                torch.roll(G_eta[sc_batch], shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch], shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch], shifts=-1, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    def L5(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sa_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=0, dims=-1)
+            
+            c = torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) *\
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=0, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
+        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+    
+    def L4(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1)
+
+            b = torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=0, dims=-1)
+    
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    def L3(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
+            
+            c = torch.roll(G_eta[sb_batch],     shifts=-1, dims=-1) *\
+                torch.roll(eta_conj[sb_batch],  shifts=-2, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-2, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
+        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+ 
+    def L2(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean1 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean2 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+            
+            c1 = torch.roll(G_eta[sb_batch],    shifts=-1, dims=-1) *\
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-2, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-2, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+            
+            c2 = torch.roll(G_eta[sa_batch],    shifts=-2, dims=-1) *\
+                torch.roll(eta_conj[sa_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-2, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1
+        G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    def L1(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sa_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
+            
+            c1 = torch.roll(G_eta[sa_batch],    shifts=-0, dims=-1) *\
+                torch.roll(eta_conj[sa_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+            
+            c2 = torch.roll(G_eta[sb_batch],    shifts=-0, dims=-1) *\
+                torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
+            
+            c3 = torch.roll(G_eta[sb_batch],    shifts=-0, dims=-1) *\
+                torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1) 
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean += (-c1 - c2 + c3).mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    def L0(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        num_samples = Nrv**2 // 2
+        perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            indices = perm[start_idx:end_idx]
+            sa_batch = sa[indices]
+            sb_batch = sb[indices]
+            sc_batch = sc[indices]
+            sd_batch = sd[indices]
+
+            a = torch.roll(G_eta[sa_batch],  shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sa_batch],     shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],  shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+   
 
     def G_delta_delta_G_0_0_ext_batch(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -1484,16 +1943,16 @@ class StochaticEstimator:
         z4 = z2*z2
         z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
         z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
-        
-        # Compute green's functions
-        if self.GD0_G0D is None:
-            self.GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
-        if self.GD0 is None:
-            self.GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
-
-        L8 = self.L8()
-
-        DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
+z4
+z2
+z2
+z3
+z3
+z3
+z3
+z1
+z1
+        DD_r = (self.L0() + self.L1() + self.L2() + self.L3() + self.L4() + self.L5() + self.L6() + self.L7() + self.L8()).real  # [Ly, Lx]
 
         # Output
         obsr = {}
