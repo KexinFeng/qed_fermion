@@ -55,7 +55,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         
         # Randomly select num_samples from indices without replacement
         indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
-        num_samples = Nrv**2 // 10
+        num_samples = se.num_samples(Nrv)
         perm = torch.randperm(indices.shape[0], device=indices.device)
         indices = indices[perm[:num_samples]]
 
