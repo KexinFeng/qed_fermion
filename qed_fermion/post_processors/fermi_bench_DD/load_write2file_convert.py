@@ -196,7 +196,7 @@ if __name__ == '__main__':
     def iterate_func():
         for J in Js:
             for bid in range(bs):
-                if bid > 0: continue
+                # if bid > 0: continue
                 for part_id in range(num_parts):
                     output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     os.makedirs(output_folder, exist_ok=True)
@@ -208,7 +208,7 @@ if __name__ == '__main__':
         # Run
         for J in Js:
             for bid in range(bs):
-                if bid > 0: continue
+                # if bid > 0: continue
                 for part_id in range(num_parts):
                     output_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run_benchmark/run_meas_J_{J:.2g}_L_{Lx}_Ltau_{Ltau}_bid{bid}_part_{part_id}_psz_{part_size}_start_{start}_end_{end}/"
                     clear(output_folder)
