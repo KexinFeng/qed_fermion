@@ -1,7 +1,7 @@
 cd "$(dirname "$0")"
 
 export debug=0
-export cuda_graph=1
+export cuda_graph=0
 export mxitr=400  # 1000
 export Nrv=100
 

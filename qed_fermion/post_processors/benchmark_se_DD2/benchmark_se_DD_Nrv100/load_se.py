@@ -58,9 +58,9 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
         indices = indices[perm[:num_samples]]
 
         if se.cuda_graph_se:
-            obsr = se.graph_runner(boson, eta)
+            obsr = se.graph_runner(boson, eta, indices)
         else:
-            obsr = se.get_fermion_obsr(boson, eta)
+            obsr = se.get_fermion_obsr(boson, eta, indices)
 
         spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
         DD_k.append(obsr['DD_k'].cpu().numpy())
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
 
-    start = -50
+    start = -10
     end = 10000
 
     @time_execution

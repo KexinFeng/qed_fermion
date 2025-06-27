@@ -1730,6 +1730,7 @@ class StochaticEstimator:
         szsz[0, 0, 0] = szsz[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
         return 0.5 * szsz
 
+    @torch.inference_mode()
     def get_fermion_obsr(self, bosons, eta, indices):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
