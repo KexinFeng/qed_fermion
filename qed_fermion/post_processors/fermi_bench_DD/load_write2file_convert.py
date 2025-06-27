@@ -93,7 +93,7 @@ def load_write2file2(output_folder, Lsize=(6, 6, 10), hmc_filename='', bid=0, st
         f.write(f"nbin : {len(seq_idx)} # count of config samples, 10 # <-\n")
         f.write("lsstau : T\n")
         f.write("ltau : F\n")
-        f.write("nwrap : 10\n")
+        f.write("nwrap : 1\n")
         f.write("nuse : 0\n")
         f.write("rstep0 : 0.01\n")
 
