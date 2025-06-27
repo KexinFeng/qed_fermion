@@ -13,6 +13,7 @@ sys.path.insert(0, script_path + '/../../../')
 import time
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
+import platform
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"device: {device}")
@@ -56,14 +57,27 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
             obsr_se = se.get_fermion_obsr(boson.to(se.device), eta)
 
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
-        # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        # spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
-        # spsm_k.append(spsm_k_gt)
-        # spsm_k.append(spsm_k_gt)
-        DD_k.append(obsr_gt['DD_k_abs'].cpu().numpy())
 
-        # spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
-        # spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
+        # Diff
+        distance_r = torch.norm(obsr_gt['DD_r'] - obsr_se['DD_r'])
+        distance_k = torch.norm(obsr_gt['DD_k'] - obsr_se['DD_k'])
+        print(f"distance_r: {distance_r.item()}, distance_k: {distance_k.item()}")
+        
+        # Assert the vectors are close using torch.testing
+        torch.testing.assert_close(
+            obsr_gt['DD_r'], obsr_se['DD_r'],
+            atol=6e-2, rtol=0,
+            msg="obsr_gt['DD_r'] and obsr_se['DD_r'] differ more than allowed"
+        )
+        torch.testing.assert_close(
+            obsr_gt['DD_k'], obsr_se['DD_k'],
+            atol=6e-2, rtol=0,
+            msg="obsr_gt['DD_k'] and obsr_se['DD_k'] differ more than allowed"
+        )
+
+        DD_k.append(obsr_gt['DD_k'].cpu().numpy())
+
+
         dbstop = 1
         
     # spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
@@ -103,8 +117,10 @@ if __name__ == '__main__':
     # input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
-    input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    # input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
+    if platform.system() == "Darwin":
+        input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
+    else:
+        input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
     end = 10000
