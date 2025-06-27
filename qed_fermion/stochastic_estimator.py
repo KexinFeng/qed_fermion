@@ -412,7 +412,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -472,7 +472,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -532,7 +532,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -581,7 +581,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -641,7 +641,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -691,7 +691,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -751,7 +751,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -819,7 +819,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
@@ -890,7 +890,7 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = Nrv**2 // 2
+        num_samples = Nrv**2 * 10
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
