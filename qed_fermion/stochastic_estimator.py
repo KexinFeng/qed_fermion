@@ -1728,7 +1728,7 @@ class StochaticEstimator:
             self.set_eta_G_eta(boson, eta)
 
             obsr.update(self.get_spsm_per_b())
-            obsr.update(self.get_dimer_dimer_per_b())
+            obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
 
@@ -1943,7 +1943,7 @@ class StochaticEstimator:
         z4 = z2*z2
         z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
         z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
-        
+
         DD_r = (
             z4 * self.L0() +
             z2 * self.L1() +
