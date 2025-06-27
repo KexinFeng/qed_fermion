@@ -42,6 +42,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     se.Nrv = Nrv
     se.max_iter_se = mxitr
     se.num_samples = lambda nrv: nrv** 2 // 2
+    se.batch_size = lambda nrv: nrv
     if se.cuda_graph_se:
         se.init_cuda_graph()
 

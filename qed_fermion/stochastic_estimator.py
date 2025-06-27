@@ -59,7 +59,8 @@ class StochaticEstimator:
         self.graph_runner = FermionObsrGraphRunner(self)
         self.graph_memory_pool = hmc.graph_memory_pool
 
-        self.num_samples=lambda x: x**2 // 2
+        self.num_samples = lambda nrv: nrv**2 // 2
+        self.batch_size = lambda nrv: int(nrv*0.1)
 
         # init
         if hmc.precon_csr is None and hmc.dtau <= 0.1 and precon_on:
@@ -370,7 +371,7 @@ class StochaticEstimator:
         # G_delta_0_G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
         # if a_xi == a_G_xi == b_xi == b_G_xi ==0:
         #     print(f"Batch size for G_delta_0_G_0_delta_ext: {batch_size}")
         
@@ -418,7 +419,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
         G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
@@ -478,7 +479,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
         G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
@@ -538,7 +539,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
@@ -587,7 +588,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
         G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
@@ -647,7 +648,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
@@ -697,7 +698,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
         G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
@@ -757,7 +758,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
         G_res_mean1 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
@@ -825,7 +826,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
         G_res_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
@@ -896,7 +897,7 @@ class StochaticEstimator:
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
@@ -940,7 +941,7 @@ class StochaticEstimator:
         s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_delta_G_0_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
                                               dtype=eta_ext_conj.dtype, device=eta.device)
@@ -977,7 +978,7 @@ class StochaticEstimator:
         s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_0_delta_G_0_delta_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
                                               dtype=eta_ext_conj.dtype, device=eta.device)
@@ -1014,7 +1015,7 @@ class StochaticEstimator:
         s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
                                               dtype=eta_ext_conj.dtype, device=eta.device)
