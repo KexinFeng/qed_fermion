@@ -49,11 +49,11 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     spsm_k = []
     DD_k = []
     for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
-        # eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-        # if se.cuda_graph_se:
-        #     obsr = se.graph_runner(boson.to(se.device), eta)
-        # else:
-            # obsr = se.get_fermion_obsr(boson.to(se.device), eta)
+        eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+        if se.cuda_graph_se:
+            obsr_se = se.graph_runner(boson.to(se.device), eta)
+        else:
+            obsr_se = se.get_fermion_obsr(boson.to(se.device), eta)
 
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
         # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
