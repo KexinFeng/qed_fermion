@@ -396,6 +396,56 @@ class StochaticEstimator:
         G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+    
+    def L8(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj().view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1).view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique pairs (s, s_prime) with s < s_prime
+        Nrv = eta_ext_conj.shape[0]
+        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_ext_conj.shape[0]
+        # Generate all combinations of 4 indices from Nrv using torch
+        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), int(Nrv*0.1))  # Adjust batch size based on memory constraints
+        # if a_xi == a_G_xi == b_xi == b_G_xi ==0:
+        #     print(f"Batch size for G_delta_0_G_0_delta_ext: {batch_size}")
+        
+        # batch_size = len(s)
+        # num_loop = 10
+        # batch_size = total_pairs // num_loop
+        G_delta_0_G_delta_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
+                                              dtype=eta_ext_conj.dtype, device=eta.device)
+        total_pairs = len(s)
+
+        for start_idx in range(0, total_pairs, batch_size):
+            end_idx = min(start_idx + batch_size, total_pairs)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            # a = eta_ext_conj[s_batch] * G_eta_ext[s_prime_batch]
+            # b = eta_ext_conj[s_prime_batch] * G_eta_ext[s_batch]
+            a = torch.roll(eta_ext_conj[s_batch], shifts=a_xi, dims=-1) * torch.roll(G_eta_ext[s_prime_batch], shifts=a_G_xi, dims=-1)
+            b = torch.roll(eta_ext_conj[s_prime_batch], shifts=b_xi, dims=-1) * torch.roll(G_eta_ext[s_batch], shifts=b_G_xi, dims=-1)
+
+            a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_sum += batch_result.sum(dim=0)
+
+        G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
+
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
 
     def G_delta_delta_G_0_0_ext_batch(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -1410,6 +1460,38 @@ class StochaticEstimator:
         L8_rgt[0, 0, 0] += GD0[0, 0, 0]
         L8 = z1 * (L8_lft * L8_rgt)  # [Ltau, Ly, Lx]
         # print("L8:", L8.real)
+
+        DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
+
+        # Output
+        obsr = {}
+        obsr['DD_r'] = DD_r
+
+        DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
+        obsr['DD_k'] = DD_k
+        return obsr
+    
+    def get_dimer_dimer_per_b2(self):
+        """
+        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
+
+        Returns:
+            DD_r: [Ly, Lx] tensor
+            DD_k: [Ly, Lx] tensor
+        """
+        z2 = self.hmc_sampler.Nf**2 - 1
+        z4 = z2*z2
+        z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
+        z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
+        
+        # Compute green's functions
+        if self.GD0_G0D is None:
+            self.GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
+        if self.GD0 is None:
+            self.GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
+
+        L8 = self.L8()
 
         DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
 
