@@ -1732,8 +1732,6 @@ class StochaticEstimator:
 
             obsrs.append(obsr)
 
-            self.reset_cache()
-
         # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
         keys = obsrs[0].keys()
         consolidated_obsr = {}
@@ -1773,13 +1771,11 @@ class StochaticEstimator:
         return consolidated_obsr
 
     def get_spsm_per_b(self):
-        if self.GD0_G0D is None:
-            GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
-            self.GD0_G0D = GD0_G0D
+        GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
+        self.GD0_G0D = GD0_G0D
 
-        if self.GD0 is None:
-            GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
-            self.GD0 = GD0
+        GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
+        self.GD0 = GD0
 
         spsm_r = self.spsm_r(self.GD0_G0D, self.GD0)  # [Ly, Lx]
         spsm_k_abs = self.spsm_k(spsm_r).abs()  # [Ly, Lx]
