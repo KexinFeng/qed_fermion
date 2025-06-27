@@ -1462,34 +1462,40 @@ class StochaticEstimator:
         L3 = z3 * (L3_lft * L3_rgt)  # [Ltau, Ly, Lx]
 
         # grupc(i,iax)*grup(i,jax)*grup(j,iax)   *grup(jax,j)  *z3
-        L4_lft = -self.G_delta_delta_G_0_0_ext_batch(a_G_xi=-1, b_G_xi=-1)
-        L4_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_xi=-1)
-        L4 = z3 * (L4_lft * L4_rgt)  # [Ltau, Ly, Lx]
+        L4_lft = Gc0D[0, 1] * torch.roll(G0D, shifts=-1, dims=-1)
+        L4_rgt = torch.roll(GD0, shifts=1, dims=-1) * GD0[0, 1]
+        L4 = z3 * (L4_lft * L4_rgt)
 
         # grupc(i,j)  *grup(i,iax)*grup(iax,jax) *grup(jax,j)  *z3
-        L5_lft = -self.G_delta_0_G_0_delta_ext_batch(a_G_xi=-1, b_xi=-1)
-        L5_lft[0, 0, 0] += GD0[0, 0, 0]
-        L5_rgt = -L0_lft
-        L5 = z3 * (L5_lft * L5_rgt)  # [Ltau, Ly, Lx]
+        L5_lft = Gc0D * G0D[0, 1]
+        L5_rgt = G0D * GD0[0, 1]
+        L5 = z3 * (L5_lft * L5_rgt)
 
         # grupc(i,iax)*grup(i,j)  *grup(jax,iax) *grup(j,jax)  *z3
-        L6_lft = L0_rgt
-        L6_rgt = self.G_delta_0_G_0_delta_ext_batch(a_xi=-1, b_G_xi=-1)
-        L6 = z3 * (L6_lft * L6_rgt)  # [Ltau, Ly, Lx]
+        L6_lft = Gc0D[0, 1] * G0D
+        L6_rgt = GD0 * G0D[0, 1]
+        L6 = z3 * (L6_lft * L6_rgt)
 
         # grupc(i,jax)*grup(i,j)  *grup(iax,jax) *grup(j,iax)  *z1
-        L7_lft = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi=-1)
-        L7_lft[0, 0, -1] += GD0[0, 0, 2]
-        L7_rgt = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi_prime=-1)
-        L7 = z1 * (L7_lft * L7_rgt)  # [Ltau, Ly, Lx]
+        L7_lft = torch.roll(Gc0D, shifts=-1, dims=-1) * G0D
+        L7_rgt = G0D * torch.roll(GD0, shifts=1, dims=-1)
+        L7 = z1 * (L7_lft * L7_rgt)
 
         # grupc(i,j)  *grup(i,jax)*grup(jax,iax) *grup(iax,j)  *z1
-        L8_lft = self.G_0_delta_G_0_delta_ext_batch(a_G_xi_prime=-1, b_xi=-1)
-        L8_rgt = -self.G_delta_0_G_delta_0_ext_batch(a_xi_prime=-1, b_G_xi_prime=-1)
-        L8_rgt[0, 0, 0] += GD0[0, 0, 0]
-        L8 = z1 * (L8_lft * L8_rgt)  # [Ltau, Ly, Lx]
+        L8_lft = Gc0D * torch.roll(G0D, shifts=-1, dims=-1)
+        L8_rgt = GD0 * torch.roll(G0D, shifts=1, dims=-1)
+        L8 = z1 * (L8_lft * L8_rgt)
 
         DD_r = (L0 + L1 + L2 + L3 + L4 + L5 + L6 + L7 + L8).real[0]  # [Ly, Lx]
+
+        # Output
+        obsr = {}
+        obsr['DD_r'] = DD_r
+
+        DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
+        obsr['DD_k'] = DD_k
+        return obsr
 
     def reset_cache(self):
         """

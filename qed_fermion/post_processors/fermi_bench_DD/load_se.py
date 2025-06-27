@@ -103,7 +103,7 @@ if __name__ == '__main__':
     # input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
     input_folder = "/Users/kx/Desktop/hmc/fignote/ftdqmc/benchmark_6x6x10_bs5/hmc_check_point_6x10/"
-    input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
+    # input_folder = "/users/4/fengx463/hmc/fignote/hmc_check_point_6x10/"
 
     start = -1
     end = 10000
