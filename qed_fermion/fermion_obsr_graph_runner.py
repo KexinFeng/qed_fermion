@@ -17,6 +17,7 @@ class FermionObsrGraphRunner:
         self,
         bosons, # [bs, 2, Lx, Ly, Ltau] 
         eta,    # [Nrv, Ltau * Ly * Lx]
+        indices, # [C(Nrv, 4), 4]
         # cuda_graph control parameters
         max_iter_se,
         graph_memory_pool=None,
@@ -25,7 +26,8 @@ class FermionObsrGraphRunner:
         """Capture the get_fermion_obsr function execution as a CUDA graph."""
         input_buffers = {
             "bosons": bosons,
-            "eta": eta
+            "eta": eta, 
+            "indices": indices
         }
 
         max_iter_copy = self.se.hmc_sampler.max_iter
@@ -46,7 +48,8 @@ class FermionObsrGraphRunner:
             for n in range(n_warmups):
                 static_outputs = self.se.get_fermion_obsr(
                     input_buffers['bosons'],
-                    input_buffers['eta']
+                    input_buffers['eta'],
+                    input_buffers['indices']
                 )
 
             s.synchronize()
@@ -62,7 +65,8 @@ class FermionObsrGraphRunner:
         with torch.cuda.graph(graph, pool=graph_memory_pool):
             static_outputs = self.se.get_fermion_obsr(
                 input_buffers['bosons'],
-                input_buffers['eta']
+                input_buffers['eta'],
+                input_buffers['indices']
             )
 
         end_mem = device_mem()[1]   
@@ -80,11 +84,13 @@ class FermionObsrGraphRunner:
         self,
         bosons, # [bs, 2, Lx, Ly, Ltau] 
         eta,    # [Nrv, Ltau * Ly * Lx]
+        indices  # [C(Nrv, 4), 4] (indices for the stochastic estimator, e.g., sa, sb, sc, sd)
     ):
         """Execute the captured graph with the given inputs."""
         # Copy inputs to input buffers
         self.input_buffers['bosons'].copy_(bosons)
         self.input_buffers['eta'].copy_(eta)
+        self.input_buffers['indices'].copy_(indices)
 
         # Replay the graph
         self.graph.replay()

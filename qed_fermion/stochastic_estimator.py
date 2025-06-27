@@ -78,9 +78,11 @@ class StochaticEstimator:
             print(f"Before init se_graph: {d_mem_str}")
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
             dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
+            dummy_indices = torch.zeros((self.Nrv**2//2, 4), device=hmc.device, dtype=torch.int64)
             self.graph_memory_pool = self.graph_runner.capture(
                                         dummy_bosons, 
                                         dummy_eta, 
+                                        dummy_indices,
                                         max_iter_se=hmc._MAX_ITERS_TO_CAPTURE[0],
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
@@ -406,10 +408,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -419,11 +423,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = eta_conj[sa_batch] * \
                 G_eta[sb_batch] * \
@@ -464,10 +468,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -477,11 +483,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = eta_conj[sa_batch] * \
                 G_eta[sb_batch] * \
@@ -522,10 +528,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -534,11 +542,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(G_eta[sa_batch], shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sa_batch], shifts=0, dims=-1) * \
@@ -569,10 +577,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -582,11 +592,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
                 torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
@@ -627,10 +637,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -639,11 +651,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
@@ -675,10 +687,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -688,11 +702,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
                 torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
@@ -733,10 +747,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -747,11 +763,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
                 torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
@@ -799,10 +815,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -812,11 +830,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
                 torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
@@ -868,10 +886,12 @@ class StochaticEstimator:
 
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
-        idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
-        sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
         num_samples = Nrv**2 // 2
-        perm = torch.randperm(len(sa), device=eta.device)
+        # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), int(Nrv*0.1))  # Adjust batch size based on memory constraints
@@ -880,11 +900,11 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            indices = perm[start_idx:end_idx]
-            sa_batch = sa[indices]
-            sb_batch = sb[indices]
-            sc_batch = sc[indices]
-            sd_batch = sd[indices]
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
 
             a = torch.roll(G_eta[sa_batch],  shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sa_batch],     shifts=0, dims=-1) * \
@@ -1710,7 +1730,7 @@ class StochaticEstimator:
         szsz[0, 0, 0] = szsz[0, 0, 0] + self.G_delta_0_ext()[0, 0, 0]
         return 0.5 * szsz
 
-    def get_fermion_obsr(self, bosons, eta):
+    def get_fermion_obsr(self, bosons, eta, indices):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -1721,6 +1741,7 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
+        self.indices = indices
         for b in range(bs):
             obsr = {}
 
