@@ -1,4 +1,3 @@
-from platform import platform
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 plt.ion()
@@ -14,6 +13,7 @@ sys.path.insert(0, script_path + '/../../../')
 import time
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
+import platform
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"device: {device}")
@@ -56,12 +56,13 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         else:
             obsr = se.get_fermion_obsr(boson.to(se.device), eta)
 
-        obsr_gt = se.get_fermion_obsr_groundtruth(boson.to(se.device))
+        # obsr_gt = se.get_fermion_obsr_groundtruth(boson.to(se.device))
         spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
+        DD_k.append(obsr['DD_k'].cpu().numpy())
+        # spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
 
         spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
-        spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
+        # spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
         dbstop = 1
         
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
@@ -72,8 +73,8 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     DD_k_std = DD_k.std(axis=0)  # [J/bs, Ly, Lx]
 
     output_file = os.path.join(output_dir, f"spsm_k_b{bid}.pt")
-    torch.save({'mean': spsm_k_mean, 
-                'std': spsm_k_std, 
+    torch.save({'spsm_mean': spsm_k_mean, 
+                'spsm_std': spsm_k_std, 
                 'DD_k_mean': DD_k_mean, 
                 'DD_k_std': DD_k_std}, 
                 output_file)

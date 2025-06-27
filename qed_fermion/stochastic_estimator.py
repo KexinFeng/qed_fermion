@@ -451,7 +451,7 @@ class StochaticEstimator:
             G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
-        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean
+        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean[0]
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
     
@@ -509,7 +509,7 @@ class StochaticEstimator:
             G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
-        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean
+        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean[0]
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
 
@@ -614,7 +614,7 @@ class StochaticEstimator:
             G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
-        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean
+        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean[0]
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
     
@@ -720,7 +720,7 @@ class StochaticEstimator:
             G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
-        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean
+        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean[0]
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
  
@@ -786,8 +786,8 @@ class StochaticEstimator:
             G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
             G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
-        G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1
-        G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2
+        G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0]
+        G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
 
     def L1(self):
@@ -855,7 +855,7 @@ class StochaticEstimator:
             G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
             G_res_mean += (-c1 - c2 + c3).mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
 
-        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean
+        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean[0]
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
 
@@ -1772,12 +1772,9 @@ class StochaticEstimator:
 
     def get_spsm_per_b(self):
         GD0_G0D = self.G_delta_0_G_0_delta_ext_batch() # [Ltau, Ly, Lx]
-        self.GD0_G0D = GD0_G0D
-
         GD0 = self.G_delta_0_ext() # [Ltau, Ly, Lx]
-        self.GD0 = GD0
 
-        spsm_r = self.spsm_r(self.GD0_G0D, self.GD0)  # [Ly, Lx]
+        spsm_r = self.spsm_r(GD0_G0D, GD0)  # [Ly, Lx]
         spsm_k_abs = self.spsm_k(spsm_r).abs()  # [Ly, Lx]
 
         # Output
