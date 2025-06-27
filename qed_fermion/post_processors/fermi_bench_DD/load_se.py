@@ -115,9 +115,9 @@ if __name__ == '__main__':
     @time_execution
     def iterate_func():
         for bid in range(bs):
+            # if bid > 0: continue
             bosons = []
             for J in Js:
-
                 hmc_filename = f"/stream_ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6000_bs{bs}_Jtau_{J:.2g}_K_1_dtau_0.1_delta_t_0.05_N_leapfrog_4_m_1_step_6000.pt"
 
                 # Load and write
