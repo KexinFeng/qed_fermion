@@ -1416,6 +1416,11 @@ class StochaticEstimator:
         return obsr
 
     def get_dimer_dimer_per_b_groundtruth(self, boson):
+        z2 = self.hmc_sampler.Nf**2 - 1
+        z4 = z2*z2
+        z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
+        z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
+    
         Gij_gt = self.G_groundtruth(boson) # [Ltau * Ly * Lx, Ltau * Ly * Lx]
         GD0 = self.G_delta_0_groundtruth_ext_fft(Gij_gt)
         # Compute GcD0 from GD0 according to:
