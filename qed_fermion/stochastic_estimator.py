@@ -2109,6 +2109,8 @@ class StochaticEstimator:
                 Gc_eqt[:, i, j] = -G_eqt[:, j, i]
             Gc_eqt[:, i, i] += 1
 
+        Gc, G = Gc_eqt, G_eqt  # [Ltau, N, N]
+
         z2 = self.hmc_sampler.Nf**2 - 1
         z4 = z2*z2
         z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
@@ -2127,31 +2129,25 @@ class StochaticEstimator:
                     (Ly, Lx)
                 )
 
-                # dimer-dimer correlation function
                 # Compute iax and jax indices (x+1 with periodic boundary)
-                y_i, x_i = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ly, Lx))
-                y_j, x_j = unravel_index(torch.tensor(j, dtype=torch.int64, device=self.device), (Ly, Lx))
-                iax = ravel_multi_index((y_i, (x_i + 1) % Lx), (Ly, Lx))
-                jax = ravel_multi_index((y_j, (x_j + 1) % Lx), (Ly, Lx))
+                iax = ravel_multi_index((y, (x + 1) % Lx), (Ly, Lx))
+                jax = ravel_multi_index(((y + dy) % Ly, ((x + dx) + 1) % Lx), (Ly, Lx))
 
                 DD_r[i, d] = (
-                    Gc_eqt[:, i, iax] * G_eqt[:, i, iax] * Gc_eqt[:, j, jax] * G_eqt[:, j, jax] * z4
-                    + Gc_eqt[:, i, j] * G_eqt[:, i, j] * Gc_eqt[:, iax, jax] * G_eqt[:, iax, jax] * z2
-                    + Gc_eqt[:, i, jax] * G_eqt[:, i, jax] * Gc_eqt[:, iax, j] * G_eqt[:, iax, j] * z2
-                    + Gc_eqt[:, i, jax] * G_eqt[:, i, iax] * G_eqt[:, iax, j] * G_eqt[:, j, jax] * z3
-                    + Gc_eqt[:, i, iax] * G_eqt[:, i, jax] * G_eqt[:, j, iax] * G_eqt[:, jax, j] * z3
-                    + Gc_eqt[:, i, j] * G_eqt[:, i, iax] * G_eqt[:, iax, jax] * G_eqt[:, jax, j] * z3
-                    + Gc_eqt[:, i, iax] * G_eqt[:, i, j] * G_eqt[:, jax, iax] * G_eqt[:, j, jax] * z3
-                    + Gc_eqt[:, i, jax] * G_eqt[:, i, j] * G_eqt[:, iax, jax] * G_eqt[:, j, iax] * z1
-                    + Gc_eqt[:, i, j] * G_eqt[:, i, jax] * G_eqt[:, jax, iax] * G_eqt[:, iax, j] * z1
+                    Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax] * z4
+                    + Gc[:, i, j] * G[:, i, j] * Gc[:, iax, jax] * G[:, iax, jax] * z2
+                    + Gc[:, i, jax] * G[:, i, jax] * Gc[:, iax, j] * G[:, iax, j] * z2
+                    + Gc[:, i, jax] * G[:, i, iax] * G[:, iax, j] * G[:, j, jax] * z3
+                    + Gc[:, i, iax] * G[:, i, jax] * G[:, j, iax] * G[:, jax, j] * z3
+                    + Gc[:, i, j] * G[:, i, iax] * G[:, iax, jax] * G[:, jax, j] * z3
+                    + Gc[:, i, iax] * G[:, i, j] * G[:, jax, iax] * G[:, j, jax] * z3
+                    + Gc[:, i, jax] * G[:, i, j] * G[:, iax, jax] * G[:, j, iax] * z1
+                    + Gc[:, i, j] * G[:, i, jax] * G[:, jax, iax] * G[:, iax, j] * z1
                 ).mean(dim=0)
-
-        GG = DD_r.mean(dim=0) # [Ltau * Ly * Lx]
-        # return GG.view(Ltau, Ly, Lx)[:self.Ltau]
 
         # Output
         obsr = {}
-        obsr['DD_r'] = DD_r
+        obsr['DD_r'] = DD_r.mean(dim=0) # [Ly * Lx]
 
         DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
