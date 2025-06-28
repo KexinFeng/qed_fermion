@@ -2104,11 +2104,6 @@ class StochaticEstimator:
         assert G_eqt.shape == (Ltau, N, N), f"G_eqt shape mismatch: {G_eqt.shape}"
 
         Gc_eqt = torch.zeros_like(G_eqt)
-        # ! get grupc
-        # do i = 1, ndim
-        #     do j = 1, ndim
-        #         grupc(j,i) = - grup(i,j)
-        #     grupc(i,i) = grupc(i,i) + cone
         for i in range(N):
             for j in range(N):
                 Gc_eqt[:, i, j] = -G_eqt[:, j, i]
@@ -2133,10 +2128,23 @@ class StochaticEstimator:
                 )
 
                 # dimer-dimer correlation function
-                L8 = 
+                # Compute iax and jax indices (x+1 with periodic boundary)
+                y_i, x_i = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ly, Lx))
+                y_j, x_j = unravel_index(torch.tensor(j, dtype=torch.int64, device=self.device), (Ly, Lx))
+                iax = ravel_multi_index((y_i, (x_i + 1) % Lx), (Ly, Lx))
+                jax = ravel_multi_index((y_j, (x_j + 1) % Lx), (Ly, Lx))
 
-
-                DD_r[i, d] = G[j, i] * G[i, j]
+                DD_r[i, d] = (
+                    Gc_eqt[:, i, iax] * G_eqt[:, i, iax] * Gc_eqt[:, j, jax] * G_eqt[:, j, jax] * z4
+                    + Gc_eqt[:, i, j] * G_eqt[:, i, j] * Gc_eqt[:, iax, jax] * G_eqt[:, iax, jax] * z2
+                    + Gc_eqt[:, i, jax] * G_eqt[:, i, jax] * Gc_eqt[:, iax, j] * G_eqt[:, iax, j] * z2
+                    + Gc_eqt[:, i, jax] * G_eqt[:, i, iax] * G_eqt[:, iax, j] * G_eqt[:, j, jax] * z3
+                    + Gc_eqt[:, i, iax] * G_eqt[:, i, jax] * G_eqt[:, j, iax] * G_eqt[:, jax, j] * z3
+                    + Gc_eqt[:, i, j] * G_eqt[:, i, iax] * G_eqt[:, iax, jax] * G_eqt[:, jax, j] * z3
+                    + Gc_eqt[:, i, iax] * G_eqt[:, i, j] * G_eqt[:, jax, iax] * G_eqt[:, j, jax] * z3
+                    + Gc_eqt[:, i, jax] * G_eqt[:, i, j] * G_eqt[:, iax, jax] * G_eqt[:, j, iax] * z1
+                    + Gc_eqt[:, i, j] * G_eqt[:, i, jax] * G_eqt[:, jax, iax] * G_eqt[:, iax, j] * z1
+                ).mean(dim=0)
 
         GG = DD_r.mean(dim=0) # [Ltau * Ly * Lx]
         # return GG.view(Ltau, Ly, Lx)[:self.Ltau]
