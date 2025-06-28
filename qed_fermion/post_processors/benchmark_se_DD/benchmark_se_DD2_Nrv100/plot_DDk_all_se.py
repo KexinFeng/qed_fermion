@@ -22,7 +22,7 @@ from load_write2file_convert import time_execution
 
 
 batch_id = 1
-plot_dqmc_postprocessing = True
+plot_dqmc_postprocessing = False
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
@@ -102,23 +102,23 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     DD_k_res = torch.load(DD_k_file, weights_only=False) # [J/bs, Ly, Lx]
     
     # Compute spin order as sum of DD_k_mean divided by vs
-    DD_k0 = DD_k_res['DD_k_mean'].reshape(-1, vs)[:, vs//2]  # [J/bs, Ly, Lx]
-    DD_k0_err = DD_k_res['DD_k_std'].reshape(-1, vs)[:, vs//2]
+    DD_k0 = DD_k_res['DD_k_mean'].reshape(-1, vs)[:, vs//2].real  # [J/bs, Ly, Lx]
+    DD_k0_err = DD_k_res['DD_k_std'].reshape(-1, vs)[:, vs//2].real
 
     plt.errorbar(Js, DD_k0 / vs, yerr=DD_k0_err / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'se_{Lx}x{Ltau}')
     
 
-    # # ---- Load and plot spsm_k.pt mean groundtruth ---- #
-    # output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
-    # spsm_k_file = os.path.join(output_dir, "spsm_k.pt")
-    # spsm_k_res = torch.load(spsm_k_file, weights_only=False) # [J/bs, Ly, Lx]
-    #     # Compute spin order as sum of spsm_k_mean divided by vs
-    # spin_pi_s = spsm_k_res['mean'][:, 0, 0]  # [J/bs, Ly, Lx]
-    # spin_pi_errs = spsm_k_res['std'][:, 0, 0]
+    # ---- Load and plot spsm_k.pt mean groundtruth ---- #
+    output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    DD_k_file = os.path.join(output_dir, "DD_k.pt")
+    DD_k_res = torch.load(DD_k_file, weights_only=False) # [J/bs, Ly, Lx]
+        # Compute spin order as sum of DD_k_mean divided by vs
+    DD_k0 = DD_k_res['DD_k_mean'].reshape(-1, vs)[:, vs//2].real  # [J/bs, Ly, Lx]
+    DD_k0_err = DD_k_res['DD_k_std'].reshape(-1, vs)[:, vs//2].real
 
-    # plt.errorbar(Js, spin_pi_s / vs, yerr=spin_pi_errs / vs, 
-    #              fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
+    plt.errorbar(Js, DD_k0 / vs, yerr=DD_k0_err / vs, 
+                 fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
     
 
 
