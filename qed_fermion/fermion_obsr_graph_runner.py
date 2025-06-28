@@ -18,6 +18,7 @@ class FermionObsrGraphRunner:
         bosons, # [bs, 2, Lx, Ly, Ltau] 
         eta,    # [Nrv, Ltau * Ly * Lx]
         indices, # [C(Nrv, 4), 4]
+        indices_r2, # [C(Nrv, 2), 2]
         # cuda_graph control parameters
         max_iter_se,
         graph_memory_pool=None,
@@ -27,7 +28,8 @@ class FermionObsrGraphRunner:
         input_buffers = {
             "bosons": bosons,
             "eta": eta, 
-            "indices": indices
+            "indices": indices,
+            "indices_r2": indices_r2
         }
 
         max_iter_copy = self.se.hmc_sampler.max_iter
@@ -49,7 +51,8 @@ class FermionObsrGraphRunner:
                 static_outputs = self.se.get_fermion_obsr(
                     input_buffers['bosons'],
                     input_buffers['eta'],
-                    input_buffers['indices']
+                    input_buffers['indices'],
+                    input_buffers['indices_r2']
                 )
 
             s.synchronize()
@@ -66,7 +69,8 @@ class FermionObsrGraphRunner:
             static_outputs = self.se.get_fermion_obsr(
                 input_buffers['bosons'],
                 input_buffers['eta'],
-                input_buffers['indices']
+                input_buffers['indices'],
+                input_buffers['indices_r2']
             )
 
         end_mem = device_mem()[1]   
@@ -84,13 +88,15 @@ class FermionObsrGraphRunner:
         self,
         bosons, # [bs, 2, Lx, Ly, Ltau] 
         eta,    # [Nrv, Ltau * Ly * Lx]
-        indices  # [C(Nrv, 4), 4] (indices for the stochastic estimator, e.g., sa, sb, sc, sd)
+        indices,  # [C(Nrv, 4), 4] (indices for the stochastic estimator, e.g., sa, sb, sc, sd)
+        indices_r2  # [C(Nrv, 2), 2] (indices for the stochastic estimator, e.g., sa, sb)
     ):
         """Execute the captured graph with the given inputs."""
         # Copy inputs to input buffers
         self.input_buffers['bosons'].copy_(bosons)
         self.input_buffers['eta'].copy_(eta)
         self.input_buffers['indices'].copy_(indices)
+        self.input_buffers['indices_r2'].copy_(indices_r2)
 
         # Replay the graph
         self.graph.replay()

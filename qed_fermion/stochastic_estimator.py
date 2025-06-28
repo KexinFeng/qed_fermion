@@ -82,10 +82,12 @@ class StochaticEstimator:
             dummy_eta = torch.zeros((self.Nrv, self.Ltau * self.Vs), device=hmc.device, dtype=hmc.cdtype)
             dummy_bosons = torch.zeros((hmc.bs, 2, self.Lx, self.Ly, self.Ltau), device=hmc.device, dtype=hmc.dtype)
             dummy_indices = torch.zeros((self.num_samples(self.Nrv), 4), device=hmc.device, dtype=torch.int64)
+            dummy_indices_r2 = torch.zeros((self.num_samples(self.Nrv), 2), device=hmc.device, dtype=torch.int64)
             self.graph_memory_pool = self.graph_runner.capture(
                                         dummy_bosons, 
                                         dummy_eta, 
                                         dummy_indices,
+                                        dummy_indices_r2,
                                         max_iter_se=hmc._MAX_ITERS_TO_CAPTURE[0],
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
@@ -358,7 +360,9 @@ class StochaticEstimator:
 
         # Get all unique pairs (s, s_prime) with s < s_prime
         Nrv = eta_ext_conj.shape[0]
-        s, s_prime = torch.triu_indices(Nrv, Nrv, offset=1, device=eta.device)
+
+        # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
+        s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
 
         # a = eta_ext_conj[s] * G_eta_ext[s_prime]
         # b = eta_ext_conj[s_prime] * G_eta_ext[s]
@@ -1734,7 +1738,7 @@ class StochaticEstimator:
         return 0.5 * szsz
 
     @torch.inference_mode()
-    def get_fermion_obsr(self, bosons, eta, indices):
+    def get_fermion_obsr(self, bosons, eta, indices, indices_r2):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -1746,6 +1750,7 @@ class StochaticEstimator:
         bs = bosons.shape[0]
         obsrs = []
         self.indices = indices
+        self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 

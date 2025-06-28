@@ -58,11 +58,12 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         num_samples = se.num_samples(Nrv)
         perm = torch.randperm(indices.shape[0], device=indices.device)
         indices = indices[perm[:num_samples]]
+        indices_r2 = torch.combinations(torch.arange(Nrv, device=hmc.device), r=2, with_replacement=False)
 
         if se.cuda_graph_se:
-            obsr_se = se.graph_runner(boson.to(se.device), eta, indices)
+            obsr_se = se.graph_runner(boson.to(se.device), eta, indices, indices_r2)
         else:
-            obsr_se = se.get_fermion_obsr(boson.to(se.device), eta, indices)
+            obsr_se = se.get_fermion_obsr(boson.to(se.device), eta, indices, indices_r2)
 
         print("---------------------------------")
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
