@@ -55,7 +55,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
         #     obsr = se.get_fermion_obsr(boson.to(se.device), eta)
         # DD_k.append(obsr['DD_k_abs'].cpu().numpy())
         obsr = se.get_fermion_obsr_gt(boson)
-        DD_k.append(obsr['DD_k_abs'].cpu().numpy())   
+        DD_k.append(obsr['DD_k'].cpu().numpy())   
     
     DD_k = np.array(DD_k)  # [seq, J/bs, Ly, Lx]
     DD_k_mean = DD_k.mean(axis=0)  # [J/bs, Ly, Lx]
@@ -89,8 +89,9 @@ if __name__ == '__main__':
     input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
     # input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
     # input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
+    input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
 
-    start = -50
+    start = -10
     end = 10000
 
     @time_execution
