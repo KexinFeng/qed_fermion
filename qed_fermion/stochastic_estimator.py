@@ -2094,7 +2094,7 @@ class StochaticEstimator:
         bosons: [2, Lx, Ly, Ltau] tensor of boson fields
 
         """
-        Ltau, Ly, Lx = 2 * self.Ltau, self.Ly, self.Lx
+        Ltau, Ly, Lx = self.Ltau, self.Ly, self.Lx
         N = Ly * Lx
 
         Gij_gt = self.G_groundtruth(boson) # [Ltau*Ly*Lx, Ltau*Ly*Lx]
