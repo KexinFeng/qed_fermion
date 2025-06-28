@@ -42,7 +42,12 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     se.Nrv = Nrv
     se.max_iter_se = mxitr
     se.num_samples = lambda nrv: nrv** 2 // 2
-    se.batch_size = lambda nrv: nrv
+    se.batch_size = lambda nrv: int(nrv * 0.1)
+    print(f'loop amount: {se.num_samples(Nrv) / se.batch_size(Nrv)}')
+    # Loop amount cannot exceed 200, e.g.
+    # num_samples = nrv**2 // 2
+    # batch_size = nrv * 0.1
+    # nrv = 40
     if se.cuda_graph_se:
         se.init_cuda_graph()
 
@@ -52,7 +57,6 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     DD_k = []
     for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-        
         # Randomly select num_samples from indices without replacement
         indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
         num_samples = se.num_samples(Nrv)
@@ -64,7 +68,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
         else:
             obsr = se.get_fermion_obsr(boson, eta, indices)
 
-        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        # spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
         DD_k.append(obsr['DD_k'].cpu().numpy())
         
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
@@ -85,9 +89,9 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
 
 if __name__ == '__main__':
     # Create configs file
-    Lx = int(os.getenv("Lx", '6'))
+    Lx = int(os.getenv("Lx", '10'))
     print(f"Lx: {Lx}")
-    Ltau = int(os.getenv("Ltau", '60'))
+    Ltau = int(os.getenv("Ltau", '100'))
     print(f"Ltau: {Ltau}")
     Nrv = int(os.getenv("Nrv", '100'))
     print(f"Nrv: {Nrv}")
