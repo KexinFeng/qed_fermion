@@ -909,10 +909,10 @@ class StochaticEstimator:
             sc_batch = sc[start_idx:end_idx]
             sd_batch = sd[start_idx:end_idx]
 
-            a = torch.roll(G_eta[sa_batch],  shifts=-1, dims=-1) * \
-                torch.roll(eta_conj[sa_batch],     shifts=0, dims=-1) * \
-                torch.roll(G_eta[sb_batch],  shifts=0, dims=-1) * \
-                torch.roll(eta_conj[sb_batch],     shifts=-1, dims=-1)
+            a = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1)
             
             b = torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sc_batch],  shifts=0, dims=-1) * \
@@ -1765,6 +1765,7 @@ class StochaticEstimator:
         
         return consolidated_obsr
     
+    @torch.inference_mode()
     def get_fermion_obsr_gt(self, bosons):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
@@ -1783,7 +1784,7 @@ class StochaticEstimator:
             # self.set_eta_G_eta(boson, eta)
 
             # obsr.update(self.get_spsm_per_b())
-            obsr.update(self.get_dimer_dimer_per_b_groundtruth(boson))
+            obsr.update(self.get_dimer_dimer_per_b_gt(boson))
 
             obsrs.append(obsr)
         
@@ -2088,6 +2089,67 @@ class StochaticEstimator:
         self.GD0_G0D = None
         self.GD0 = None
     
+    def get_dimer_dimer_per_b_gt(self, boson):
+        """
+        bosons: [2, Lx, Ly, Ltau] tensor of boson fields
+
+        """
+        Ltau, Ly, Lx = 2 * self.Ltau, self.Ly, self.Lx
+        N = Ly * Lx
+
+        Gij_gt = self.G_groundtruth(boson) # [Ltau*Ly*Lx, Ltau*Ly*Lx]
+        # Take the equal-tau subtensor as G_et using indexing
+        Gij_gt_reshaped = Gij_gt.view(Ltau, Ly*Lx, Ltau, Ly*Lx)
+        G_eqt = Gij_gt_reshaped[torch.arange(Ltau), :, torch.arange(Ltau), :]
+        assert G_eqt.shape == (Ltau, N, N), f"G_eqt shape mismatch: {G_eqt.shape}"
+
+        Gc_eqt = torch.zeros_like(G_eqt)
+        # ! get grupc
+        # do i = 1, ndim
+        #     do j = 1, ndim
+        #         grupc(j,i) = - grup(i,j)
+        #     grupc(i,i) = grupc(i,i) + cone
+        for i in range(N):
+            for j in range(N):
+                Gc_eqt[:, i, j] = -G_eqt[:, j, i]
+            Gc_eqt[:, i, i] += 1
+
+        z2 = self.hmc_sampler.Nf**2 - 1
+        z4 = z2*z2
+        z3 = self.hmc_sampler.Nf ** 3 - 2 * self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
+        z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
+
+        # Compute the four-point green's function using the ground truth
+        # G_delta_0_G_delta_0 = mean_i G_{i+d, i} G_{i+d, i}
+        DD_r = torch.empty((N, N), dtype=G_eqt.dtype, device=G_eqt.device)
+        for i in range(N):
+            for d in range(N):
+                y, x = unravel_index(torch.tensor(i, dtype=torch.int64, device=self.device), (Ly, Lx))
+                dy, dx = unravel_index(torch.tensor(d, dtype=torch.int64, device=self.device), (Ly, Lx))
+
+                j = ravel_multi_index(
+                    ((y + dy) % Ly, (x + dx) % Lx),
+                    (Ly, Lx)
+                )
+
+                # dimer-dimer correlation function
+                L8 = 
+
+
+                DD_r[i, d] = G[j, i] * G[i, j]
+
+        GG = DD_r.mean(dim=0) # [Ltau * Ly * Lx]
+        # return GG.view(Ltau, Ly, Lx)[:self.Ltau]
+
+        # Output
+        obsr = {}
+        obsr['DD_r'] = DD_r
+
+        DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
+        obsr['DD_k'] = DD_k
+        return obsr
+
 
 if __name__ == "__main__":  
     # Set random seed for reproducibility
