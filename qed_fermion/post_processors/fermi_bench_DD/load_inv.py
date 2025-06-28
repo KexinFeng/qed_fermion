@@ -42,6 +42,8 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
     se.max_iter_se = mxitr
+    se.num_samples = lambda nrv: nrv** 2 * 10
+    se.batch_size = lambda nrv: int(nrv * 10)
     if se.cuda_graph_se:
         se.init_cuda_graph()
 
@@ -51,10 +53,16 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     DD_k = []
     for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+        # Randomly select num_samples from indices without replacement
+        indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
+        num_samples = se.num_samples(Nrv)
+        perm = torch.randperm(indices.shape[0], device=indices.device)
+        indices = indices[perm[:num_samples]]
+
         if se.cuda_graph_se:
-            obsr_se = se.graph_runner(boson.to(se.device), eta)
+            obsr_se = se.graph_runner(boson.to(se.device), eta, indices)
         else:
-            obsr_se = se.get_fermion_obsr(boson.to(se.device), eta)
+            obsr_se = se.get_fermion_obsr(boson.to(se.device), eta, indices)
 
         print("---------------------------------")
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
@@ -63,21 +71,24 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         distance_r = torch.norm(obsr_gt['DD_r'] - obsr_se['DD_r'])
         distance_k = torch.norm(obsr_gt['DD_k'] - obsr_se['DD_k'])
         print(f"distance_r: {distance_r.item()}, distance_k: {distance_k.item()}")
-        
+
+        print('point value DD_M:')
+        vs = Lx * Ly
+        DD_M_gt = obsr_gt['DD_k'].reshape(1, -1)[:, vs//2]
+        DD_M_se = obsr_se['DD_k'].reshape(1, -1)[:, vs//2]
+        print(f"DD_M_gt: {DD_M_gt.item()}, DD_M_se: {DD_M_se.item()}")
+
         # Assert the vectors are close using torch.testing
         torch.testing.assert_close(
             obsr_gt['DD_r'], obsr_se['DD_r'],
-            atol=6e-2, rtol=0,
-            msg="obsr_gt['DD_r'] and obsr_se['DD_r'] differ more than allowed"
+            atol=6e-2, rtol=0
         )
         torch.testing.assert_close(
             obsr_gt['DD_k'], obsr_se['DD_k'],
-            atol=6e-2, rtol=0,
-            msg="obsr_gt['DD_k'] and obsr_se['DD_k'] differ more than allowed"
+            atol=6e-2, rtol=0
         )
 
         DD_k.append(obsr_gt['DD_k'].cpu().numpy())
-
 
         dbstop = 1
         

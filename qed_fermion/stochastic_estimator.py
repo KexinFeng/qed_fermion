@@ -2147,7 +2147,8 @@ class StochaticEstimator:
 
         # Output
         obsr = {}
-        obsr['DD_r'] = DD_r.mean(dim=0) # [Ly * Lx]
+        DD_r = DD_r.mean(dim=0).view(Ly, Lx) # [Ly, Lx]
+        obsr['DD_r'] = DD_r
 
         DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         DD_k = self.reorder_fft_grid2(DD_k)  # [Ly, Lx]
