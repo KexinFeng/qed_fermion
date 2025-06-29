@@ -813,6 +813,84 @@ class StochaticEstimator:
         G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
 
+
+    def L2_groundtruth(self):
+        eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
+        Nrv = eta_conj.shape[0]
+        # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
+        # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
+        sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
+        
+        num_samples = self.num_samples(Nrv)
+        # perm = torch.randperm(len(sa), device=eta.device)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean1 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean2 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+            sc_batch = sc[start_idx:end_idx]
+            sd_batch = sd[start_idx:end_idx]
+
+            a = torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+
+            ca1 =   torch.roll(G_eta[sb_batch],     shifts=-0, dims=-1) * \
+                    torch.roll(eta_conj[sc_batch],  shifts=-1, dims=-1) * \
+                    torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1)
+
+            cb1 =   torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                    torch.roll(G_eta[sc_batch],     shifts=-0, dims=-1) * \
+                    torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+            
+            ca2 =   torch.roll(eta_conj[sa_batch],  shifts=-0, dims=-1) * \
+                    torch.roll(G_eta[sb_batch],     shifts=-0, dims=-1) * \
+                    torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) 
+            cb2 =   torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
+                    torch.roll(eta_conj[sb_batch],  shifts=-1, dims=-1) * \
+                    torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            ca1_F_neg_k = torch.fft.ifftn(ca1, (self.Ly, self.Lx), norm="backward")
+            cb1_F = torch.fft.fftn(cb1, (self.Ly, self.Lx), norm="forward")
+            c1 = torch.fft.ifftn(ca1_F_neg_k * cb1_F, (self.Ly, self.Lx), norm="forward")
+
+            ca2_F_neg_k = torch.fft.ifftn(ca2, (self.Ly, self.Lx), norm="backward")
+            cb2_F = torch.fft.fftn(cb2, (self.Ly, self.Lx), norm="forward")
+            c2 = torch.fft.ifftn(ca2_F_neg_k * cb2_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size) # [Ly, Lx]
+            G_res_mean1 += c1.mean(dim=(0, 1)) / (num_samples // batch_size)    # [Ly, Lx]
+            G_res_mean2 += c2.mean(dim=(0, 1)) / (num_samples // batch_size)    # [Ly, Lx]
+
+        G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0, -1]
+        G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0, 1]
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
     def L1(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -1969,9 +2047,9 @@ class StochaticEstimator:
         z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
 
         DD_r = (
-            z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
+            # z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
             # + z2 * self.L1()    # rtol=1.1, norm bug, DD_k bug
-            # + z2 * self.L2()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
+            + z2 * self.L2()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
             # + z3 * self.L3()    # rtol=0.8, norm ok, DD_k margin. match
             # + z3 * self.L4()    # rtol=0.8, norm ok, DD_k margin. match
             # + z3 * self.L5()   # rtol=2, norm diff, DD_k bug 
@@ -2139,9 +2217,9 @@ class StochaticEstimator:
                 jax = ravel_multi_index(((y + dy) % Ly, ((x + dx) + 1) % Lx), (Ly, Lx))
 
                 DD_r[i, d] = (
-                    Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax] * z4
+                    # Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax] * z4
                     # + Gc[:, i, j] * G[:, i, j] * Gc[:, iax, jax] * G[:, iax, jax] * z2
-                    # + Gc[:, i, jax] * G[:, i, jax] * Gc[:, iax, j] * G[:, iax, j] * z2
+                    + Gc[:, i, jax] * G[:, i, jax] * Gc[:, iax, j] * G[:, iax, j] * z2
                     # + Gc[:, i, jax] * G[:, i, iax] * G[:, iax, j] * G[:, j, jax] * z3
                     # + Gc[:, i, iax] * G[:, i, jax] * G[:, j, iax] * G[:, jax, j] * z3
                     # + Gc[:, i, j] * G[:, i, iax] * G[:, iax, jax] * G[:, jax, j] * z3
