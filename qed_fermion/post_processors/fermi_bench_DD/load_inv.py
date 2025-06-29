@@ -1,3 +1,4 @@
+import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 plt.ion()
@@ -42,8 +43,9 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     se = StochaticEstimator(hmc, cuda_graph_se=hmc.cuda_graph)
     se.Nrv = Nrv
     se.max_iter_se = mxitr
-    se.num_samples = lambda nrv: nrv** 2 * 10
-    se.batch_size = lambda nrv: int(nrv * 10)
+    # se.num_samples = lambda nrv: nrv** 2 
+    se.num_samples = lambda nrv: math.comb(nrv, 4)
+    se.batch_size = lambda nrv: int(nrv * 100)
     if se.cuda_graph_se:
         se.init_cuda_graph()
 
@@ -69,16 +71,26 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         obsr_gt = se.get_fermion_obsr_gt(boson.to(se.device))
 
         # Diff
-        distance_r = torch.norm(obsr_gt['DD_r'] - obsr_se['DD_r'])
-        distance_k = torch.norm(obsr_gt['DD_k'] - obsr_se['DD_k'])
-        print(f"distance_r: {distance_r.item()}, distance_k: {distance_k.item()}")
+        rel_distance_r = torch.norm(obsr_gt['DD_r'] - obsr_se['DD_r']) / torch.norm(obsr_gt['DD_r'])
+        rel_distance_k = torch.norm(obsr_gt['DD_k'] - obsr_se['DD_k']) / torch.norm(obsr_gt['DD_k'])
+        print(f"relative_distance_r: {rel_distance_r.item()}, \nrelative_distance_k: {rel_distance_k.item()}")
+        print("obsr_gt['DD_k']:\n", obsr_gt['DD_k'])
+        print("obsr_se['DD_k']:\n", obsr_se['DD_k'])
+        print('**********')
+        print("obsr_gt['DD_r']:\n", obsr_gt['DD_r'])
+        print("obsr_se['DD_r']:\n", obsr_se['DD_r'])
 
         print('point value DD_M:')
         vs = Lx * Ly
         DD_M_gt = obsr_gt['DD_k'].reshape(1, -1)[:, vs//2]
         DD_M_se = obsr_se['DD_k'].reshape(1, -1)[:, vs//2]
-        print(f"DD_M_gt: {DD_M_gt.item()}, DD_M_se: {DD_M_se.item()}")
-
+        print(f"DD_M_gt: {DD_M_gt.item()}, \nDD_M_se: {DD_M_se.item()}")
+        print(f"Norm of obsr_gt['DD_k']: {torch.norm(obsr_gt['DD_k']).item()}")
+        print(f"Norm of obsr_se['DD_k']: {torch.norm(obsr_se['DD_k']).item()}")
+        print('---')
+        print(f"Norm of obsr_gt['DD_r']: {torch.norm(obsr_gt['DD_r']).item()}")
+        print(f"Norm of obsr_se['DD_r']: {torch.norm(obsr_se['DD_r']).item()}")
+        
         # Assert the vectors are close using torch.testing
         torch.testing.assert_close(
             obsr_gt['DD_r'], obsr_se['DD_r'],
