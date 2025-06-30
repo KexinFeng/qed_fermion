@@ -61,6 +61,16 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         perm = torch.randperm(indices.shape[0], device=indices.device)
         indices = indices[perm[:num_samples]]
         indices_r2 = torch.combinations(torch.arange(Nrv, device=hmc.device), r=2, with_replacement=False)
+        perm = torch.randperm(indices_r2.shape[0], device=indices.device)
+        indices_r2 = indices_r2[perm]
+
+        se.indices = indices
+        se.indices_r2 = indices_r2
+
+        # # Unit test
+        # eta_reshaped = eta.view(-1, Ltau, Ly*Lx)
+        # se.test_orthogonality(eta_reshaped[:, :3])
+        # se.test_ortho_two_identities(eta_reshaped[:, :3])   
 
         if se.cuda_graph_se:
             obsr_se = se.graph_runner(boson.to(se.device), eta, indices, indices_r2)

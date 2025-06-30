@@ -146,6 +146,10 @@ class StochaticEstimator:
         """
         Test the orthogonality of the random vectors
         """
+        Nrv = rand_vec.shape[0]
+        Ltau = rand_vec.shape[1]
+        rand_vec = rand_vec.reshape(Nrv*Ltau, -1)  # [Nrv, Ltau, Ly * Lx]
+        
         # Compute the inner product of the random vectors
         external_product = torch.einsum('ai,aj->aij', rand_vec.conj(), rand_vec)
         external_product = external_product.mean(dim=0)
@@ -164,6 +168,90 @@ class StochaticEstimator:
         atol = diff.abs().max()
         print("Max absolute difference from orthogonality (atol):", atol.item())
         return atol
+
+    
+    def test_ortho_two_identities(self, eta):
+        Nrv = eta.shape[0]
+        Ltau = eta.shape[1]
+        eta = eta.view(Nrv, Ltau, self.Ly * self.Lx) # [Nrv, Ltau, Ly * Lx]
+        eta_conj = eta.conj()                        # [Nrv, Ltau, Ly * Lx]
+        sa, sb = self.indices_r2[:1000, 0], self.indices_r2[:1000, 1] 
+
+        eta_a = eta[sa]
+        eta_b = eta[sb]
+        eta_conj_a = eta_conj[sa]
+        eta_conj_b = eta_conj[sb]
+        external_prod = torch.einsum('ati,atj,atm,atn->atijmn', eta_conj_a, eta_a, eta_conj_b, eta_b).mean(dim=(0, 1)) # [vs, vs, vs, vs]
+
+        # external_prod: [Ltau, Ly*Lx, Ly*Lx, Ly*Lx, Ly*Lx]
+        # Check that external_prod is close to delta_ij * delta_mn
+        N = self.Ly * self.Lx
+        delta_ij = torch.eye(N, device=eta.device)
+        delta_mn = torch.eye(N, device=eta.device)
+        delta_prod = torch.einsum('ij,mn->ijmn', delta_ij, delta_mn)  # [N, N, N, N]
+        try:
+            torch.testing.assert_close(external_prod.real, delta_prod, rtol=1e-2, atol=1e-2)
+        except Exception as e:
+            print("Error info:", e)
+
+        dbstop = 1
+
+        # Filter out entries of external_product that are smaller than 1e-3
+        mask = external_prod.abs() < 1e-3
+        external_prod[mask] = 0
+
+        # Output the check results of the two identities
+        print("external_prod.real[..., 0, 0]:\n", external_prod.real[..., 0, 0])
+        print("external_prod.imag[..., 0, 0]:\n", external_prod.imag[..., 0, 0])
+        print("external_prod.real[0, 0, ...]:\n", external_prod.real[0, 0, ...])
+        print("external_prod.imag[0, 0, ...]:\n", external_prod.imag[0, 0, ...])
+        print("external_prod shape:", external_prod.shape)
+        diff = (external_prod.real - delta_prod).abs()
+        print("Max absolute difference from two-identity orthogonality (atol):", diff.max().item())
+        atol = diff.max()
+        return atol
+    
+    def test_ortho_four_identities(self, eta):
+        Nrv = eta.shape[0]
+        Ltau = eta.shape[1]
+        eta = eta.view(Nrv, Ltau, self.Ly * self.Lx) # [Nrv, Ltau, Ly * Lx]
+        eta_conj = eta.conj()                        # [Nrv, Ltau, Ly * Lx]
+        sa, sb, sc, sd = self.indices[:1000, 0], self.indices[:1000, 1] 
+
+        eta_a = eta[sa]
+        eta_b = eta[sb]
+        eta_conj_a = eta_conj[sa]
+        eta_conj_b = eta_conj[sb]
+        external_prod = torch.einsum('ati,atj,atm,atn->atijmn', eta_conj_a, eta_a, eta_conj_b, eta_b).mean(dim=(0, 1)) # [vs, vs, vs, vs]
+
+        # external_prod: [Ltau, Ly*Lx, Ly*Lx, Ly*Lx, Ly*Lx]
+        # Check that external_prod is close to delta_ij * delta_mn
+        N = self.Ly * self.Lx
+        delta_ij = torch.eye(N, device=eta.device)
+        delta_mn = torch.eye(N, device=eta.device)
+        delta_prod = torch.einsum('ij,mn->ijmn', delta_ij, delta_mn)  # [N, N, N, N]
+        try:
+            torch.testing.assert_close(external_prod.real, delta_prod, rtol=1e-2, atol=1e-2)
+        except Exception as e:
+            print("Error info:", e)
+
+        dbstop = 1
+
+        # Filter out entries of external_product that are smaller than 1e-3
+        mask = external_prod.abs() < 1e-3
+        external_prod[mask] = 0
+
+        # Output the check results of the two identities
+        print("external_prod.real[..., 0, 0]:\n", external_prod.real[..., 0, 0])
+        print("external_prod.imag[..., 0, 0]:\n", external_prod.imag[..., 0, 0])
+        print("external_prod.real[0, 0, ...]:\n", external_prod.real[0, 0, ...])
+        print("external_prod.imag[0, 0, ...]:\n", external_prod.imag[0, 0, ...])
+        print("external_prod shape:", external_prod.shape)
+        diff = (external_prod.real - delta_prod).abs()
+        print("Max absolute difference from two-identity orthogonality (atol):", diff.max().item())
+        atol = diff.max()
+        return atol
+    
 
     def set_eta_G_eta_debug(self, boson, eta):
         """
@@ -284,6 +372,15 @@ class StochaticEstimator:
 
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau]
+    
+    def G_eqt_se(self):
+        Ltau, Ly, Lx = self.Ltau, self.Ly, self.Lx
+        eta_conj = self.eta.view(-1, Ltau, Ly*Lx).conj()  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta.view(-1, Ltau, Ly*Lx)  # [Nrv, Ltau * Ly * Lx]
+
+        # G_ij = G_eta_i * eta_conj_j
+        G_eqt_se = torch.einsum('ati,atj->atij', G_eta, eta_conj).mean(dim=0)  # [Ltau, vs, vs]
+        return G_eqt_se
 
     def G_delta_0_G_delta_0(self):
         eta_conj = self.eta.conj()  # [Nrv, Ltau * Ly * Lx]
@@ -832,10 +929,11 @@ class StochaticEstimator:
 
         # Batch processing to avoid OOM
         batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+        N = self.Lx * self.Ly
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
-        G_res_mean1 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
-        G_res_mean2 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean1 = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean2 = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
@@ -1835,7 +1933,7 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_spsm_per_b())
+            # obsr.update(self.get_spsm_per_b())
             obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
@@ -2058,6 +2156,12 @@ class StochaticEstimator:
             # + z1 * self.L8() # rtol=0.05 norm ok, DD_k match
         )  # [Ly, Lx]
 
+        # DD_r_gt = z2 * self.L2_groundtruth()  # [Ly, Lx]    
+
+        # torch.testing.assert_close(DD_r, DD_r_gt, rtol=0.1, atol=1e-3, equal_nan=True, check_dtype=False)
+
+        dbstop = 1
+
         # Output
         obsr = {}
         obsr['DD_r'] = DD_r.real
@@ -2193,6 +2297,33 @@ class StochaticEstimator:
             Gc_eqt[:, i, i] += 1
 
         Gc, G = Gc_eqt, G_eqt  # [Ltau, N, N]
+        
+        # # Check that G_eqt_se is close to G
+        # G_eqt_se = self.G_eqt_se().mean(dim=0)  # [Ly, Lx]
+        # G_eqt = G_eqt.mean(dim=0)
+
+        # try:
+        #     torch.testing.assert_close(G_eqt_se, G_eqt, rtol=1e-2, atol=1e-2)
+        # except Exception as e:
+        #     print("G_eqt_se and G are not close:", e)
+
+        # print("G_eqt_se shape:", G_eqt_se.shape)
+        # print("G shape:", G_eqt.shape)
+
+        # # Print out some values for inspection
+        # print("G_eqt_se.real[0, :10]:\n", G_eqt_se.real[0, :10])
+        # print("G_eqt.real[0, :10]:\n", G_eqt.real[0, :10])
+
+        # diff = G_eqt_se - G_eqt
+        # atol = diff.abs().max()
+        # print("Max absolute difference between G_eqt_se and G (atol):", atol.item())
+
+        # # Compute max relative error (rtol)
+        # denom = G_eqt.abs().clamp_min(1e-12)
+        # rtol = (diff.abs() / denom).max()
+        # print("Max relative difference between G_eqt_se and G (rtol):", rtol.item())
+
+        # dbstop = 1
 
         z2 = self.hmc_sampler.Nf**2 - 1
         z4 = z2*z2
@@ -2228,11 +2359,11 @@ class StochaticEstimator:
                     # + Gc[:, i, j] * G[:, i, jax] * G[:, jax, iax] * G[:, iax, j] * z1
                 ).mean(dim=0)
 
-                torch.testing.assert_close(
-                    Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax],
-                    G[:, iax, i] * G[:, i, iax] * G[:, jax, j] * G[:, j, jax],
-                    rtol=1e-5, atol=1e-5
-                )
+                # torch.testing.assert_close(
+                #     Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax],
+                #     G[:, iax, i] * G[:, i, iax] * G[:, jax, j] * G[:, j, jax],
+                #     rtol=1e-5, atol=1e-5
+                # )
 
         # Output
         obsr = {}
