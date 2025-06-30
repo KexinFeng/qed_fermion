@@ -380,7 +380,7 @@ class StochaticEstimator:
 
         # G_ij = G_eta_i * eta_conj_j
         G_eqt_se = torch.einsum('ati,atj->atij', G_eta, eta_conj).mean(dim=0)  # [Ltau, vs, vs]
-        return G_eqt_se
+        return G_eqt_se # [Ltau, vs, vs]
 
     def G_delta_0_G_delta_0(self):
         eta_conj = self.eta.conj()  # [Nrv, Ltau * Ly * Lx]
@@ -849,6 +849,75 @@ class StochaticEstimator:
         eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
         G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
 
+        Nrv = eta_conj.shape[0] // 2
+        eta_conj1 = eta_conj[:Nrv]
+        G_eta1 = G_eta[:Nrv]
+
+        eta_conj2 = eta_conj[Nrv:]
+        G_eta2 = G_eta[Nrv:]
+
+        # Get all unique tuples (sa, sb) with sa < sb
+        sa, sb = self.indices_r2[:, 0], self.indices_r2[:, 1]
+
+        num_samples = self.num_samples(Nrv)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean1 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+        G_res_mean2 = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            # indices = perm[start_idx:end_idx]
+            sa_batch = sa[start_idx:end_idx]
+            sb_batch = sb[start_idx:end_idx]
+
+            a = torch.roll(eta_conj1[sa_batch],  shifts=0, dims=-1) * \
+                torch.roll(G_eta1[sb_batch],     shifts=0, dims=-1) * \
+                torch.roll(eta_conj2[sa_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta2[sb_batch],     shifts=-1, dims=-1)
+            
+            b = torch.roll(G_eta1[sa_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj1[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta2[sa_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj2[sb_batch],  shifts=-0, dims=-1)
+            
+            c1 = torch.roll(G_eta1[sb_batch],    shifts=-1, dims=-1) *\
+                torch.roll(eta_conj1[sb_batch],  shifts=-1, dims=-1) * \
+                torch.roll(G_eta2[sa_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj2[sa_batch],  shifts=-2, dims=-1) * \
+                torch.roll(G_eta2[sb_batch],     shifts=-2, dims=-1) * \
+                torch.roll(eta_conj2[sb_batch],  shifts=-0, dims=-1)
+            
+            c2 = torch.roll(G_eta1[sa_batch],    shifts=-2, dims=-1) *\
+                torch.roll(eta_conj1[sa_batch],  shifts=-0, dims=-1) * \
+                torch.roll(G_eta1[sb_batch],     shifts=-0, dims=-1) * \
+                torch.roll(eta_conj1[sb_batch],  shifts=-2, dims=-1) * \
+                torch.roll(G_eta2[sb_batch],     shifts=-1, dims=-1) * \
+                torch.roll(eta_conj2[sb_batch],  shifts=-1, dims=-1)
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+
+        G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0]
+        G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    def L2_4choose2(self):
+        eta = self.eta[:self.Nrv]  # [Nrv, Ltau * Ly * Lx]
+        G_eta = self.G_eta[:self.Nrv]  # [Nrv, Ltau * Ly * Lx]
+
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
         # Get all unique quadruples (sa, sb, sc, sd) with sa < sb < sc < sd
         Nrv = eta_conj.shape[0]
         # idx = torch.combinations(torch.arange(Nrv, device=eta.device), r=4, with_replacement=False)
@@ -909,7 +978,6 @@ class StochaticEstimator:
         G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0]
         G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
-
 
     def L2_groundtruth(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -2147,7 +2215,7 @@ class StochaticEstimator:
         DD_r = (
             # z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
             # + z2 * self.L1()    # rtol=1.1, norm bug, DD_k bug
-            + z2 * self.L2()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
+            + z2 * self.L2_4choose2()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
             # + z3 * self.L3()    # rtol=0.8, norm ok, DD_k margin. match
             # + z3 * self.L4()    # rtol=0.8, norm ok, DD_k margin. match
             # + z3 * self.L5()   # rtol=2, norm diff, DD_k bug 
@@ -2289,6 +2357,9 @@ class StochaticEstimator:
         Gij_gt_reshaped = Gij_gt.view(Ltau, Ly*Lx, Ltau, Ly*Lx)
         G_eqt = Gij_gt_reshaped[torch.arange(Ltau), :, torch.arange(Ltau), :]
         assert G_eqt.shape == (Ltau, N, N), f"G_eqt shape mismatch: {G_eqt.shape}"
+        
+        G_eqt_se = self.G_eqt_se()  # [Ltau, vs, vs]
+        G_eqt = G_eqt_se
 
         Gc_eqt = torch.zeros_like(G_eqt)
         for i in range(N):
@@ -2296,10 +2367,10 @@ class StochaticEstimator:
                 Gc_eqt[:, i, j] = -G_eqt[:, j, i]
             Gc_eqt[:, i, i] += 1
 
-        Gc, G = Gc_eqt, G_eqt  # [Ltau, N, N]
+        Gc, G = Gc_eqt, G_eqt  # [Ltau, vs, vs]
         
         # # Check that G_eqt_se is close to G
-        # G_eqt_se = self.G_eqt_se().mean(dim=0)  # [Ly, Lx]
+        # G_eqt_se = self.G_eqt_se().mean(dim=0)  # [vs, vs]
         # G_eqt = G_eqt.mean(dim=0)
 
         # try:
