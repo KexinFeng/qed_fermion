@@ -194,7 +194,6 @@ class StochaticEstimator:
         except Exception as e:
             print("Error info:", e)
 
-        dbstop = 1
 
         # Filter out entries of external_product that are smaller than 1e-3
         mask = external_prod.abs() < 1e-3
@@ -234,8 +233,6 @@ class StochaticEstimator:
             torch.testing.assert_close(external_prod.real, delta_prod, rtol=1e-2, atol=1e-2)
         except Exception as e:
             print("Error info:", e)
-
-        dbstop = 1
 
         # Filter out entries of external_product that are smaller than 1e-3
         mask = external_prod.abs() < 1e-3
@@ -325,7 +322,7 @@ class StochaticEstimator:
         k_x = torch.fft.fftfreq(self.Lx, device=self.device)
         ks = torch.stack(torch.meshgrid(k_tau, k_y, k_x, indexing='ij'), dim=-1)  # shape: (2*Ltau, Ly, Lx, 3)
         ks_neg = self.fft_negate_k3(ks.permute(3, 0, 1, 2)).permute(1, 2, 3, 0)
-        # dbstop = 1
+
         ktau_neg = self.fft_negate_k(k_tau)
         ky_neg = self.fft_negate_k(k_y)
         kx_neg = self.fft_negate_k(k_x)
