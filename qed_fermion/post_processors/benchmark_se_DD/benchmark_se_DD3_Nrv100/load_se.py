@@ -45,8 +45,12 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     # se.num_samples = lambda nrv: nrv** 2 // 2
     # se.batch_size = lambda nrv: int(nrv * 0.1)
     se.num_samples = lambda nrv: math.comb(nrv, 4)
-    se.batch_size = lambda nrv: int(nrv * 5_000)
-    print(f'loop amount: {se.num_samples(Nrv) / se.batch_size(Nrv)}')
+    se.batch_size = lambda nrv: int(nrv * 300)
+
+    print(f"loops: {se.num_samples(se.Nrv) / se.batch_size(se.Nrv)}")   
+    print(f"batch_size: {se.batch_size(se.Nrv)}")   
+    print(f"num_samples: {se.num_samples(se.Nrv)}")
+
     # Loop amount cannot exceed 200, e.g.
     # num_samples = nrv**2 // 2
     # batch_size = nrv * 0.1
