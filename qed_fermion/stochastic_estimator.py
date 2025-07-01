@@ -2213,15 +2213,15 @@ class StochaticEstimator:
         z1 = -self.hmc_sampler.Nf + 1/self.hmc_sampler.Nf
 
         DD_r = (
-            # z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
-            # + z2 * self.L1()    # rtol=1.1, norm bug, DD_k bug
+            z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
+            + z2 * self.L1()    # rtol=1.1, norm bug, DD_k bug
             + z2 * self.L2_nchoose4()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
-            # + z3 * self.L3()    # rtol=0.8, norm ok, DD_k margin. match
-            # + z3 * self.L4()    # rtol=0.8, norm ok, DD_k margin. match
-            # + z3 * self.L5()   # rtol=2, norm diff, DD_k bug 
-            # + z3 * self.L6()   # rtol=0.1 norm ok, DD_k match
-            # + z1 * self.L7() # rtol=0.1 norm ok, DD_k match
-            # + z1 * self.L8() # rtol=0.05 norm ok, DD_k match
+            + z3 * self.L3()    # rtol=0.8, norm ok, DD_k margin. match
+            + z3 * self.L4()    # rtol=0.8, norm ok, DD_k margin. match
+            + z3 * self.L5()   # rtol=2, norm diff, DD_k bug 
+            + z3 * self.L6()   # rtol=0.1 norm ok, DD_k match
+            + z1 * self.L7() # rtol=0.1 norm ok, DD_k match
+            + z1 * self.L8() # rtol=0.05 norm ok, DD_k match
         )  # [Ly, Lx]
 
         # DD_r_gt = z2 * self.L2_groundtruth()  # [Ly, Lx]    
@@ -2419,15 +2419,15 @@ class StochaticEstimator:
                 jax = ravel_multi_index(((y + dy) % Ly, ((x + dx) + 1) % Lx), (Ly, Lx))
 
                 DD_r[i, d] = (
-                    # Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax] * z4
-                    # + Gc[:, i, j] * G[:, i, j] * Gc[:, iax, jax] * G[:, iax, jax] * z2
+                    Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax] * z4
+                    + Gc[:, i, j] * G[:, i, j] * Gc[:, iax, jax] * G[:, iax, jax] * z2
                     + Gc[:, i, jax] * G[:, i, jax] * Gc[:, iax, j] * G[:, iax, j] * z2
-                    # + Gc[:, i, jax] * G[:, i, iax] * G[:, iax, j] * G[:, j, jax] * z3
-                    # + Gc[:, i, iax] * G[:, i, jax] * G[:, j, iax] * G[:, jax, j] * z3
-                    # + Gc[:, i, j] * G[:, i, iax] * G[:, iax, jax] * G[:, jax, j] * z3
-                    # + Gc[:, i, iax] * G[:, i, j] * G[:, jax, iax] * G[:, j, jax] * z3
-                    # + Gc[:, i, jax] * G[:, i, j] * G[:, iax, jax] * G[:, j, iax] * z1
-                    # + Gc[:, i, j] * G[:, i, jax] * G[:, jax, iax] * G[:, iax, j] * z1
+                    + Gc[:, i, jax] * G[:, i, iax] * G[:, iax, j] * G[:, j, jax] * z3
+                    + Gc[:, i, iax] * G[:, i, jax] * G[:, j, iax] * G[:, jax, j] * z3
+                    + Gc[:, i, j] * G[:, i, iax] * G[:, iax, jax] * G[:, jax, j] * z3
+                    + Gc[:, i, iax] * G[:, i, j] * G[:, jax, iax] * G[:, j, jax] * z3
+                    + Gc[:, i, jax] * G[:, i, j] * G[:, iax, jax] * G[:, j, iax] * z1
+                    + Gc[:, i, j] * G[:, i, jax] * G[:, jax, iax] * G[:, iax, j] * z1
                 ).mean(dim=0)
 
                 # torch.testing.assert_close(
