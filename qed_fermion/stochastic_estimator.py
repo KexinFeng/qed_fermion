@@ -2224,12 +2224,6 @@ class StochaticEstimator:
             + z1 * self.L8() # rtol=0.05 norm ok, DD_k match
         )  # [Ly, Lx]
 
-        # DD_r_gt = z2 * self.L2_groundtruth()  # [Ly, Lx]    
-
-        # torch.testing.assert_close(DD_r, DD_r_gt, rtol=0.1, atol=1e-3, equal_nan=True, check_dtype=False)
-
-        dbstop = 1
-
         # Output
         obsr = {}
         obsr['DD_r'] = DD_r.real
@@ -2429,12 +2423,6 @@ class StochaticEstimator:
                     + Gc[:, i, jax] * G[:, i, j] * G[:, iax, jax] * G[:, j, iax] * z1
                     + Gc[:, i, j] * G[:, i, jax] * G[:, jax, iax] * G[:, iax, j] * z1
                 ).mean(dim=0)
-
-                # torch.testing.assert_close(
-                #     Gc[:, i, iax] * G[:, i, iax] * Gc[:, j, jax] * G[:, j, jax],
-                #     G[:, iax, i] * G[:, i, iax] * G[:, jax, j] * G[:, j, jax],
-                #     rtol=1e-5, atol=1e-5
-                # )
 
         # Output
         obsr = {}
