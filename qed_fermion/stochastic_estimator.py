@@ -1146,7 +1146,7 @@ class StochaticEstimator:
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
-        for start_idx in range(0, num_samples, batch_size):
+        for start_idx in tqdm(range(0, num_samples, batch_size)):
             end_idx = min(start_idx + batch_size, num_samples)
             # indices = perm[start_idx:end_idx]
             sa_batch = sa[start_idx:end_idx]
