@@ -175,7 +175,7 @@ class StochaticEstimator:
         Ltau = eta.shape[1]
         eta = eta.view(Nrv, Ltau, self.Ly * self.Lx) # [Nrv, Ltau, Ly * Lx]
         eta_conj = eta.conj()                        # [Nrv, Ltau, Ly * Lx]
-        sa, sb = self.indices_r2[:1000, 0], self.indices_r2[:1000, 1] 
+        sa, sb = self.indices_r2[:300, 0], self.indices_r2[:300, 1] 
 
         eta_a = eta[sa]
         eta_b = eta[sb]
@@ -555,8 +555,8 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
         G_delta_0_G_delta_0_mean[0, 0] += G_res_mean[0]
@@ -615,8 +615,8 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
         G_delta_0_G_delta_0_mean[0, -1] += G_res_mean[0]
@@ -667,7 +667,7 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
@@ -724,11 +724,11 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
-        G_delta_0_G_delta_0_mean[0, -1] += G_res_mean[0]
+        G_delta_0_G_delta_0_mean[0, 0] += G_res_mean[0]
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
     
@@ -776,7 +776,7 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
 
@@ -834,8 +834,8 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean += c.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean += c.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean = - G_delta_0_G_delta_0_mean
         G_delta_0_G_delta_0_mean[0, -1] += G_res_mean[0]
@@ -903,15 +903,15 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
-            G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
+            G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0]
         G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
 
-    def L2_4choose2(self):
+    def L2_nchoose4(self):
         eta = self.eta[:self.Nrv]  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta[:self.Nrv]  # [Nrv, Ltau * Ly * Lx]
 
@@ -971,9 +971,9 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
-            G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean1 += c1.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
+            G_res_mean2 += c2.mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0]
         G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
@@ -1049,9 +1049,9 @@ class StochaticEstimator:
             cb2_F = torch.fft.fftn(cb2, (self.Ly, self.Lx), norm="forward")
             c2 = torch.fft.ifftn(ca2_F_neg_k * cb2_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size) # [Ly, Lx]
-            G_res_mean1 += c1.mean(dim=(0, 1)) / (num_samples // batch_size)    # [Ly, Lx]
-            G_res_mean2 += c2.mean(dim=(0, 1)) / (num_samples // batch_size)    # [Ly, Lx]
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples # [Ly, Lx]
+            G_res_mean1 += c1.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples    # [Ly, Lx]
+            G_res_mean2 += c2.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples    # [Ly, Lx]
 
         G_delta_0_G_delta_0_mean[0, -1] -= G_res_mean1[0, -1]
         G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0, 1]
@@ -1094,7 +1094,7 @@ class StochaticEstimator:
             
             b = torch.roll(G_eta[sa_batch],     shifts=-0, dims=-1) * \
                 torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
-                torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
+                torch.roll(G_eta[sc_batch],     shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
             
             c1 = torch.roll(G_eta[sa_batch],    shifts=-0, dims=-1) *\
@@ -1102,7 +1102,7 @@ class StochaticEstimator:
                 torch.roll(G_eta[sb_batch],     shifts=-0, dims=-1) * \
                 torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
                 torch.roll(G_eta[sd_batch],     shifts=-1, dims=-1) * \
-                torch.roll(eta_conj[sd_batch],  shifts=-0, dims=-1)
+                torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
             
             c2 = torch.roll(G_eta[sb_batch],    shifts=-0, dims=-1) *\
                 torch.roll(eta_conj[sb_batch],  shifts=-0, dims=-1) * \
@@ -1121,8 +1121,8 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
-            G_res_mean += (-c1 - c2 + c3).mean(dim=(0, 1, 2, 3)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_res_mean += (-c1 - c2 + c3).mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
 
         G_delta_0_G_delta_0_mean[0, 0] += G_res_mean[0]
 
@@ -1172,7 +1172,7 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) / (num_samples // batch_size)
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
    
@@ -2215,7 +2215,7 @@ class StochaticEstimator:
         DD_r = (
             # z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
             # + z2 * self.L1()    # rtol=1.1, norm bug, DD_k bug
-            + z2 * self.L2_4choose2()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
+            + z2 * self.L2_nchoose4()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
             # + z3 * self.L3()    # rtol=0.8, norm ok, DD_k margin. match
             # + z3 * self.L4()    # rtol=0.8, norm ok, DD_k margin. match
             # + z3 * self.L5()   # rtol=2, norm diff, DD_k bug 
@@ -2358,8 +2358,8 @@ class StochaticEstimator:
         G_eqt = Gij_gt_reshaped[torch.arange(Ltau), :, torch.arange(Ltau), :]
         assert G_eqt.shape == (Ltau, N, N), f"G_eqt shape mismatch: {G_eqt.shape}"
         
-        G_eqt_se = self.G_eqt_se()  # [Ltau, vs, vs]
-        G_eqt = G_eqt_se
+        # G_eqt_se = self.G_eqt_se()  # [Ltau, vs, vs]
+        # G_eqt = G_eqt_se
 
         Gc_eqt = torch.zeros_like(G_eqt)
         for i in range(N):
