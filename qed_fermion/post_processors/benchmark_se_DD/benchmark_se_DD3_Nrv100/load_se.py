@@ -115,10 +115,11 @@ if __name__ == '__main__':
     bs = 2
 
     input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
-    input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench/"
     input_folder = "./qed_fermion/check_points/hmc_check_point_bench/"
     input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench_6810_2/"
+    input_folder = "/Users/kx/Desktop/hmc/fignote/equilibrium_issue/hmc_check_point_bench/"
     input_folder = "/users/4/fengx463/hmc/fignote/equilibrum_issue/"
+    input_folder = "/home/fengx463/hmc/qed_fermion/qed_fermion/check_points/hmc_check_point_bench/"
 
     start = -10
     end = 10000
