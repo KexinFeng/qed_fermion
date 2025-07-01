@@ -62,7 +62,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, Nrv=10, mxitr=2
     boson_seq = bosons.view(bosons.shape[0], bosons.shape[1], 2, Lx, Ly, Ltau)[start:].to(se.device)
     spsm_k = []
     DD_k = []
-    for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
+    for boson in tqdm(boson_seq, desc="Boson loop over -10"):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
         # Randomly select num_samples from indices without replacement
         indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
