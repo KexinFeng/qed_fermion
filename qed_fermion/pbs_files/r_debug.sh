@@ -7,7 +7,7 @@ J_array=$(echo '1.0')
 L_array=$(echo '16 20')
 
 J_array=$(echo '1.25')
-L_array=$(echo '60')  # Nleap3_taublk2_bs2_2000_8h
+L_array=$(echo '66 60 56 50')  # Nleap3_taublk2_bs2_2000_8h
 
 export debug=0
 export cuda_graph=1

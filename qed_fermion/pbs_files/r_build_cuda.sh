@@ -1,4 +1,4 @@
-mkdir -p report
+cd "$(dirname "$0")"
 
 J_array=$(echo '1.0')
 L_array=$(echo '6')
