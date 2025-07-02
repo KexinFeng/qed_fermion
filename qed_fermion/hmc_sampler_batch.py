@@ -432,10 +432,8 @@ class HmcSampler(object):
         # num_samples = self.se.num_samples(Nrv)
         # perm = torch.randperm(indices.shape[0], device=indices.device)
         # indices = indices[perm[:num_samples]]
-        # self.indices_r2 = torch.combinations(torch.arange(Nrv, device=device), r=2, with_replacement=False)
-
+        self.indices_r2 = torch.combinations(torch.arange(Nrv, device=device), r=2, with_replacement=False)
         self.indices = None
-        self.indices_r2 = None
 
         print(f"loops: {self.se.num_samples(self.se.Nrv) / self.se.batch_size(self.se.Nrv)}")   
         print(f"batch_size: {self.se.batch_size(self.se.Nrv)}")   

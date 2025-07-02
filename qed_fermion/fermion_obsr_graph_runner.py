@@ -95,8 +95,10 @@ class FermionObsrGraphRunner:
         # Copy inputs to input buffers
         self.input_buffers['bosons'].copy_(bosons)
         self.input_buffers['eta'].copy_(eta)
-        self.input_buffers['indices'].copy_(indices)
-        self.input_buffers['indices_r2'].copy_(indices_r2)
+        if indices is not None:
+            self.input_buffers['indices'].copy_(indices)
+        if indices_r2 is not None:
+            self.input_buffers['indices_r2'].copy_(indices_r2)
 
         # Replay the graph
         self.graph.replay()
