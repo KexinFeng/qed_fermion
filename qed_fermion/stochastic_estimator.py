@@ -1998,7 +1998,7 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            # obsr.update(self.get_spsm_per_b())
+            obsr.update(self.get_spsm_per_b())
             obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
