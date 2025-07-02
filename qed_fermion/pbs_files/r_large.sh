@@ -20,8 +20,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
-L_array=$(echo '40')
-# L_array=$(echo '50 46 40 36')
+L_array=$(echo '60 56 50 46 40')
 # L_array=$(echo '24 20 16 12 10 8 6')
 
 
@@ -39,7 +38,7 @@ export K=0
 export dtau=0.1
 export precon=1
 
-export seed=42
+export seed=49
 
 for L in $L_array; do
         #
@@ -50,7 +49,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=3-10:00:00 \
+                --time=4-10:00:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc.cmd
