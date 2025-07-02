@@ -22,6 +22,8 @@ J_array=$(echo '1.25')
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
 L_array=$(echo '46 40') 
 L_array=$(echo '50') # 60 56 cuda kernel launch failure
+L_array=$(echo '56') 
+# L_array=$(echo '60 66') 
 
 # L_array=$(echo '24 20 16 12 10 8 6')
 
@@ -29,9 +31,10 @@ L_array=$(echo '50') # 60 56 cuda kernel launch failure
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=9000
+Nstep=10000
 export debug=0
 export cuda_graph=1
+export bs=1
 
 export suffix=noncmpK0_large1_spsm_sup
 export asym=1
@@ -46,7 +49,7 @@ for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo L${L}a${asym}J${J}K${K})
+                config=$(echo nL${L}a${asym}J${J}K${K})
                 echo $config
                 export J Nstep L
                 #
