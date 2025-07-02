@@ -1,4 +1,4 @@
-mkdir -p report_bench
+cd "$(dirname "$0")"
 
 J_array=$(echo '1.0')
 L_array=$(echo '18 22 24')
@@ -7,20 +7,24 @@ J_array=$(echo '1.0')
 L_array=$(echo '16 20')
 
 J_array=$(echo '1.25')
-L_array=$(echo '36')  # Nleap3_taublk2_bs2_2000_8h
+L_array=$(echo '60')  # Nleap3_taublk2_bs2_2000_8h
 
 export debug=0
-export asym=2
 export cuda_graph=1
-export Nrv=10
 
-Nstep=10
-mem=6
+export suffix=debug
+export asym=1
+export compact=0
+export K=0
+export dtau=0.1
+export precon=1
+
+Nstep=1000
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo L_${L}_Nstep_${Nstep}_Nrv${Nrv})
+                config=$(echo L${L}a${asym}J${J}K${K})
                 echo $config
                 export J Nstep L
                 #
