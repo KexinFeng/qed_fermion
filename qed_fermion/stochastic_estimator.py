@@ -1,4 +1,4 @@
-import numpy as np
+import math
 import torch
 import os 
 import sys
@@ -59,7 +59,7 @@ class StochaticEstimator:
         self.graph_runner = FermionObsrGraphRunner(self)
         self.graph_memory_pool = hmc.graph_memory_pool
 
-        self.num_samples = lambda nrv: nrv**2 // 2
+        self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
 
         # init
@@ -1999,7 +1999,7 @@ class StochaticEstimator:
             self.set_eta_G_eta(boson, eta)
 
             obsr.update(self.get_spsm_per_b())
-            obsr.update(self.get_dimer_dimer_per_b2())
+            # obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
 
