@@ -70,6 +70,7 @@ gear0_steps = int(os.getenv("gear0_steps", '1000'))
 print(f"gear0_steps: {gear0_steps}")
 
 buffer = False
+recompute_precon = False
 
 # Plot settings
 if not debug_mode:
@@ -94,6 +95,7 @@ from qed_fermion.metropolis_graph_runner import MetropolisGraphRunner
 from qed_fermion.stochastic_estimator import StochaticEstimator
 from qed_fermion.utils.util import device_mem, report_tensor_memory, tensor_memory_MB
 from qed_fermion.metropolis_graph_runner import LeapfrogCmpGraphRunner
+from qed_fermion.preconditioners_orig.precon_manual import get_precon_man
 
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
@@ -431,7 +433,7 @@ class HmcSampler(object):
         file_path = os.path.join(data_folder, file_name + ".pt")
 
         precon_dict = None
-        if not os.path.exists(file_path): 
+        if not os.path.exists(file_path) and recompute_precon: 
             @time_execution     
             def embedded_func():    
                 print(f"Preconditioner file {file_path} does not exist. \nComputing the preconditioner.....")
@@ -487,26 +489,28 @@ class HmcSampler(object):
             
             precon_dict = embedded_func()
             exit(0)
-            
-        else:
-            # Load preconditioner from file
-            precon_dict = torch.load(file_path)
-            print(f"Loaded preconditioner from {file_path}")
+        
+        elif not os.path.exists(file_path):
+            get_precon_man()
+        
+        # Load preconditioner from file
+        precon_dict = torch.load(file_path)
+        print(f"Loaded preconditioner from {file_path}")
 
-            indices = precon_dict["indices"].to(device)
-            values = precon_dict["values"].to(device)
-            
-            # Create a new sparse tensor with the filtered entries
-            precon = torch.sparse_coo_tensor(
-                indices,
-                values,
-                size=precon_dict["size"],
-                dtype=cdtype,
-                device=device
-            ).coalesce()
+        indices = precon_dict["indices"].to(device)
+        values = precon_dict["values"].to(device)
+        
+        # Create a new sparse tensor with the filtered entries
+        precon = torch.sparse_coo_tensor(
+            indices,
+            values,
+            size=precon_dict["size"],
+            dtype=cdtype,
+            device=device
+        ).coalesce()
 
-            # self.precon = precon
-            self.precon_csr = precon.to_sparse_csr()
+        # self.precon = precon
+        self.precon_csr = precon.to_sparse_csr()
 
  
     @staticmethod
