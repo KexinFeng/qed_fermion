@@ -113,7 +113,7 @@ class GEtaGraphRunner:
         self.se = se
         self.input_buffers = {}
         self.output_buffers = {}
-    
+
     def capture(
         self,
         max_iter_se,
@@ -128,7 +128,7 @@ class GEtaGraphRunner:
 
         max_iter_copy = self.se.hmc_sampler.max_iter
         self.se.hmc_sampler.max_iter = max_iter_se
-        
+
         # Warm up
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
@@ -150,7 +150,7 @@ class GEtaGraphRunner:
             s.synchronize()
 
         torch.cuda.current_stream().wait_stream(s)
-        
+
         # Memory
         start_mem = device_mem()[1]
         print(f"Inside capture start_mem: {start_mem:.2f} MB\n")
@@ -163,20 +163,20 @@ class GEtaGraphRunner:
                 input_buffers['eta']
             )
 
-        end_mem = device_mem()[1]   
+        end_mem = device_mem()[1]
         print(f"Inside capture end_mem: {end_mem:.2f} MB\n")
         print(f"fermion_obsr CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
-    
+
         self.graph = graph
         self.input_buffers = input_buffers
         self.output_buffers = static_outputs
 
         self.se.hmc_sampler.max_iter = max_iter_copy
         return graph.pool()
-    
+
     def __call__(
         self,
-        boson, # [bs, 2, Lx, Ly, Ltau] 
+        boson, # [bs, 2, Lx, Ly, Ltau]
         eta,    # [Nrv, Ltau * Ly * Lx]
     ):
         """Execute the captured graph with the given inputs."""
@@ -186,7 +186,182 @@ class GEtaGraphRunner:
 
         # Replay the graph
         self.graph.replay()
-        
+
         # Return the outputs
-        return self.output_buffers 
+        return self.output_buffers
+
+
+class L0GraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = {}
+
+    def capture(
+        self,
+        params,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        """Capture the get_fermion_obsr function execution as a CUDA graph."""
+        input_buffers = {
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "eta_conj": torch.zeros((self.se.Nrv, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "sa_chunk": torch.zeros((params.outer_stride,), device=self.se.device, dtype=torch.int64),
+            "sb_chunk": torch.zeros((params.outer_stride,), device=self.se.device, dtype=torch.int64),
+            "sc_chunk": torch.zeros((params.outer_stride,), device=self.se.device, dtype=torch.int64),
+            "sd_chunk": torch.zeros((params.outer_stride,), device=self.se.device, dtype=torch.int64)
+        }
+
+        # Warm up
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        # Memory
+        start_mem = device_mem()[1]
+        print(f"Inside capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.L0_inner(
+                    input_buffers['sa_chunk'],
+                    input_buffers['sb_chunk'],
+                    input_buffers['sc_chunk'],
+                    input_buffers['sd_chunk'],
+                    input_buffers['G_eta'],
+                    input_buffers['eta_conj'],
+                    params
+                )
+
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        # Memory
+        start_mem = device_mem()[1]
+        print(f"Inside capture start_mem: {start_mem:.2f} MB\n")
+
+        # Capture the graph
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.L0_inner(
+                input_buffers['sa_chunk'],
+                input_buffers['sb_chunk'],
+                input_buffers['sc_chunk'],
+                input_buffers['sd_chunk'],
+                input_buffers['G_eta'],
+                input_buffers['eta_conj'],
+                params
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside capture end_mem: {end_mem:.2f} MB\n")
+        print(f"fermion_obsr CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        sa_chunk,
+        sb_chunk,
+        sc_chunk,
+        sd_chunk,
+        G_eta,       # [bs=1, 2, Lx, Ly, Ltau]
+        eta_conj,    # [Nrv, Ltau * Ly * Lx]
+    ):
+        """Execute the captured graph with the given inputs."""
+        # Copy inputs to input buffers
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['eta_conj'].copy_(eta_conj)
+        self.input_buffers['sa_chunk'].copy_(sa_chunk)
+        self.input_buffers['sb_chunk'].copy_(sb_chunk)
+        self.input_buffers['sc_chunk'].copy_(sc_chunk)
+        self.input_buffers['sd_chunk'].copy_(sd_chunk)
+
+        # Replay the graph
+        self.graph.replay()
+
+        # Return the outputs
+        return self.output_buffers
+
+
+class SpsmGraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = None
+
+    def capture(
+        self,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        """Capture the spsm_r_util function execution as a CUDA graph."""
+        input_buffers = {
+            "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+        }
+
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        start_mem = device_mem()[1]
+        print(f"Inside SpsmGraphRunner capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.spsm_r_util(
+                    input_buffers['eta'],
+                    input_buffers['G_eta']
+                )
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        start_mem = device_mem()[1]
+        print(f"Inside SpsmGraphRunner capture start_mem: {start_mem:.2f} MB\n")
+
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.spsm_r_util(
+                input_buffers['eta'],
+                input_buffers['G_eta']
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside SpsmGraphRunner capture end_mem: {end_mem:.2f} MB\n")
+        print(f"SpsmGraphRunner CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        eta,    # [Nrv, Ltau * Ly * Lx]
+        G_eta   # [Nrv, Ltau * Ly * Lx]
+    ):
+        """Execute the captured graph with the given inputs."""
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['eta'].copy_(eta)
+
+        self.graph.replay()
+        return self.output_buffers
+
+
+
 

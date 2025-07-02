@@ -21,6 +21,9 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 from load_write2file_convert import time_execution
 
 
+batch_id = 1
+plot_dqmc_postprocessing = False
+
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     Lx, Ly, Ltau = Lsize
@@ -157,12 +160,12 @@ if __name__ == '__main__':
         # plt.title(f'dimer_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
         plt.grid(True, alpha=0.3)
         plt.legend()
-        
+
         plt.show(block=False)
         # Save plot
         method_name = "dimer_order"
         save_dir = os.path.join(script_path, f"./figures_start{start}/dimer_order")
-        os.makedirs(save_dir, exist_ok=True) 
+        os.makedirs(save_dir, exist_ok=True)
         file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
         plt.savefig(file_path, format="pdf", bbox_inches="tight")
         print(f"Figure saved at: {file_path}")

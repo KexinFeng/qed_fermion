@@ -7,8 +7,9 @@ from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
+import torch.nn.functional as F
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
@@ -28,7 +29,10 @@ max_iter_se = int(os.getenv("max_iter_se", '100'))
 precon_on = int(os.getenv("precon", '1')) == 1
 print(f"precon_on: {precon_on}")
 
-capture_fermion_obsr = True
+capture_fermion_obsr = False
+
+# Initialize a simple object to hold parameters
+class Params: pass
 
 class StochaticEstimator:
     # This function computes the fermionic green's function, mainly four-point function. The aim is to surrogate the postprocessing of the HMC boson samples. For a given boson, the M(boson) is the determined, so is M_inv aka green's function.
@@ -45,6 +49,7 @@ class StochaticEstimator:
         self.hmc_sampler = hmc
         self.Nrv = int(Nrv)
         self.max_iter_se = max_iter_se
+        self.num_inner_loops = 200
 
         self.Lx = hmc.Lx
         self.Ly = hmc.Ly    
@@ -58,9 +63,11 @@ class StochaticEstimator:
         self.dtype = hmc.dtype
         self.cdtype = hmc.cdtype
         
-        self.graph_memory_pool = hmc.graph_memory_pool        
+        self.graph_memory_pool = hmc.graph_memory_pool
         self.graph_runner = FermionObsrGraphRunner(self)
         self.G_eta_graph_runner = GEtaGraphRunner(self)
+        self.L0_graph_runner = L0GraphRunner(self)
+        self.spsm_graph_runner = SpsmGraphRunner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
@@ -74,8 +81,27 @@ class StochaticEstimator:
             hmc.reset_precon()
 
         # Cache
-        self.GD0_G0D = None
-        self.GD0 = None
+        # self.GD0_G0D = None
+        # self.GD0 = None
+
+    def initialize(self):
+        # Tunable parameters
+        # Batch processing to avoid OOM
+        batch_size = self.batch_size(self.Nrv)
+        inner_batch_size = batch_size  # int(0.1*Nrv)
+        num_inner_loops = self.num_inner_loops # 200
+        outer_stride = inner_batch_size * num_inner_loops
+
+        params = Params()
+        params.num_inner_loops = num_inner_loops
+        params.inner_batch_size = inner_batch_size
+        params.total_num_samples = self.num_samples(self.Nrv)
+        params.outer_stride = outer_stride
+        params.Ly = self.Ly
+        params.Lx = self.Lx
+        self.params = params
+
+        self.indices_r2 = torch.combinations(torch.arange(self.Nrv, device=self.device), r=2, with_replacement=False)
 
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
@@ -100,7 +126,7 @@ class StochaticEstimator:
             print(f"get_fermion_obsr CUDA graph initialization complete")
             print('')
 
-        if self.cuda_graph_se and False:
+        if self.cuda_graph_se:
             # G_eta_graph_runner
             print("Initializing G_eta_graph_runner.........")
             d_mem_str, d_mem2 = device_mem()
@@ -111,8 +137,27 @@ class StochaticEstimator:
             print(f"G_eta_graph_runner initialization complete")
             print('')
 
+            # # L0_graph_runner
+            # print("Initializing L0_graph_runner.........")
+            # d_mem_str, d_mem2 = device_mem()
+            # print(f"Before init L0_graph_runner: {d_mem_str}")
+            # self.graph_memory_pool = self.L0_graph_runner.capture(
+            #     params=self.params,
+            #     graph_memory_pool=self.graph_memory_pool)
+            # print(f"L0_graph_runner initialization complete")
+            # print('')
 
-    def random_vec_bin(self):  
+            # spsm_graph_runner
+            print("Initializing spsm_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init spsm_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.spsm_graph_runner.capture(
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"spsm_graph_runner initialization complete")
+            print('')
+
+
+    def random_vec_bin(self):
         """
         Generate Nrv iid random variables
     
@@ -159,7 +204,7 @@ class StochaticEstimator:
         """Reorder the last two axes of a tensor from FFT-style to ascending momentum order."""
         Ny, Nx = tensor2d.shape[dims[0]], tensor2d.shape[dims[1]]
         return torch.roll(tensor2d, shifts=(Ny // 2, Nx // 2), dims=dims)
-    
+
     @staticmethod
     def reorder_fft_grid2_inverse(tensor2d, dims=(-2, -1)):
         """Reverse the effect of reorder_fft_grid2, restoring FFT-style order."""
@@ -320,10 +365,10 @@ class StochaticEstimator:
         """
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
-        # if self.cuda_graph_se:
-        #     G_eta = self.G_eta_graph_runner(boson, eta)
-        # else:
-        G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
+        if self.cuda_graph_se:
+            G_eta = self.G_eta_graph_runner(boson, eta)
+        else:
+            G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
 
         # torch.testing.assert_close(G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
@@ -393,6 +438,25 @@ class StochaticEstimator:
         G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
         return G_delta_0[:self.Ltau]
     
+    def GD0_func(self, eta, G_eta):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        # eta_ext = [eta, -eta], G_eta_ext = [G_eta, -G_eta]
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj()
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1)
+
+        # Compute the two-point green's function
+        # Here, a = eta_ext, b = G_eta_ext
+        a = eta_ext_conj.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
+        b = G_eta_ext.view(self.Nrv, 2*self.Ltau, self.Ly, self.Lx)  # [Nrv, 2Ltau, Ly, Lx]
+
+        a_F_neg_k = torch.fft.ifftn(a, (2*self.Ltau, self.Ly, self.Lx), norm="backward")
+        b_F = torch.fft.fftn(b, (2*self.Ltau, self.Ly, self.Lx), norm="forward")
+
+        G_delta_0 = torch.fft.ifftn(a_F_neg_k * b_F, (2*self.Ltau, self.Ly, self.Lx), norm="forward").mean(dim=0)  # [2Ltau, Ly, Lx]
+        return G_delta_0[:self.Ltau]
+
     def G_eqt_se(self):
         Ltau, Ly, Lx = self.Ltau, self.Ly, self.Lx
         eta_conj = self.eta.view(-1, Ltau, Ly*Lx).conj()  # [Nrv, Ltau * Ly * Lx]
@@ -522,7 +586,44 @@ class StochaticEstimator:
         G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
 
         return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
-    
+
+    def GD0_G0D_func(self, eta, G_eta, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+
+        eta_ext_conj = torch.cat([eta, -eta], dim=1).conj().view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+        G_eta_ext = torch.cat([G_eta, -G_eta], dim=1).view(-1, 2 * self.Ltau, self.Ly, self.Lx)
+
+        # Get all unique pairs (s, s_prime) with s < s_prime
+        Nrv = eta_ext_conj.shape[0]
+
+        # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
+        s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), self.batch_size(Nrv))
+
+        G_delta_0_G_delta_0_sum = torch.zeros((2 * self.Ltau, self.Ly, self.Lx),
+                                              dtype=eta_ext_conj.dtype, device=eta.device)
+        total_pairs = len(s)
+        for start_idx in range(0, total_pairs, batch_size):
+            end_idx = min(start_idx + batch_size, total_pairs)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            a = torch.roll(eta_ext_conj[s_batch], shifts=a_xi, dims=-1) * torch.roll(G_eta_ext[s_prime_batch], shifts=a_G_xi, dims=-1)
+            b = torch.roll(eta_ext_conj[s_prime_batch], shifts=b_xi, dims=-1) * torch.roll(G_eta_ext[s_batch], shifts=b_G_xi, dims=-1)
+
+            a_F_neg_k = torch.fft.ifftn(a, (2 * self.Ltau, self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (2 * self.Ltau, self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_sum += batch_result.sum(dim=0)
+
+        G_delta_0_G_delta_0 = G_delta_0_G_delta_0_sum / total_pairs
+
+        return G_delta_0_G_delta_0.view(2*self.Ltau, self.Ly, self.Lx)[:self.Ltau]
+
     def L8(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -1161,21 +1262,64 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = self.num_samples(Nrv)
+        total_num_samples = self.num_samples(Nrv)
         # perm = torch.randperm(len(sa), device=eta.device)
-
-        # Batch processing to avoid OOM
-        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
-        for start_idx in tqdm(range(0, num_samples, batch_size), desc="  L0 loop", leave=False):
-            end_idx = min(start_idx + batch_size, num_samples)
-            # indices = perm[start_idx:end_idx]
-            sa_batch = sa[start_idx:end_idx]
-            sb_batch = sb[start_idx:end_idx]
-            sc_batch = sc[start_idx:end_idx]
-            sd_batch = sd[start_idx:end_idx]
+        # # Batch processing to avoid OOM
+        # batch_size = min(len(sa), self.batch_size(Nrv))
+        # # Tunable parameters
+        # inner_batch_size = batch_size  # int(0.1*Nrv)
+        # num_inner_loops = self.num_inner_loops # 200
+
+        # outer_stride = inner_batch_size * num_inner_loops
+
+        outer_stride = self.params.outer_stride
+        num_outer_loops = math.ceil(total_num_samples / outer_stride)
+
+        for chunk_idx in range(num_outer_loops):
+            sa_chunk = sa[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+            sb_chunk = sb[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+            sc_chunk = sc[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+            sd_chunk = sd[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+
+            # Pad sa_chunk, sb_chunk, sc_chunk, sd_chunk if they are shorter than outer_stride
+            if len(sa_chunk) < outer_stride:
+                padding_length = outer_stride - len(sa_chunk)
+                sa_chunk = F.pad(sa_chunk, (0, padding_length), value=0)
+                sb_chunk = F.pad(sb_chunk, (0, padding_length), value=0)
+                sc_chunk = F.pad(sc_chunk, (0, padding_length), value=0)
+                sd_chunk = F.pad(sd_chunk, (0, padding_length), value=0)
+
+            if self.cuda_graph_se:
+                diff_G_delta_0_G_delta_0_mean = self.L0_graph_runner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj)
+            else:
+                diff_G_delta_0_G_delta_0_mean = self.L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, self.params)
+
+            # torch.testing.assert_close(diff_G_delta_0_G_delta_0_mean_ref, diff_G_delta_0_G_delta_0_mean, rtol=1e-5, atol=1e-5)
+
+            G_delta_0_G_delta_0_mean += diff_G_delta_0_G_delta_0_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    @staticmethod
+    def L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, params):
+        # TODO: a mask is needed when sa_chunk etc are padded.
+        num_inner_loops = params.num_inner_loops
+        inner_batch_size = params.inner_batch_size
+        outer_stride = params.outer_stride
+
+        G_delta_0_G_delta_0_mean = torch.zeros((params.Ly, params.Lx), dtype=G_eta.dtype, device=G_eta.device)
+
+        for inner_loop in range(num_inner_loops):
+            start_idx = inner_loop * inner_batch_size
+            end_idx = min(start_idx + inner_batch_size, outer_stride)
+            # if start_idx >= outer_stride: break
+            sa_batch = sa_chunk[start_idx:end_idx]
+            sb_batch = sb_chunk[start_idx:end_idx]
+            sc_batch = sc_chunk[start_idx:end_idx]
+            sd_batch = sd_chunk[start_idx:end_idx]
 
             a = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
@@ -1188,14 +1332,13 @@ class StochaticEstimator:
                 torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
 
             # FFT
-            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
-            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
-            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+            a_F_neg_k = torch.fft.ifftn(a, (params.Ly, params.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (params.Ly, params.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (params.Ly, params.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / params.total_num_samples
 
-        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
-   
+        return G_delta_0_G_delta_0_mean
 
     def G_delta_delta_G_0_0_ext_batch(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -2002,7 +2145,7 @@ class StochaticEstimator:
         return 0.5 * szsz
 
     @torch.inference_mode()
-    def get_fermion_obsr(self, bosons, eta, indices, indices_r2):
+    def get_fermion_obsr(self, bosons, eta):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2013,16 +2156,16 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
-        self.indices = indices
-        self.indices_r2 = indices_r2
+        # self.indices = indices
+        # self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_spsm_per_b())
-            # obsr.update(self.get_dimer_dimer_per_b2())
+            # obsr.update(self.get_spsm_per_b())
+            obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
 
@@ -2031,11 +2174,11 @@ class StochaticEstimator:
         consolidated_obsr = {}
         for key in keys:
             consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
-        
+
         return consolidated_obsr
-    
+
     @torch.inference_mode()
-    def get_fermion_obsr_compile(self, bosons, eta, indices, indices_r2):
+    def get_fermion_obsr_compile(self, bosons, eta):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2046,16 +2189,16 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
-        self.indices = indices
-        self.indices_r2 = indices_r2
+        # self.indices = indices
+        # self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_spsm_per_b())
-            obsr.update(self.get_dimer_dimer_per_b2())
+            obsr.update(self.get_spsm_per_b2())
+            # obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
 
@@ -2110,6 +2253,33 @@ class StochaticEstimator:
         obsr['spsm_r'] = spsm_r
         obsr['spsm_k_abs'] = spsm_k_abs
         return obsr
+
+    def get_spsm_per_b2(self):
+        if self.cuda_graph_se:
+            spsm_r = self.spsm_graph_runner(self.eta, self.G_eta)
+        else:
+            spsm_r = self.spsm_r_util(self.eta, self.G_eta)
+
+        # torch.testing.assert_close(spsm_r, spsm_r_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        spsm_k = torch.fft.ifft2(spsm_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        spsm_k = self.reorder_fft_grid2(spsm_k)  # [Ly, Lx]
+
+        # Output
+        obsr = {}
+        obsr['spsm_r'] = spsm_r.real
+        obsr['spsm_k'] = spsm_k.real
+        return obsr
+
+    def spsm_r_util(self, eta, G_eta):
+        # eta: [Nrv, Ltau * Ly * Lx]
+        # G_eta: [Nrv, Ltau, Ly, Lx]
+        GD0_G0D = self.GD0_G0D_func(eta, G_eta) # [Ltau, Ly, Lx]
+        GD0 = self.GD0_func(eta, G_eta) # [Ltau, Ly, Lx]
+        spsm = -GD0_G0D  # [Ltau, Ly, Lx]
+        spsm[0, 0, 0] += GD0[0, 0, 0]
+        spsm_r = spsm[0]  # Return only tau=0 slice: [Ly, Lx]
+        return spsm_r
 
     def get_spsm(self, bosons, eta):
         bs, _, Lx, Ly, Ltau = bosons.shape

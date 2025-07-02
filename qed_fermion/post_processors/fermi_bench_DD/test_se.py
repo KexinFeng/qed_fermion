@@ -47,6 +47,17 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     se.num_samples = lambda nrv: math.comb(nrv, 4)
     se.batch_size = lambda nrv: int(nrv * 0.1)
 
+    # Randomly select num_samples from indices without replacement
+    indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
+    num_samples = se.num_samples(Nrv)
+    perm = torch.randperm(indices.shape[0], device=indices.device)
+    indices = indices[perm[:num_samples]]
+    indices_r2 = torch.combinations(torch.arange(Nrv, device=hmc.device), r=2, with_replacement=False)
+    se.indices = indices
+    se.indices_r2 = indices_r2
+
+    se.initialize()
+
     if se.cuda_graph_se:
         se.init_cuda_graph()
 
@@ -56,22 +67,15 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     DD_k = []
     for boson in tqdm(boson_seq):  # boson: [J/bs, 2, Lx, Ly, Ltau]
         eta = se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-        
-        # Randomly select num_samples from indices without replacement
-        indices = torch.combinations(torch.arange(Nrv, device=hmc.device), r=4, with_replacement=False)
-        num_samples = se.num_samples(Nrv)
-        perm = torch.randperm(indices.shape[0], device=indices.device)
-        indices = indices[perm[:num_samples]]
-        indices_r2 = torch.combinations(torch.arange(Nrv, device=hmc.device), r=2, with_replacement=False)
 
         # if se.cuda_graph_se:
         #     obsr = se.graph_runner(boson.to(se.device), eta, indices, indices_r2)
         # else:
         #     obsr = se.get_fermion_obsr(boson.to(se.device), eta, indices, indices_r2)
-        obsr = se.get_fermion_obsr_compile(boson.to(se.device), eta, indices, indices_r2)
+        obsr = se.get_fermion_obsr_compile(boson.to(se.device), eta)
 
-        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
-        DD_k.append(obsr['DD_k'].cpu().numpy())
+        spsm_k.append(obsr['spsm_k'].cpu().numpy())
+        # DD_k.append(obsr['DD_k'].cpu().numpy())
 
         dbstop = 1
         
