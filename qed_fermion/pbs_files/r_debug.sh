@@ -11,6 +11,7 @@ L_array=$(echo '60')  # Nleap3_taublk2_bs2_2000_8h
 
 export debug=0
 export cuda_graph=1
+export bs=1
 
 export suffix=debug
 export asym=1
@@ -32,7 +33,7 @@ for L in $L_array; do
                 --time=0-0:30:00 \
                 --qos=debug \
                 --mem-per-cpu=6G \
-                s_hmc.cmd
+                s_hmc_debug.cmd
                 # {L: size_gb} = {12: 20, 16: 30}
         done
 done

@@ -29,7 +29,7 @@ L_array=$(echo '50') # 60 56 cuda kernel launch failure
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=10000
+Nstep=9000
 export debug=0
 export cuda_graph=1
 
@@ -51,10 +51,10 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=9-20:00:00 \
+                --time=6-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
-                s_hmc.cmd
+                s_hmc_noncmp.cmd
         done
 done
 

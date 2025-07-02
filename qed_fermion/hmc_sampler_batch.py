@@ -39,6 +39,8 @@ Ltau = int(asym*Lx * 10)  # dtau=0.1
 print(f"Lx: {Lx}")
 print(f"Ltau: {Ltau}")
 num_site = Lx * Lx * Ltau
+bs = int(os.getenv("bs", "2"))
+print(f"bs: {bs}")
 
 # Nrv increase is more efficient than mc sweep increase but cost both time and memory, since sample amount increases as Nrv^2. 
 # Time and mem both increase as Nrv.
@@ -139,7 +141,7 @@ class HmcSampler(object):
         self.Lx = Lx
         self.Ly = Lx
         self.Ltau = Ltau
-        self.bs = 2 if torch.cuda.is_available() else 1
+        self.bs = bs if torch.cuda.is_available() else 1
         print(f"bs: {self.bs}")
         self.Vs = self.Lx * self.Ly
         self.tau_block_idx = 0
