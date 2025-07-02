@@ -20,8 +20,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 L_array=$(echo '40 36 30 20 16 12 10 8 6')
-L_array=$(echo '56 50 46 40')
-L_array=$(echo '60')
+L_array=$(echo '60 56 50 46 40')
 # L_array=$(echo '24 20 16 12 10 8 6')
 
 
