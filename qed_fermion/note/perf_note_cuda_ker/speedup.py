@@ -17,12 +17,17 @@ speedup = [latency_naive_gpu[i] / latency_opt_cuda[i] for i in range(len(latency
 fig, ax1 = plt.subplots()
 
 # Plot latencies on the primary y-axis (blue)
-line1, = ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#0d75dc", label='Naive GPU impl.')
+line1, = ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#2f89e4", label='Naive GPU impl.')
 line2, = ax1.plot(Ls, latency_opt_cuda, marker='o', linestyle='-', color="#0A5197", label='Optimized CUDA kernel')
 ax1.set_xlabel(r'$V_s \times N_\tau$')
 ax1.set_ylabel(r'Latency (sec / sample)')
 ax1.tick_params(axis='y')
 # ax1.grid(True)
+ax1.spines['left'].set_color("#2f89e4")  # Set left axis line color
+ax1.spines['left'].set_linewidth(1.2)
+ax1.spines['left'].set_visible(True)
+ax1.spines['right'].set_visible(False)
+# ax1.tick_params(axis='y', colors='#2f89e4')  # Set left y-axis tick colors
 
 # Create a secondary y-axis for speedup (red)
 ax2 = ax1.twinx()
@@ -30,13 +35,11 @@ line3, = ax2.plot(Ls, speedup, marker='^', linestyle='--', color='r', label='Spe
 ax2.set_ylabel(r'Speedup ratio')
 ax2.tick_params(axis='y')
 
-# Set spine colors and tick colors after twinx
-ax1.spines['left'].set_color('#0d75dc')  # Set left axis line color
-ax1.tick_params(axis='y', colors='#0d75dc')  # Set left y-axis tick colors
-ax1.yaxis.label.set_color('#0d75dc')  # Set left y-axis label color
 ax2.spines['right'].set_color('r')  # Set right axis line color
-ax2.tick_params(axis='y', colors='r')  # Set right y-axis tick colors
-ax2.yaxis.label.set_color('r')  # Set right y-axis label color
+ax2.spines['right'].set_linewidth(1.2)
+ax2.spines['right'].set_visible(True)
+ax2.spines['left'].set_visible(False)  # ← Hide overlapping right spine from ax1
+# ax2.tick_params(axis='y', colors='r')  # Set left y-axis tick colors
 
 # Combine legends from both axes
 lines = [line1, line2, line3]
