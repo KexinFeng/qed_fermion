@@ -1,6 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+# import matplotlib
+# matplotlib.use('Agg') # write plots to disk without requiring a display or GUI.
+from matplotlib import rcParams
+rcParams['figure.raise_window'] = False
+
+plt.ion()
 
 Ls = [6, 10, 16, 20]
 Ls = [L**3 * 40 for L in Ls]
@@ -10,20 +16,28 @@ speedup = [latency_naive_gpu[i] / latency_opt_cuda[i] for i in range(len(latency
 
 fig, ax1 = plt.subplots()
 
-# Plot latencies on the primary y-axis
-ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#0d75dc", label='Naive GPU impl.')  # light blue
-ax1.plot(Ls, latency_opt_cuda, marker='s', linestyle='-', color="#0A5197", label='Optimized CUDA kernel')  # dark blue
+# Plot latencies on the primary y-axis (blue)
+line1, = ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#0d75dc", label='Naive GPU impl.')
+line2, = ax1.plot(Ls, latency_opt_cuda, marker='o', linestyle='-', color="#0A5197", label='Optimized CUDA kernel')
 ax1.set_xlabel(r'$V_s \times N_\tau$')
 ax1.set_ylabel(r'Latency (sec / sample)')
-# ax1.set_title('Latency vs Ls')
-ax1.legend(loc='upper left')
-ax1.grid(True)
+ax1.tick_params(axis='y')
+# ax1.grid(True)
+ax1.spines['left'].set_color('#0d75dc')  # Set left axis line color (after twinx)
 
-# Create a secondary y-axis for speedup
+# Create a secondary y-axis for speedup (red)
 ax2 = ax1.twinx()
-ax2.plot(Ls, speedup, marker='^', linestyle='--', color='r', label='Speedup ratio')  # red dashed line
+line3, = ax2.plot(Ls, speedup, marker='^', linestyle='--', color='r', label='Speedup ratio')
 ax2.set_ylabel(r'Speedup ratio')
-ax2.legend(bbox_to_anchor=(0.42, 0.7))  # Shift down to avoid overlap
+ax2.tick_params(axis='y')
+
+# ax1.spines['left'].set_color('#0d75dc')  # Set left axis line color (after twinx)
+ax2.spines['right'].set_color('r')  # Set right axis line color
+
+# Combine legends from both axes
+lines = [line1, line2, line3]
+labels = [line.get_label() for line in lines]
+ax1.legend(lines, labels, loc='upper left')
 
 plt.show(block=False)
 
