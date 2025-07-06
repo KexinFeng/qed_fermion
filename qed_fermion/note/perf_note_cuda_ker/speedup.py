@@ -23,7 +23,6 @@ ax1.set_xlabel(r'$V_s \times N_\tau$')
 ax1.set_ylabel(r'Latency (sec / sample)')
 ax1.tick_params(axis='y')
 # ax1.grid(True)
-ax1.spines['left'].set_color('#0d75dc')  # Set left axis line color (after twinx)
 
 # Create a secondary y-axis for speedup (red)
 ax2 = ax1.twinx()
@@ -31,8 +30,13 @@ line3, = ax2.plot(Ls, speedup, marker='^', linestyle='--', color='r', label='Spe
 ax2.set_ylabel(r'Speedup ratio')
 ax2.tick_params(axis='y')
 
-# ax1.spines['left'].set_color('#0d75dc')  # Set left axis line color (after twinx)
+# Set spine colors and tick colors after twinx
+ax1.spines['left'].set_color('#0d75dc')  # Set left axis line color
+ax1.tick_params(axis='y', colors='#0d75dc')  # Set left y-axis tick colors
+ax1.yaxis.label.set_color('#0d75dc')  # Set left y-axis label color
 ax2.spines['right'].set_color('r')  # Set right axis line color
+ax2.tick_params(axis='y', colors='r')  # Set right y-axis tick colors
+ax2.yaxis.label.set_color('r')  # Set right y-axis label color
 
 # Combine legends from both axes
 lines = [line1, line2, line3]
