@@ -2419,11 +2419,11 @@ class StochaticEstimator:
                     + Gc[:, i, iax] * G[:, i, j] * G[:, jax, iax] * G[:, j, jax] * z3
                     + Gc[:, i, jax] * G[:, i, j] * G[:, iax, jax] * G[:, j, iax] * z1
                     + Gc[:, i, j] * G[:, i, jax] * G[:, jax, iax] * G[:, iax, j] * z1
-                ).mean(dim=0)
+                ).mean(dim=0) # mean over tau
 
         # Output
         obsr = {}
-        DD_r = DD_r.mean(dim=0).view(Ly, Lx) # [Ly, Lx]
+        DD_r = DD_r.mean(dim=0).view(Ly, Lx) # [Ly, Lx], mean over i
         obsr['DD_r'] = DD_r.real
 
         DD_k = torch.fft.ifft2(DD_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
