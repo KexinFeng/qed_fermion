@@ -13,6 +13,7 @@ class InnerLoopModule(nn.Module):
         self.Ltau, self.Ly, self.Lx = Ltau, Ly, Lx
         self.inner_batch_size = inner_batch_size
 
+    @torch.inference_mode()
     def forward(self, start_idx, end_idx):
         eta_conj = self.eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
         G_eta = self.G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
@@ -50,14 +51,14 @@ eta = torch.randn(2*Nrv, Ltau * Ly * Lx, dtype=torch.cfloat, device=device)
 G_eta = torch.randn(2*Nrv, Ltau * Ly * Lx, dtype=torch.cfloat, device=device)
 indices_r2 = torch.triu_indices(Nrv, Nrv, offset=1).t().to(device)
 
-# Instantiate and compile
-inner_model = InnerLoopModule(eta, G_eta, indices_r2, Ltau, Ly, Lx, inner_batch_size).to(device)
-compiled_inner_model = torch.compile(inner_model, mode='reduce-overhead', fullgraph=True)
+# Instantiate models for eager and compiled modes separately
+inner_model_compiled = InnerLoopModule(eta, G_eta, indices_r2, Ltau, Ly, Lx, inner_batch_size).to(device)
+compiled_inner_model = torch.compile(inner_model_compiled, mode='reduce-overhead', fullgraph=True)
 
-# Warm-up
+# Warm-up compiled model
 compiled_inner_model(0, outer_batch_size)
 
-# Actual nested loop execution
+# Actual nested loop execution (compiled)
 G_sum = torch.zeros((Ly, Lx), device=device)
 num_batches = (total_pairs + outer_batch_size - 1) // outer_batch_size
 
@@ -74,3 +75,23 @@ torch.cuda.synchronize()
 end = time.time()
 
 print(f"Nested loops with torch.compile executed in {end - start:.4f}s")
+
+# --- Eager mode test ---
+inner_model_eager = InnerLoopModule(eta, G_eta, indices_r2, Ltau, Ly, Lx, inner_batch_size).to(device)
+# Warm-up eager model
+for _ in range(2):
+    _ = inner_model_eager(0, outer_batch_size)
+
+G_sum_eager = torch.zeros((Ly, Lx), device=device)
+torch.cuda.synchronize()
+start = time.time()
+
+for batch_idx in range(num_batches):
+    start_idx = batch_idx * outer_batch_size
+    end_idx = min(start_idx + outer_batch_size, total_pairs)
+    G_sum_eager += inner_model_eager(start_idx, end_idx)
+
+torch.cuda.synchronize()
+end = time.time()
+
+print(f"Nested loops in eager mode executed in {end - start:.4f}s")
