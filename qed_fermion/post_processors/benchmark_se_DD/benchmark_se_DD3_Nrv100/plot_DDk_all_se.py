@@ -21,9 +21,6 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 from load_write2file_convert import time_execution
 
 
-batch_id = 1
-plot_dqmc_postprocessing = False
-
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     Lx, Ly, Ltau = Lsize
@@ -110,7 +107,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     
 
     # ---- Load and plot spsm_k.pt mean groundtruth ---- #
-    output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{Nrv}_mxitr_{mxitr}")
+    output_dir = os.path.join(script_path, f"data_inv_start{start}/Lx_{Lx}_Ltau_{Ltau}_Nrv_{100}_mxitr_{mxitr}")
     DD_k_file = os.path.join(output_dir, "DD_k.pt")
     DD_k_res = torch.load(DD_k_file, weights_only=False) # [J/bs, Ly, Lx]
         # Compute spin order as sum of DD_k_mean divided by vs
@@ -124,10 +121,16 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 100
+    Nrv = 140
     mxitr = 400
 
-    sizes = [6, 8, 10]
+    if Nrv > 100:
+        sizes = [6, 8]
+    else:
+        sizes = [6, 8, 10]
+
+    batch_id = 1
+    plot_dqmc_postprocessing = True
 
     plt.figure(figsize=(8, 6))
     for idx, Lx in enumerate(sizes):
