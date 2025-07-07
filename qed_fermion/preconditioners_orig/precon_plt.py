@@ -221,7 +221,7 @@ def get_precon_man():
 
         # Plot Corner
         plt.figure(figsize=(8, 8))
-        plt.spy(precon_man.to_dense().real[:600, :600], markersize=0.5)
+        plt.spy(precon_man.to_dense().real[:800, :800], markersize=0.5)
         # plt.title("Sparsity Pattern of Preconditioner")
         plt.xlabel("Columns")
         plt.ylabel("Rows")

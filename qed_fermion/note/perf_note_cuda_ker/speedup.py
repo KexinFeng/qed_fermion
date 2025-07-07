@@ -34,6 +34,7 @@ ax2 = ax1.twinx()
 line3, = ax2.plot(Ls, speedup, marker='^', linestyle='--', color='r', label='Speedup ratio')
 ax2.set_ylabel(r'Speedup ratio')
 ax2.tick_params(axis='y')
+ax2.set_ylim([1, 8])
 
 ax2.spines['right'].set_color('r')  # Set right axis line color
 ax2.spines['right'].set_linewidth(1.2)
