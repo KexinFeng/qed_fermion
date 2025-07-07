@@ -15,6 +15,7 @@
                 "cuda_graph": "0",
                 "Nrv": "40",
                 "CUDA_LAUNCH_BLOCKING": "1",
+                "TORCH_LOGS": "graph",
             }
         }
     ]
