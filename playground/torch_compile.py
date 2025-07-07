@@ -24,29 +24,57 @@ def test():
 
     # Model and input
     model = SimpleModel().to(device)
-    x = torch.randn(256, 1024, device=device)
+    x_static = torch.randn(256, 1024, device=device)
 
     # Compile model with reduce-overhead mode
-    compiled_model = torch.compile(model, mode='reduce-overhead', fullgraph=True)
+    compiled_model = torch.compile(model, mode='reduce-overhead', fullgraph=True, dynamic=False)
 
     # Warm-up
     for _ in range(5):
-        _ = compiled_model(x)
+        _ = compiled_model(x_static)
 
     # Measure time with compiled model (this should use CUDA Graph internally)
+    x = torch.randn(256, 1024, device=device)
     torch.cuda.synchronize()
     start = time.time()
+    x_static.copy_(x)
     for _ in range(100):
-        x = torch.randn(256, 1024, device=device)
-        y = compiled_model(x)
+        y = compiled_model(x_static)
         # print(torch.norm(y).item())
     torch.cuda.synchronize()
     end = time.time()
 
     print(f"Compiled (reduce-overhead) model time: {end - start:.4f} sec")
 
+    # CUDA Graph test
+    model_graph = SimpleModel().to(device)
+    static_x = torch.randn(256, 1024, device=device)
+    static_y = torch.empty(256, 1024, device=device)
+    stream = torch.cuda.Stream()
+    g = torch.cuda.CUDAGraph()
+    # Warm-up
+    for _ in range(5):
+        _ = model_graph(static_x)
+    torch.cuda.synchronize()
+    # Capture
+    with torch.cuda.graph(g, stream=stream):
+        static_y.copy_(model_graph(static_x))
+    torch.cuda.synchronize()
+
+    x = torch.randn(256, 1024, device=device)
+    # Timing CUDA Graph replay
+    torch.cuda.synchronize()
+    start = time.time()
+    static_x.copy_(x)
+    for _ in range(100):
+        g.replay()
+    torch.cuda.synchronize()
+    end = time.time()
+    print(f"CUDA Graph replay time: {end - start:.4f} sec")
+
     # Reset and measure eager time
     model_eager = SimpleModel().to(device)
+    x = torch.randn(256, 1024, device=device)
     for _ in range(5):  # also warm-up eager
         _ = model_eager(x)
     torch.cuda.synchronize()
@@ -54,7 +82,6 @@ def test():
     torch.cuda.synchronize()
     start = time.time()
     for _ in range(100):
-        x = torch.randn(256, 1024, device=device)
         y = model_eager(x)
         # print(torch.norm(y).item())
 
