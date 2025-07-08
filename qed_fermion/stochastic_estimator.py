@@ -7,7 +7,7 @@ from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
 
 script_path = os.path.dirname(os.path.abspath(__file__))
@@ -60,7 +60,7 @@ class StochaticEstimator:
         
         self.graph_memory_pool = hmc.graph_memory_pool        
         self.graph_runner = FermionObsrGraphRunner(self)
-        self.G_eta_graph_runner = hmc.G_eta_graph_runner(self)
+        self.G_eta_graph_runner = GEtaGraphRunner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
@@ -100,7 +100,7 @@ class StochaticEstimator:
             print(f"get_fermion_obsr CUDA graph initialization complete")
             print('')
 
-        if self.use_cuda_graph_se:
+        if self.cuda_graph_se:
             # G_eta_graph_runner
             print("Initializing G_eta_graph_runner.........")
             d_mem_str, d_mem2 = device_mem()
@@ -314,19 +314,22 @@ class StochaticEstimator:
         eta: [Nrv, Ltau * Ly * Lx]
         """
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
-        self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
 
-        if self.cuda_graph_se:
-            self.G_eta = self.G_eta_graph_runner(boson, eta)
-        else:
-            self.G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
+        # if self.cuda_graph_se:
+        G_eta = self.G_eta_graph_runner(boson, eta)
+        # else:
+        G_eta_ref = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
 
-        self.hmc_sampler.bs = bs
+        torch.testing.assert_close(G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
+
+        self.G_eta = G_eta
 
     def set_eta_G_eta_inner(self, boson, eta):
+        self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
         boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
         psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
         G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
+        self.hmc_sampler.bs = bs
         return G_eta
   
     def test_fft_negate_k3(self):
@@ -2027,7 +2030,7 @@ class StochaticEstimator:
         return consolidated_obsr
     
     @torch.inference_mode()
-    def get_fermion_obsr_compile(self, bosons, eta):
+    def get_fermion_obsr_compile(self, bosons, eta, indices, indices_r2):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2038,8 +2041,8 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
-        # self.indices = indices
-        # self.indices_r2 = indices_r2
+        self.indices = indices
+        self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 

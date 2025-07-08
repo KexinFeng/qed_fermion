@@ -158,7 +158,7 @@ class GEtaGraphRunner:
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.se.get_fermion_obsr(
+            static_outputs = self.se.set_eta_G_eta_inner(
                 input_buffers['boson'],
                 input_buffers['eta']
             )
@@ -181,7 +181,7 @@ class GEtaGraphRunner:
     ):
         """Execute the captured graph with the given inputs."""
         # Copy inputs to input buffers
-        self.input_buffers['bosons'].copy_(boson)
+        self.input_buffers['boson'].copy_(boson)
         self.input_buffers['eta'].copy_(eta)
 
         # Replay the graph
