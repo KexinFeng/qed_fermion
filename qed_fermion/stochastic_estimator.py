@@ -28,6 +28,8 @@ max_iter_se = int(os.getenv("max_iter_se", '100'))
 precon_on = int(os.getenv("precon", '1')) == 1
 print(f"precon_on: {precon_on}")
 
+capture_fermion_obsr = False
+
 class StochaticEstimator:
     # This function computes the fermionic green's function, mainly four-point function. The aim is to surrogate the postprocessing of the HMC boson samples. For a given boson, the M(boson) is the determined, so is M_inv aka green's function.
 
@@ -56,11 +58,16 @@ class StochaticEstimator:
         self.dtype = hmc.dtype
         self.cdtype = hmc.cdtype
         
+        self.graph_memory_pool = hmc.graph_memory_pool        
         self.graph_runner = FermionObsrGraphRunner(self)
-        self.graph_memory_pool = hmc.graph_memory_pool
+        self.G_eta_graph_runner = hmc.G_eta_graph_runner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
+
+        self.device = hmc.device
+        self.dtype = hmc.dtype
+        self.cdtype = hmc.cdtype
 
         # init
         if hmc.precon_csr is None and hmc.dtau <= 0.1 and precon_on:
@@ -75,7 +82,7 @@ class StochaticEstimator:
         print(f"Nrv: {self.Nrv}")
         print(f"max_iter_se: {hmc._MAX_ITERS_TO_CAPTURE[0]}")
         # Capture
-        if self.cuda_graph_se:
+        if self.cuda_graph_se and capture_fermion_obsr:
             print("Initializing CUDA graph for get_fermion_obsr.........")
             d_mem_str, d_mem2 = device_mem()
             print(f"Before init se_graph: {d_mem_str}")
@@ -92,6 +99,18 @@ class StochaticEstimator:
                                         graph_memory_pool=self.graph_memory_pool)
             print(f"get_fermion_obsr CUDA graph initialization complete")
             print('')
+
+        if self.use_cuda_graph_se:
+            # G_eta_graph_runner
+            print("Initializing G_eta_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init G_eta_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.G_eta_graph_runner.capture(
+                max_iter_se=hmc._MAX_ITERS_TO_CAPTURE[0],
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"G_eta_graph_runner initialization complete")
+            print('')
+
 
     def random_vec_bin(self):  
         """
@@ -294,25 +313,21 @@ class StochaticEstimator:
         boson: [bs=1, 2, Lx, Ly, Ltau]
         eta: [Nrv, Ltau * Ly * Lx]
         """
-        # Compute the four-point green's function
-        # G_ij ~ (G eta)_i eta_j
-        # G_ij G_kl ~ (G eta)_i eta_j (G eta')_k eta'_l
-
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
-
-        boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
-
-        psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
-
         self.hmc_sampler.bs, bs = self.Nrv, self.hmc_sampler.bs
-        G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
+
+        if self.cuda_graph_se:
+            self.G_eta = self.G_eta_graph_runner(boson, eta)
+        else:
+            self.G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
+
         self.hmc_sampler.bs = bs
 
-        # print("max_pcg_iter:", cnt[:5])
-        # print("err:", err[:5])
-
-        self.G_eta = G_eta
-
+    def set_eta_G_eta_inner(self, boson, eta):
+        boson = boson.permute([0, 4, 3, 2, 1]).reshape(1, -1).repeat(self.Nrv, 1)  # [Nrv, Ltau * Ly * Lx]
+        psudo_fermion = _C.mh_vec(boson, eta, self.Lx, self.dtau, *BLOCK_SIZE)  # [Nrv, Ltau * Ly * Lx]
+        G_eta, cnt, err = self.hmc_sampler.Ot_inv_psi_fast(psudo_fermion, boson.view(self.Nrv, self.Ltau, -1), None)  # [Nrv, Ltau * Ly * Lx]
+        return G_eta
   
     def test_fft_negate_k3(self):
         device = self.device
@@ -1992,6 +2007,39 @@ class StochaticEstimator:
         obsrs = []
         self.indices = indices
         self.indices_r2 = indices_r2
+        for b in range(bs):
+            obsr = {}
+
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+            self.set_eta_G_eta(boson, eta)
+
+            obsr.update(self.get_spsm_per_b())
+            obsr.update(self.get_dimer_dimer_per_b2())
+
+            obsrs.append(obsr)
+
+        # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
+        keys = obsrs[0].keys()
+        consolidated_obsr = {}
+        for key in keys:
+            consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
+        
+        return consolidated_obsr
+    
+    @torch.inference_mode()
+    def get_fermion_obsr_compile(self, bosons, eta):
+        """
+        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
+        eta: [Nrv, Ltau * Ly * Lx]
+
+        Returns:
+            spsm_r: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
+            spsm_k: [bs, Ly, Lx] tensor.
+        """
+        bs = bosons.shape[0]
+        obsrs = []
+        # self.indices = indices
+        # self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 
