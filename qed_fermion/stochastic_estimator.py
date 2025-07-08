@@ -839,7 +839,7 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
  
-    def L2(self):
+    def L2_half_n_choose_4(self):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
 
@@ -908,7 +908,7 @@ class StochaticEstimator:
         G_delta_0_G_delta_0_mean[0, 1] -= G_res_mean2[0]
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
 
-    def L2_nchoose4(self):
+    def L2(self):
         eta = self.eta[:self.Nrv]  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta[:self.Nrv]  # [Nrv, Ltau * Ly * Lx]
 
@@ -2212,7 +2212,7 @@ class StochaticEstimator:
         DD_r = (
             z4 * self.L0()      # rtol=0.2 norm ok, DD_k bug. DD_r_se all 0.0076
             + z2 * self.L1()    # rtol=1.1, norm bug, DD_k bug
-            + z2 * self.L2_nchoose4()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
+            + z2 * self.L2()    # rtol=1.3, norm diff, DD_k not match.  DD_r and DD_k change sign in se but not in gt
             + z3 * self.L3()    # rtol=0.8, norm ok, DD_k margin. match
             + z3 * self.L4()    # rtol=0.8, norm ok, DD_k margin. match
             + z3 * self.L5()   # rtol=2, norm diff, DD_k bug 
