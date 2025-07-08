@@ -24,7 +24,7 @@ def test():
 
     # Model and input
     model = SimpleModel().to(device)
-    x_static = torch.randn(256, 1024, device=device)
+    x_static = torch.randn(2560, 1024, device=device)
 
     # Compile model with reduce-overhead mode
     compiled_model = torch.compile(model, mode='reduce-overhead', fullgraph=True, dynamic=False)
@@ -34,7 +34,7 @@ def test():
         _ = compiled_model(x_static)
 
     # Measure time with compiled model (this should use CUDA Graph internally)
-    x = torch.randn(256, 1024, device=device)
+    x = torch.randn(2560, 1024, device=device)
     torch.cuda.synchronize()
     start = time.time()
     x_static.copy_(x)
@@ -48,8 +48,8 @@ def test():
 
     # CUDA Graph test
     model_graph = SimpleModel().to(device)
-    static_x = torch.randn(256, 1024, device=device)
-    static_y = torch.empty(256, 1024, device=device)
+    static_x = torch.randn(2560, 1024, device=device)
+    # static_y = torch.empty(2560, 1024, device=device)
     stream = torch.cuda.Stream()
     g = torch.cuda.CUDAGraph()
     # Warm-up
@@ -58,10 +58,10 @@ def test():
     torch.cuda.synchronize()
     # Capture
     with torch.cuda.graph(g, stream=stream):
-        static_y.copy_(model_graph(static_x))
+        y = model_graph(static_x)
     torch.cuda.synchronize()
 
-    x = torch.randn(256, 1024, device=device)
+    x = torch.randn(2560, 1024, device=device)
     # Timing CUDA Graph replay
     torch.cuda.synchronize()
     start = time.time()
@@ -74,7 +74,7 @@ def test():
 
     # Reset and measure eager time
     model_eager = SimpleModel().to(device)
-    x = torch.randn(256, 1024, device=device)
+    x = torch.randn(2560, 1024, device=device)
     for _ in range(5):  # also warm-up eager
         _ = model_eager(x)
     torch.cuda.synchronize()
@@ -92,3 +92,8 @@ def test():
 
 if __name__ == "__main__":
     test()
+
+# Note
+# torch                              2.1.2+cu121
+# torchaudio                         2.1.2+cu121
+# torchvision                        0.16.2+cu121
