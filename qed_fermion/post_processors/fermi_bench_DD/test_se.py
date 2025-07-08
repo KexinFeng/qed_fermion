@@ -1,3 +1,4 @@
+import math
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 plt.ion()
@@ -43,6 +44,9 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     se.Nrv = Nrv
     se.max_iter_se = mxitr
     se.num_samples = lambda nrv: nrv** 2 // 10
+    se.num_samples = lambda nrv: math.comb(nrv, 4)
+    se.batch_size = lambda nrv: int(nrv * 0.1)
+
     if se.cuda_graph_se:
         se.init_cuda_graph()
 
@@ -60,18 +64,15 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         indices = indices[perm[:num_samples]]
         indices_r2 = torch.combinations(torch.arange(Nrv, device=hmc.device), r=2, with_replacement=False)
 
-        if se.cuda_graph_se:
-            obsr = se.graph_runner(boson.to(se.device), eta, indices, indices_r2)
-        else:
-            obsr = se.get_fermion_obsr(boson.to(se.device), eta, indices, indices_r2)
+        # if se.cuda_graph_se:
+        #     obsr = se.graph_runner(boson.to(se.device), eta, indices, indices_r2)
+        # else:
+        #     obsr = se.get_fermion_obsr(boson.to(se.device), eta, indices, indices_r2)
+        obsr = se.get_fermion_obsr_compile(boson.to(se.device), eta, indices, indices_r2)
 
-        # obsr_gt = se.get_fermion_obsr_groundtruth(boson.to(se.device))
         spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
         DD_k.append(obsr['DD_k'].cpu().numpy())
-        # spsm_k_gt = obsr_gt['spsm_k_abs'].cpu().numpy()
 
-        spsm_r = obsr['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
-        # spsm_r_gt = obsr_gt['spsm_r'].cpu().numpy()  # [seq, J/bs, Ly, Lx]
         dbstop = 1
         
     spsm_k = np.array(spsm_k)  # [seq, J/bs, Ly, Lx]
