@@ -315,12 +315,12 @@ class StochaticEstimator:
         """
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
-        # if self.cuda_graph_se:
-        G_eta = self.G_eta_graph_runner(boson, eta)
-        # else:
-        G_eta_ref = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
+        if self.cuda_graph_se:
+            G_eta = self.G_eta_graph_runner(boson, eta)
+        else:
+            G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
 
-        torch.testing.assert_close(G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
+        # torch.testing.assert_close(G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
         self.G_eta = G_eta
 
