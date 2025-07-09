@@ -91,7 +91,6 @@ def plot_spin_r():
         spsm_r_avg_abs = spsm_r_avg.abs()            # Take absolute value for correlation
         
         # Convert to numpy for easier manipulation
-        spsm_r_np = spsm_r_avg.numpy()
         spsm_r_np_abs = spsm_r_avg_abs.numpy()
         spsm_r_avg_std_np = spsm_r_avg_std.numpy()
         
@@ -100,10 +99,10 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(1, Lx // 2 + 1, 2):
+        for r in range(0, Lx // 2):
             x = r
-            y = 0  
-            
+            y = r
+
             r_values.append(r)
             spin_corr_values.append(spsm_r_np_abs[y, x])
             spin_corr_errors.append(spsm_r_avg_std_np[y, x] / np.sqrt(len(seq_idx) * bs))
@@ -119,11 +118,20 @@ def plot_spin_r():
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
         # Only use r > 0 for log-log fit to avoid log(0)
-        lw = 0
-        up = 5
-        r_fit = np.array(r_values[lw:up])
-        spin_corr_fit = np.array(spin_corr_values[lw:up])
+        if Lx != 60 and Lx != 56:
+            lw = 1
+            up = 10
+            r_fit = np.array(r_values[lw:up])
+            spin_corr_fit = np.array(spin_corr_values[lw:up])
         # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
+        elif Lx == 60:
+            idx = [1, 2, 3, 4, 5, 6, 8, 9, 10]
+            r_fit = np.array([r_values[i] for i in idx])
+            spin_corr_fit = np.array([spin_corr_values[i] for i in idx])
+        elif Lx == 56:
+            idx = [1, 2, 3, 4, 5, 6, 7, 9, 10]
+            r_fit = np.array([r_values[i] for i in idx])
+            spin_corr_fit = np.array([spin_corr_values[i] for i in idx])
 
         # Linear fit in log-log space
         log_r = np.log(r_fit)
@@ -152,12 +160,12 @@ def plot_spin_r():
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
-    # # Save the plot (linear axes)
-    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
-    # os.makedirs(save_dir, exist_ok=True)
-    # file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Raw values figure saved at: {file_path}")
+    # Save the plot (linear axes)
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit_diag")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Raw values figure saved at: {file_path}")
 
     # Set log scales first
     plt.xscale('log', base=np.e)
@@ -190,7 +198,7 @@ def plot_spin_r():
     plt.tight_layout()
 
     # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit_diag")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")

@@ -221,10 +221,10 @@ def get_precon_man():
 
         # Plot Corner
         plt.figure(figsize=(8, 8))
-        plt.spy(precon_man.to_dense().real[:800, :800], markersize=0.5)
+        plt.spy(precon_man.to_dense().real[:502, :502], markersize=0.5)
         # plt.title("Sparsity Pattern of Preconditioner")
-        plt.xlabel("Columns")
-        plt.ylabel("Rows")
+        # plt.xlabel("Columns")
+        # plt.ylabel("Rows")
         plt.show(block=False)
         
         file_name = "sparse_pattern_subset.pdf"

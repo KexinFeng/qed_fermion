@@ -36,8 +36,8 @@ r_l20 = np.exp(loge_r_l20)
 corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
-hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
-   
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large4_Nrv40/hmc_check_point_cmp_large4_Nrv40"
+
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
     
@@ -58,13 +58,13 @@ def plot_spin_r():
         # Construct filename for this lattice size
         Ltau = int(10 * Lx)
         if Lx <= 40:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
+            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_True_step_10000.pt"
         elif Lx == 46:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_40_cmp_False_step_10000.pt"
+            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_40_cmp_True_step_10000.pt"
         elif Lx == 56:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_10000.pt"
+            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs1_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_True_step_10000.pt"
         elif Lx == 60:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6800_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_6800.pt"
+            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6800_bs1_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_True_step_6800.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
         
@@ -100,12 +100,12 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(1, Lx // 2 + 1, 2):
+        for r in range(0, Lx // 2 + 1):
             x = r
             y = 0  
             
             r_values.append(r)
-            spin_corr_values.append(spsm_r_np_abs[y, x])
+            spin_corr_values.append(spsm_r_np[y, x])
             spin_corr_errors.append(spsm_r_avg_std_np[y, x] / np.sqrt(len(seq_idx) * bs))
 
         # Store data for analysis
@@ -118,31 +118,19 @@ def plot_spin_r():
         
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
-        # Only use r > 0 for log-log fit to avoid log(0)
-        lw = 0
-        up = 5
-        r_fit = np.array(r_values[lw:up])
-        spin_corr_fit = np.array(spin_corr_values[lw:up])
-        # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
-
-        # Linear fit in log-log space
-        log_r = np.log(r_fit)
-        log_corr = np.log(spin_corr_fit)
-        coeffs = np.polyfit(log_r, log_corr, 1)
-        fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                      linestyle='', marker='o', lw=1.5, color=color, 
                      label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
-        plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                 label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
         dbstop = 1
     
     # Plot the r_l20 and corr_l20 data on the same plot for comparison
     plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
 
+    # Move axhline after all other plot commands so it appears on top
+    plt.axhline(y=0, color='red', linewidth=0.5, zorder=10)
 
     # Linear axes
     plt.xlabel('Distance r (lattice units)', fontsize=14)
@@ -152,16 +140,26 @@ def plot_spin_r():
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
-    # # Save the plot (linear axes)
-    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
-    # os.makedirs(save_dir, exist_ok=True)
-    # file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Raw values figure saved at: {file_path}")
+    # Save the plot (linear axes)
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit_original")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, "spin_r_vs_x.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Raw values figure saved at: {file_path}")
+    
+    
+    # Zoom in
+    plt.ylim([-0.01, 0.01])
 
-    # Set log scales first
-    plt.xscale('log', base=np.e)
-    plt.yscale('log', base=np.e)
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit_original")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, "spin_r_vs_x_zoom_in.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Raw values figure saved at: {file_path}")
+
+    # # Set log scales first
+    # plt.xscale('log', base=np.e)
+    # plt.yscale('log', base=np.e)
     
     # Set custom tick labels to show exponents instead of powers of e
     def exp_formatter(x, pos):
@@ -174,27 +172,27 @@ def plot_spin_r():
         else:
             return f'{log_val:.1f}'
     
-    # Apply formatters and set ticks
-    plt.gca().xaxis.set_major_formatter(FuncFormatter(exp_formatter))
-    plt.gca().yaxis.set_major_formatter(FuncFormatter(exp_formatter))
+    # # Apply formatters and set ticks
+    # plt.gca().xaxis.set_major_formatter(FuncFormatter(exp_formatter))
+    # plt.gca().yaxis.set_major_formatter(FuncFormatter(exp_formatter))
 
-    # Add more x and y ticks at regular intervals in log space
-    x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
-    plt.gca().set_xticks(x_ticks)
+    # # Add more x and y ticks at regular intervals in log space
+    # x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
+    # plt.gca().set_xticks(x_ticks)
 
-    plt.xlabel('Distance r (lattice units)', fontsize=14)
-    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+    # plt.xlabel('Distance r (lattice units)', fontsize=14)
+    # plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
 
-    plt.legend(fontsize=10, ncol=2)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    # plt.legend(fontsize=10)
+    # plt.grid(True, alpha=0.3)
+    # plt.tight_layout()
 
-    # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
-    os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
-    plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    print(f"Log-log figure saved at: {file_path}")
+    # # Save the plot (log-log axes)
+    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_original")
+    # os.makedirs(save_dir, exist_ok=True)
+    # file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
+    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    # print(f"Log-log figure saved at: {file_path}")
 
 
     plt.show()
