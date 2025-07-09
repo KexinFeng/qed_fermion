@@ -167,8 +167,8 @@ def plot_spin_r():
         
         dbstop = 1
         
-        plt.xscale('log')
-        plt.yscale('log')
+    # plt.xscale('log')
+    # plt.yscale('log')
 
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
@@ -184,6 +184,13 @@ def plot_spin_r():
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Raw values figure saved at: {file_path}")
 
+    plt.xscale('log')
+    plt.yscale('log')
+
+    # Save the plot (log-log axes)
+    file_path_log = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
+    plt.savefig(file_path_log, format="pdf", bbox_inches="tight")
+    print(f"Log-log figure saved at: {file_path_log}")
 
     plt.show()
 

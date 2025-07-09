@@ -135,6 +135,22 @@ def plot_spin_r():
     # Plot the r_l20 and corr_l20 data on the same plot for comparison
     plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
 
+
+    # Linear axes
+    plt.xlabel('Distance r (lattice units)', fontsize=14)
+    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+
+    plt.legend(fontsize=10)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    # Save the plot (linear axes)
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Raw values figure saved at: {file_path}")
+
     # Set log scales first
     plt.xscale('log', base=np.e)
     plt.yscale('log', base=np.e)
@@ -164,13 +180,13 @@ def plot_spin_r():
     plt.legend(fontsize=10)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    
-    # Save the plot (linear axes)
+
+    # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, "./figures/spin_r_fit")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    print(f"Raw values figure saved at: {file_path}")
+    print(f"Log-log figure saved at: {file_path}")
 
 
     plt.show()
