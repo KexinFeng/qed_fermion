@@ -159,7 +159,12 @@ class StochaticEstimator:
         """Reorder the last two axes of a tensor from FFT-style to ascending momentum order."""
         Ny, Nx = tensor2d.shape[dims[0]], tensor2d.shape[dims[1]]
         return torch.roll(tensor2d, shifts=(Ny // 2, Nx // 2), dims=dims)
-
+    
+    @staticmethod
+    def reorder_fft_grid2_inverse(tensor2d, dims=(-2, -1)):
+        """Reverse the effect of reorder_fft_grid2, restoring FFT-style order."""
+        Ny, Nx = tensor2d.shape[dims[0]], tensor2d.shape[dims[1]]
+        return torch.roll(tensor2d, shifts=(-Ny // 2, -Nx // 2), dims=dims)
 
     def test_orthogonality(self, rand_vec):
         """
