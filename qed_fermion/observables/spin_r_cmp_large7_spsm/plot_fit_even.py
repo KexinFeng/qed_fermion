@@ -43,7 +43,7 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze
     lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [8, 10]
      
     # Sampling parameters
     start = 6000  # Skip initial equilibration steps
@@ -99,7 +99,7 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(0, Lx // 2, 2):
+        for r in range(0, Lx // 2 + 1, 2):
             x = r
             y = 0  
             

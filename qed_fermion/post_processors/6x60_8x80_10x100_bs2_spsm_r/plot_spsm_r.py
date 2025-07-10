@@ -33,8 +33,12 @@ from load_write2file_convert import time_execution
 # start_dqmc = 5000
 # end_dqmc = 10000
 
-start_dist = 1
-step_dist = 2
+start_dist = 0
+step_dist = 1
+
+# Only use r > 0 for log-log fit to avoid log(0)
+lw = 1 if start_dist == 0 else 0
+up = 10
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
@@ -115,9 +119,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     spin_corr_errors = []
 
     # Simplified: plot spin correlation along x-direction only (y=0)
-    for r in range(start_dist, Lx // 2, step_dist):
+    for r in range(start_dist, Lx // 2 + 1, step_dist):
         x = r
-        y = 0  
+        y = r  
         
         r_values.append(r)
         spin_corr_values.append(spin_r[y, x])
@@ -125,8 +129,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
     color = f"C{color_idx}"
     # Only use r > 0 for log-log fit to avoid log(0)
-    lw = 1
-    up = 4
+    # lw = 1 if start_dist == 0 else 0
+    # up = 8
     r_fit = np.array(r_values[lw: up])
     spin_corr_fit = np.array(spin_corr_values[lw: up])
     # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
@@ -161,9 +165,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     spin_corr_errors = []
 
     # Simplified: plot spin correlation along x-direction only (y=0)
-    for r in range(start_dist, Lx // 2, step_dist):
+    for r in range(start_dist, Lx // 2 + 1, step_dist):
         x = r
-        y = 0  
+        y = r  
         
         r_values.append(r)
         spin_corr_values.append(spin_r[y, x])
@@ -171,8 +175,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
     color = f"C{color_idx + 1}"
     # Only use r > 0 for log-log fit to avoid log(0)
-    lw = 1
-    up = 8
+    # lw = 1 if start_dist == 0 else 0
+    # up = 8
     r_fit = np.array(r_values[lw: up])
     spin_corr_fit = np.array(spin_corr_values[lw: up])
     # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
@@ -205,7 +209,7 @@ if __name__ == '__main__':
     batch_size = 2
 
     plt.figure(figsize=(8, 6))
-    for idx, Lx in enumerate([6, 8, 10]):
+    for idx, Lx in enumerate([8, 10]):
         Ltau = Lx * 10
 
         asym = Ltau / Lx * 0.1

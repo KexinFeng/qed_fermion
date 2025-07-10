@@ -99,7 +99,7 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(0, Lx // 2):
+        for r in range(0, Lx // 2 + 1):
             x = r
             y = r
 
