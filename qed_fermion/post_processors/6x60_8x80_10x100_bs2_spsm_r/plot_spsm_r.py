@@ -98,41 +98,25 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 
 
     # ========== Spin order ========= #
-    # Stack r_afm_values and r_afm_errors to arrays of shape [Js_num, bs]
-    r_afm_values = np.stack(r_afm_values, axis=0)  # shape: [Js_num, bs]
-    r_afm_errors = np.stack(r_afm_errors, axis=0)  # shape: [Js_num, bs]
+    # plt.errorbar(Js, spin_order_values, yerr=spin_order_errors, 
+    #             linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
+    
+    # Stack spin_order_values and spin_order_errors to arrays of shape [Js_num, bs]
+    spin_order_values = np.stack(spin_order_values, axis=0)  # shape: [Js_num, bs]
+    spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
+
+    # Filter out outliers in spin_order_values (values > 100)
+    spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
 
     # Plot the batch mean
-    plt.errorbar(Js, r_afm_values[:, 1], yerr=r_afm_errors[:, 1],
+    plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
                  linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
-    
-    # Load dqmc and plot
-    dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_coratio.dat"
+
+    # ---- Load dqmc and plot ----
+    dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     data = np.genfromtxt(dqmc_filename)
-    plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
+    plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
                  fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
-    
-    # # ----
-
-    # # plt.errorbar(Js, spin_order_values, yerr=spin_order_errors, 
-    # #             linestyle='-', marker='o', lw=2, color='blue', label='hmc_spin_order')
-    
-    # # Stack spin_order_values and spin_order_errors to arrays of shape [Js_num, bs]
-    # spin_order_values = np.stack(spin_order_values, axis=0)  # shape: [Js_num, bs]
-    # spin_order_errors = np.stack(spin_order_errors, axis=0)  # shape: [Js_num, bs]
-
-    # # Filter out outliers in spin_order_values (values > 100)
-    # spin_order_values = np.where(spin_order_values > 20, np.nan, spin_order_values)
-
-    # # Plot the batch mean
-    # plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
-    #              linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
-
-    # # ---- Load dqmc and plot ----
-    # dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    # data = np.genfromtxt(dqmc_filename)
-    # plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-    #              fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
 
 
 if __name__ == '__main__':
@@ -156,7 +140,7 @@ if __name__ == '__main__':
 
     # Plot setting
     plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('afm', fontsize=14)
+    plt.ylabel('S_AF / Ns', fontsize=14)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
@@ -164,7 +148,7 @@ if __name__ == '__main__':
     plt.show(block=False)
     # Save plot
     method_name = "spin_order"
-    save_dir = os.path.join(script_path, f"./figures/afm")
+    save_dir = os.path.join(script_path, f"./figures/spin_order")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
