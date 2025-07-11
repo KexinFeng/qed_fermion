@@ -33,12 +33,24 @@ from load_write2file_convert import time_execution
 # start_dqmc = 5000
 # end_dqmc = 10000
 
-start_dist = 0
-step_dist = 1
+start_dist = 1
+step_dist = 2 
+y_diplacement = lambda x: 0
 
 # Only use r > 0 for log-log fit to avoid log(0)
 lw = 1 if start_dist == 0 else 0
 up = 10
+
+suffix = None
+if start_dist == 1 and step_dist == 2:
+    suffix = "odd"
+elif start_dist == 0 and step_dist == 2:
+    suffix = "even"
+else:
+    if y_diplacement(1) == 0:
+        suffix = "all"
+    else:
+        suffix = "diag"
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
@@ -53,6 +65,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     spin_order_values = []
     spin_order_errors = []
     spin_r_values = []
+    spin_r_errors = []
 
     vs = Lx**2
     
@@ -99,7 +112,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
         spin_order_errors.append(spin_order_err)
         
         spin_r = np.mean(szsz_r, axis=(0, 1))
+        spin_r_err = np.std(szsz_r, axis=(0, 1)) / np.sqrt(np.prod(szsz_r.shape[:2]))  # Standard error
         spin_r_values.append(spin_r)
+        spin_r_errors.append(spin_r_err)
 
         # r_afm = spin_order
         rtol = data[:, :, :, 3] / data[:, :, :, 2]
@@ -114,6 +129,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 
     # --------- Plot spin_r_values --------- #
     spin_r = np.abs(spin_r_values[0]) # [Ly, Lx]
+    spin_r_err = spin_r_errors[0] # [Ly, Lx]
     r_values = []
     spin_corr_values = []
     spin_corr_errors = []
@@ -121,10 +137,11 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # Simplified: plot spin correlation along x-direction only (y=0)
     for r in range(start_dist, Lx // 2 + 1, step_dist):
         x = r
-        y = r  
+        y = y_diplacement(x)
         
         r_values.append(r)
         spin_corr_values.append(spin_r[y, x])
+        spin_corr_errors.append(spin_r_err[y, x])
     
     # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
     color = f"C{color_idx}"
@@ -142,7 +159,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
     # Plot data and fit in log-log space
-    plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=None, 
+    plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                     linestyle='', marker='o', lw=1.5, color=color, 
                     label=f'hmc_{Lx}x{Ltau}', markersize=8, alpha=0.8)
     plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
@@ -167,7 +184,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # Simplified: plot spin correlation along x-direction only (y=0)
     for r in range(start_dist, Lx // 2 + 1, step_dist):
         x = r
-        y = r  
+        y = y_diplacement(x)
         
         r_values.append(r)
         spin_corr_values.append(spin_r[y, x])
