@@ -166,7 +166,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
                 label=f'hmc L={Lx}: y~x^{coeffs[0]:.2f}')
 
 
-    # ---- Load dqmc and plot ----
+    # =========== Load dqmc and plot =========== #
     dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     dqmc_filename = dqmc_folder + f"/l{Lx}b{Lx}js1.0jpi1.0mu0.0nf2_dqmc_bin.dat"
     szsz_k_dqmc = np.genfromtxt(dqmc_filename)
@@ -255,10 +255,10 @@ if __name__ == '__main__':
     
     plt.show(block=False)
     # Save plot
-    method_name = "spin_order_r"
-    save_dir = os.path.join(script_path, f"./figures/spin_order_r")
+    save_dir = os.path.join(script_path, f"./figures/spin_order_r_{suffix}")
     os.makedirs(save_dir, exist_ok=True) 
-    file_path = os.path.join(save_dir, f"{method_name}.pdf")
+    file_name = "spin_order_r"
+    file_path = os.path.join(save_dir, f"{file_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
