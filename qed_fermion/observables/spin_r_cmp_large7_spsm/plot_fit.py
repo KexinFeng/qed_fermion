@@ -159,28 +159,31 @@ def plot_spin_r():
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Raw values figure saved at: {file_path}")
 
-    # Set log scales first
-    plt.xscale('log', base=np.e)
-    plt.yscale('log', base=np.e)
-    
-    # Set custom tick labels to show exponents instead of powers of e
-    def exp_formatter(x, pos):
-        """Format ticks to show exponent of e instead of e^x"""
-        if x <= 0:
-            return '0'
-        log_val = np.log(x)
-        if abs(log_val - round(log_val)) < 0.01:  # Close to integer
-            return f'{int(round(log_val))}'
-        else:
-            return f'{log_val:.1f}'
-    
-    # Apply formatters and set ticks
-    plt.gca().xaxis.set_major_formatter(FuncFormatter(exp_formatter))
-    plt.gca().yaxis.set_major_formatter(FuncFormatter(exp_formatter))
+    plt.xscale('log')
+    plt.yscale('log')
 
-    # Add more x and y ticks at regular intervals in log space
-    x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
-    plt.gca().set_xticks(x_ticks)
+    # # Set log scales first
+    # plt.xscale('log', base=np.e)
+    # plt.yscale('log', base=np.e)
+    
+    # # Set custom tick labels to show exponents instead of powers of e
+    # def exp_formatter(x, pos):
+    #     """Format ticks to show exponent of e instead of e^x"""
+    #     if x <= 0:
+    #         return '0'
+    #     log_val = np.log(x)
+    #     if abs(log_val - round(log_val)) < 0.01:  # Close to integer
+    #         return f'{int(round(log_val))}'
+    #     else:
+    #         return f'{log_val:.1f}'
+    
+    # # Apply formatters and set ticks
+    # plt.gca().xaxis.set_major_formatter(FuncFormatter(exp_formatter))
+    # plt.gca().yaxis.set_major_formatter(FuncFormatter(exp_formatter))
+
+    # # Add more x and y ticks at regular intervals in log space
+    # x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
+    # plt.gca().set_xticks(x_ticks)
 
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)

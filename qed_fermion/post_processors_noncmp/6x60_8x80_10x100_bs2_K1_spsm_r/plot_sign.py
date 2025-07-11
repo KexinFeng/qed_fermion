@@ -17,8 +17,6 @@ sys.path.insert(0, script_path + '/../../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
-from load_write2file_convert import time_execution
-
 # Add partition parameters
 
 # Lx = int(os.getenv("Lx", '6'))
@@ -34,7 +32,6 @@ from load_write2file_convert import time_execution
 
 load_postprcessed_data = False
 
-@time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     Lx, Ly, Ltau = Lsize
 
