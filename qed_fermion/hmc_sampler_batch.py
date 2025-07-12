@@ -309,7 +309,8 @@ class HmcSampler(object):
         self.initialize_geometry()
         self.initialize_specifics()
         # self.initialize_boson_time_slice_random_uniform_matfree()
-        self.initialize_boson_pi_flux_randn_matfree()
+        # self.initialize_boson_pi_flux_randn_matfree()
+        self.initialize_boson_ensemble()
 
     def initialize_specifics(self):      
         self.specifics = f"hmc_{self.Lx}_Ltau_{self.Ltau}_Nstp_{self.N_step}_bs{self.bs}_Jtau_{self.J*self.dtau/self.Nf*4:.2g}_K_{self.K/self.dtau/self.Nf*2:.2g}_dtau_{self.dtau:.2g}_delta_{self.delta_t:.2g}_N_leapfrog_{self.N_leapfrog}_m_{self.m:.2g}_cg_rtol_{self.cg_rtol:.2g}_max_block_idx_{self.max_tau_block_idx}_gear0_steps_{gear0_steps}_dt_deque_max_len_{self.threshold_queue[0].maxlen}_Nrv_{Nrv}_cmp_{compact}"
@@ -964,7 +965,7 @@ class HmcSampler(object):
             file_path = os.path.join(data_folder, file_name)
             if os.path.exists(file_path):
                 boson_loaded = torch.load(file_path)
-                boson = boson_loaded.to(self.boson.device)
+                boson = boson_loaded.to(self.device)
                 bosons.append(boson)
                 print(f"Loaded boson ensemble from {file_path}")
         if bosons:
@@ -3118,7 +3119,7 @@ class HmcSampler(object):
             if i % 500 == 0 and i >= 5000 or i == 10:
                 # Save the boson sequence to file every 500 steps
                 data_folder = script_path + f"/check_points/boson_ensemble/"
-                file_name = f"boson_{self.specifics}_{self.step}"
+                file_name = f"boson_{self.specifics}_{self.step-1}"
                 self.save_to_file(self.boson.cpu(), data_folder, file_name)  
    
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
