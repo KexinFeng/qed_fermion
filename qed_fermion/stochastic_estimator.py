@@ -30,6 +30,9 @@ print(f"precon_on: {precon_on}")
 
 capture_fermion_obsr = False
 
+# Initialize a simple object to hold parameters
+class Params: pass
+
 class StochaticEstimator:
     # This function computes the fermionic green's function, mainly four-point function. The aim is to surrogate the postprocessing of the HMC boson samples. For a given boson, the M(boson) is the determined, so is M_inv aka green's function.
 
@@ -45,6 +48,7 @@ class StochaticEstimator:
         self.hmc_sampler = hmc
         self.Nrv = int(Nrv)
         self.max_iter_se = max_iter_se
+        self.num_inner_loops = 200
 
         self.Lx = hmc.Lx
         self.Ly = hmc.Ly    
@@ -1156,21 +1160,61 @@ class StochaticEstimator:
         # sa, sb, sc, sd = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
         sa, sb, sc, sd = self.indices[:, 0], self.indices[:, 1], self.indices[:, 2], self.indices[:, 3]
         
-        num_samples = self.num_samples(Nrv)
+        total_num_samples = self.num_samples(Nrv)
         # perm = torch.randperm(len(sa), device=eta.device)
 
         # Batch processing to avoid OOM
-        batch_size = min(len(sa), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+        batch_size = min(len(sa), self.batch_size(Nrv))
 
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
-        for start_idx in tqdm(range(0, num_samples, batch_size), desc="  L0 loop", leave=False):
-            end_idx = min(start_idx + batch_size, num_samples)
-            # indices = perm[start_idx:end_idx]
-            sa_batch = sa[start_idx:end_idx]
-            sb_batch = sb[start_idx:end_idx]
-            sc_batch = sc[start_idx:end_idx]
-            sd_batch = sd[start_idx:end_idx]
+        # Tunable parameters
+        inner_batch_size = batch_size  # int(0.1*Nrv)
+        num_inner_loops = self.num_inner_loops # 200
+
+        outer_stride = inner_batch_size * num_inner_loops
+        num_outer_loops = math.ceil(total_num_samples / outer_stride)
+
+        params = Params()
+        params.num_inner_loops = num_inner_loops
+        params.inner_batch_size = inner_batch_size
+        params.total_num_samples = total_num_samples
+        params.Ly = self.Ly
+        params.Lx = self.Lx
+
+        for chunk_idx in range(num_outer_loops):
+            sa_chunk = sa[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+            sb_chunk = sb[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+            sc_chunk = sc[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+            sd_chunk = sd[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
+
+            # if self.cuda_graph_se:
+            diff_G_delta_0_G_delta_0_mean = self.L0_graph_runner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj)
+            # else:
+            diff_G_delta_0_G_delta_0_mean_ref = self.L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, params)
+
+            torch.testing.assert_close(diff_G_delta_0_G_delta_0_mean_ref, G_delta_0_G_delta_0_mean, rtol=1e-5, atol=1e-5)
+
+            G_delta_0_G_delta_0_mean += diff_G_delta_0_G_delta_0_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+
+    @staticmethod
+    def L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, params):
+        num_inner_loops = params.num_inner_loops
+        inner_batch_size = params.inner_batch_size
+        total_num_samples = params.total_num_samples
+
+        G_delta_0_G_delta_0_mean = torch.zeros((params.Ly, params.Lx), dtype=G_eta.dtype, device=G_eta.device)
+
+        for inner_loop in range(num_inner_loops):
+            start_idx = inner_loop * inner_batch_size
+            end_idx = min(start_idx + inner_batch_size, total_num_samples)
+            if start_idx >= total_num_samples: break
+            sa_batch = sa_chunk[start_idx:end_idx]
+            sb_batch = sb_chunk[start_idx:end_idx]
+            sc_batch = sc_chunk[start_idx:end_idx]
+            sd_batch = sd_chunk[start_idx:end_idx]
 
             a = torch.roll(G_eta[sa_batch],     shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[sa_batch],  shifts=0, dims=-1) * \
@@ -1183,14 +1227,13 @@ class StochaticEstimator:
                 torch.roll(eta_conj[sd_batch],  shifts=-1, dims=-1)
 
             # FFT
-            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
-            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
-            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+            a_F_neg_k = torch.fft.ifftn(a, (params.Ly, params.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (params.Ly, params.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (params.Ly, params.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / total_num_samples
 
-        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
-   
+        return G_delta_0_G_delta_0_mean
 
     def G_delta_delta_G_0_0_ext_batch(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
