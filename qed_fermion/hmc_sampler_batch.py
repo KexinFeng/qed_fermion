@@ -951,6 +951,29 @@ class HmcSampler(object):
         self.boson_idx_list_3 = self.i_list_3 * 2
         self.boson_idx_list_4 = self.i_list_4 * 2 + 1
 
+    def initialize_boson_ensemble(self):
+        """
+        Load boson configuration from file saved every 500 steps after step >= 5000.
+        If step or specifics are not provided, use current values.
+        If no ensemble files are found, throw error and degrade to self.initialize_boson_pi_flux_randn_matfree().
+        """
+        data_folder = os.path.join(script_path, "check_points/boson_ensemble/")
+        bosons = []
+        for step in [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
+            file_name = f"boson_{self.specifics}_{step}.pt"
+            file_path = os.path.join(data_folder, file_name)
+            if os.path.exists(file_path):
+                boson_loaded = torch.load(file_path)
+                boson = boson_loaded.to(self.boson.device)
+                bosons.append(boson)
+                print(f"Loaded boson ensemble from {file_path}")
+        if bosons:
+            print(f"Boson ensemble size: {len(bosons)}")
+            self.boson = bosons[torch.randint(len(bosons), (1,)).item()]
+        else:
+            print("No boson ensemble files found. Falling back to initialize_boson_pi_flux_randn_matfree().")
+            self.initialize_boson_pi_flux_randn_matfree()
+
     def initialize_boson_test(self):
         """
         Initialize with zero flux across all imaginary time. This amounts to shift of the gauge field and consider only the deviation from the ground state.
@@ -2828,7 +2851,7 @@ class HmcSampler(object):
         :return: None
         """
         if len(self._MAX_ITERS_TO_CAPTURE) > 1:
-            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
+            self.max_iter = self._MAX_ITERS_TO_CAPTURE[0] if self.cur_step > gear0_steps else self._MAX_ITERS_TO_CAPTURE[1]
         else:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]       
 
@@ -3092,10 +3115,16 @@ class HmcSampler(object):
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)  
 
+            if i % 500 == 0 and i >= 5000:
+                # Save the boson sequence to file every 500 steps
+                data_folder = script_path + f"/check_points/boson_ensemble/"
+                file_name = f"boson_{self.specifics}_{self.step}"
+                self.save_to_file(self.boson.cpu(), data_folder, file_name)  
    
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
+               'cur_step': self.cur_step,
                'G_list': self.G_list,
                'S_plaq_list': self.S_plaq_list,
                'S_tau_list': self.S_tau_list,
@@ -3107,14 +3136,14 @@ class HmcSampler(object):
 
         # Save to file
         data_folder = script_path + f"/check_points/hmc_check_point_{suffix}/"
-        file_name = f"ckpt_N_{self.specifics}_step_{self.N_step}"
+        file_name = f"ckpt_N_{self.specifics}_step_{self.step}"
         self.save_to_file(res, data_folder, file_name)  
 
         if self.Lx <= 10 and buffer:
             # Save stream data
             data_folder = script_path + f"/check_points/hmc_check_point_{suffix}"
-            file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
-            self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)  
+            file_name = f"stream_ckpt_N_{self.specifics}_step_{self.step}"
+            self.save_to_file(self.boson_seq_buffer[:cnt_stream_write].cpu(), data_folder, file_name)
 
         return G_avg, G_std
 
