@@ -28,7 +28,7 @@ max_iter_se = int(os.getenv("max_iter_se", '100'))
 precon_on = int(os.getenv("precon", '1')) == 1
 print(f"precon_on: {precon_on}")
 
-capture_fermion_obsr = False
+capture_fermion_obsr = True
 
 class StochaticEstimator:
     # This function computes the fermionic green's function, mainly four-point function. The aim is to surrogate the postprocessing of the HMC boson samples. For a given boson, the M(boson) is the determined, so is M_inv aka green's function.
@@ -100,7 +100,7 @@ class StochaticEstimator:
             print(f"get_fermion_obsr CUDA graph initialization complete")
             print('')
 
-        if self.cuda_graph_se:
+        if self.cuda_graph_se and False:
             # G_eta_graph_runner
             print("Initializing G_eta_graph_runner.........")
             d_mem_str, d_mem2 = device_mem()
@@ -320,10 +320,10 @@ class StochaticEstimator:
         """
         self.eta = eta  # [Nrv, Ltau * Ly * Lx]
 
-        if self.cuda_graph_se:
-            G_eta = self.G_eta_graph_runner(boson, eta)
-        else:
-            G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
+        # if self.cuda_graph_se:
+        #     G_eta = self.G_eta_graph_runner(boson, eta)
+        # else:
+        G_eta = self.set_eta_G_eta_inner(boson, eta)  # [Nrv, Ltau * Ly * Lx]
 
         # torch.testing.assert_close(G_eta, G_eta_ref, rtol=1e-3, atol=1e-3)
 
