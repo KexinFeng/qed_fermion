@@ -53,13 +53,13 @@ else:
         suffix = "diag"
 
 @time_execution
-def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
+def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     Lx, Ly, Ltau = Lsize
 
     color_idx, color_idx2 = ipair
 
     Js = [1, 1.5, 2, 2.3, 2.5, 3]
-    Js = [1]
+    Js = [J]
     r_afm_values = []
     r_afm_errors = []
     spin_order_values = []
@@ -161,14 +161,14 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # Plot data and fit in log-log space
     plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                     linestyle='', marker='o', lw=1.5, color=color, 
-                    label=f'hmc_{Lx}x{Ltau}_szsz', markersize=8, alpha=0.8)
+                    label=f'hmc_{Lx}x{Ltau}_szsz_J{J}', markersize=8, alpha=0.8)
     plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                 label=f'hmc L={Lx}: y~x^{coeffs[0]:.2f}')
 
 
     # =========== Load dqmc and plot =========== #
     dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
-    dqmc_filename = dqmc_folder + f"/l{Lx}b{Lx}js1.0jpi1.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_filename = dqmc_folder + f"/l{Lx}b{Lx}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
     szsz_k_dqmc = np.genfromtxt(dqmc_filename)
     szsz_k_dqmc = torch.tensor(szsz_k_dqmc[:, 2]).view(Ly+1, Lx+1)
     szsz_k_dqmc = szsz_k_dqmc[:-1, :-1] 
@@ -207,7 +207,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     # Plot data and fit in log-log space
     plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=None, 
                     linestyle='', marker='o', lw=1.5, color=color, 
-                    label=f'dqmc_{Lx}x{Ltau}_szsz', markersize=8, alpha=0.8)
+                    label=f'dqmc_{Lx}x{Ltau}_szsz_J{J}', markersize=8, alpha=0.8)
     plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                 label=f'dqmc L={Lx}: y~x^{coeffs[0]:.2f}')
     
@@ -224,43 +224,43 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 
 if __name__ == '__main__':
     batch_size = 2
+    for J in [1, 1.5, 2, 2.3, 2.5, 3]:
+        plt.figure(figsize=(8, 6))
+        for idx, Lx in enumerate([8, 10]):
+            Ltau = Lx * 10
 
-    plt.figure(figsize=(8, 6))
-    for idx, Lx in enumerate([8, 10]):
-        Ltau = Lx * 10
+            asym = Ltau / Lx * 0.1
 
-        asym = Ltau / Lx * 0.1
+            part_size = 500
+            start_dqmc = 5000
+            end_dqmc = 10000
 
-        part_size = 500
-        start_dqmc = 5000
-        end_dqmc = 10000
+            root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
+            dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
+            dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b1l_kexin_hk/sq_szsz"
 
-        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
-        dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
-        dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b1l_kexin_hk/sq_szsz"
+            plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1), J=J)
+            dbstop = 1
 
-        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1))
-        dbstop = 1
-
-    # # Plot setting
-    plt.xlabel('Distance r (lattice units)', fontsize=14)
-    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
-    plt.legend(fontsize=10, ncol=2)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    
-    # Set log scales first
-    plt.xscale('log')
-    plt.yscale('log')
-    
-    plt.show(block=False)
-    # Save plot
-    save_dir = os.path.join(script_path, f"./figures/spin_order_r_{suffix}")
-    os.makedirs(save_dir, exist_ok=True) 
-    file_name = "spin_order_r"
-    file_path = os.path.join(save_dir, f"{file_name}.pdf")
-    plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    print(f"Figure saved at: {file_path}")
+        # # Plot setting
+        plt.xlabel('Distance r (lattice units)', fontsize=14)
+        plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+        plt.legend(fontsize=10, ncol=2)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Set log scales first
+        plt.xscale('log')
+        plt.yscale('log')
+        
+        plt.show(block=False)
+        # Save plot
+        save_dir = os.path.join(script_path, f"./figures/spin_order_r_{suffix}_J{J}")
+        os.makedirs(save_dir, exist_ok=True) 
+        file_name = "spin_order_r"
+        file_path = os.path.join(save_dir, f"{file_name}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
 
 
 
