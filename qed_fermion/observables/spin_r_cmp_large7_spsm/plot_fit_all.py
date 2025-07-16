@@ -152,7 +152,7 @@ def plot_spin_r():
     plt.tight_layout()
     
     # # Save the plot (linear axes)
-    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_even&odd")
+    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_all")
     # os.makedirs(save_dir, exist_ok=True)
     # file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
     # plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -189,7 +189,7 @@ def plot_spin_r():
     plt.tight_layout()
 
     # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_even&odd")
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit_all")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")

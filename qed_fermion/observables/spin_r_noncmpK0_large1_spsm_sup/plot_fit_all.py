@@ -43,7 +43,7 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze
     lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
      
     # Sampling parameters
     start = 6000  # Skip initial equilibration steps
@@ -146,8 +146,16 @@ def plot_spin_r():
         dbstop = 1
     
     # Plot the r_l20 and corr_l20 data on the same plot for comparison
-    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+    plt.plot(r_l20, corr_l20, 's', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+    # Linear fit for r_l20 and corr_l20 in log-log space
+    log_r_l20 = np.log(r_l20)
+    log_corr_l20 = np.log(corr_l20)
+    coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15]])
+    fit_line_l20 = np.exp(coeffs_l20[1] - 1) * r_l20_aug**coeffs_l20[0]
 
+    # Plot the fit line for L20 data
+    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=2, alpha=0.7, label=f'L20 fit: y~x^{coeffs_l20[0]:.2f}')
 
     # Linear axes
     plt.xlabel('Distance r (lattice units)', fontsize=14)
@@ -158,7 +166,7 @@ def plot_spin_r():
     plt.tight_layout()
     
     # # Save the plot (linear axes)
-    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_even&odd")
+    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_all")
     # os.makedirs(save_dir, exist_ok=True)
     # file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
     # plt.savefig(file_path, format="pdf", bbox_inches="tight")
@@ -195,7 +203,7 @@ def plot_spin_r():
     plt.tight_layout()
 
     # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_even&odd")
+    save_dir = os.path.join(script_path, "./figures/spin_r_fit_all")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
