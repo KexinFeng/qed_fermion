@@ -33,12 +33,12 @@ from qed_fermion.stochastic_estimator import StochaticEstimator
 # end_dqmc = 10000
 
 start_dist = 1
-step_dist = 2 
+step_dist = 1
 y_diplacement = lambda x: 0
 
 # Only use r > 0 for log-log fit to avoid log(0)
-lw = 1 if start_dist == 0 else 0
-up = 10
+lw = 0 if start_dist == 1 else 1
+up = 3
 
 suffix = None
 if start_dist == 1 and step_dist == 2:
@@ -57,7 +57,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     color_idx, color_idx2 = ipair
 
     Js = [1, 1.5, 2, 2.3, 2.5, 3]
-    # Js = [1]
     Js = [J]
 
     vs = Lx**2
@@ -78,12 +77,12 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     spin_corr_errors = []
 
     # Simplified: plot spin correlation along x-direction only (y=0)
-    for r in range(start_dist, Lx // 2 + 1, step_dist):
+    for r in range(start_dist, Lx, step_dist):
         x = r
         y = y_diplacement(x)
         
         r_values.append(r)
-        spin_corr_values.append(spin_r[y, x])
+        spin_corr_values.append(spin_r[y, x] * 2 / vs)
     
     # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
     color = f"C{color_idx + 1}"
@@ -103,7 +102,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     # Plot data and fit in log-log space
     plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=None, 
                     linestyle='', marker='o', lw=1.5, color=color, 
-                    label=f'dqmc_{Lx}x{Ltau}_szsz_J{J}', markersize=8, alpha=0.8)
+                    label=f'dqmc_{Lx}x{Ltau}_J{J}', markersize=8, alpha=0.8)
     plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
                 label=f'dqmc L={Lx}: y~x^{coeffs[0]:.2f}')
 
@@ -135,7 +134,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     spin_corr_errors = []
 
     # Simplified: plot spin correlation along x-direction only (y=0)
-    for r in range(start_dist, Lx // 2 + 1, step_dist):
+    for r in range(start_dist, Lx, step_dist):
         x = r
         y = y_diplacement(x)
         
@@ -180,8 +179,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
 if __name__ == '__main__':
     batch_size = 2
     
-    for J in [1, 1.5, 2, 2.3, 2.5, 3]:
-
+    # for J in [1, 1.5, 2, 2.3, 2.5, 3]:
+    for J in [1]:
         plt.figure(figsize=(8, 6))
         for idx, Lx in enumerate([8, 10]):
             Ltau = Lx * 10
