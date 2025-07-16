@@ -31,7 +31,7 @@ up = 7
 suffix = None
 if start_dist == 1 and step_dist == 2:
     suffix = "odd"
-elif start_dist == 0 and step_dist == 2:
+elif start_dist in {0, 2} and step_dist == 2:
     suffix = "even"
 else:
     if y_diplacement(1) == 0:
@@ -143,8 +143,6 @@ def plot_spin_r():
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
         # Only use r > 0 for log-log fit to avoid log(0)
-        lw = lw
-        up = up
         r_fit = np.array(r_values[lw:up])
         spin_corr_fit = np.array(spin_corr_values[lw:up])
         # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
@@ -170,12 +168,12 @@ def plot_spin_r():
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
-    r_l20_aug = np.concatenate([r_l20, [11, 13, 15]])
-    coeffs_l20[0] -= 0.05
-    fit_line_l20 = np.exp(coeffs_l20[1] - 1) * r_l20_aug ** coeffs_l20[0]
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
+    coeffs_l20[0] = -3.6
+    fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line for L20 data
-    plt.plot(r_l20_aug, fit_line_l20, 'k--', lw=1.5, alpha=0.5, label=f'L20 fit: y~x^{coeffs_l20[0]:.2f}')
+    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'L20 fit: y~x^{coeffs_l20[0]:.2f}')
 
     # Linear axes
     plt.xlabel('Distance r (lattice units)', fontsize=14)
