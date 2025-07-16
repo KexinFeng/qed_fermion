@@ -116,54 +116,56 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
 
     plt.errorbar(Js, DD_k0 / vs, yerr=DD_k0_err / vs, 
                  fmt='o', color=f'C{i3}', linestyle='-', label=f'inv_{Lx}x{Ltau}')
-    
+    plt.ylim([0, None])
+
 
 
 if __name__ == '__main__':
     batch_size = 2
-    Nrv = 140
-    mxitr = 400
+    Nrv = 40
+    for Nrv in [30, 26, 20, 16, 14, 10]:
+        mxitr = 400
 
-    if Nrv > 100:
-        sizes = [6, 8]
-    else:
-        sizes = [6, 8, 10]
+        if Nrv > 100:
+            sizes = [6, 8]
+        else:
+            sizes = [6, 8, 10]
 
-    batch_id = 1
-    plot_dqmc_postprocessing = True
+        batch_id = 1
+        plot_dqmc_postprocessing = False
 
-    plt.figure(figsize=(8, 6))
-    for idx, Lx in enumerate(sizes):
-        Ltau = Lx * 10
+        plt.figure(figsize=(8, 6))
+        for idx, Lx in enumerate(sizes):
+            Ltau = Lx * 10
 
-        asym = Ltau / Lx * 0.1
+            asym = Ltau / Lx * 0.1
 
-        part_size = 500
-        start_dqmc = 5000
-        end_dqmc = 10000
-        start = -10
+            part_size = 500
+            start_dqmc = 5000
+            end_dqmc = 10000
+            start = -10
 
-        root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
-        # dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
+            root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}/"
+            # dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
 
-        plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=3*idx)
-        dbstop = 1
+            plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=3*idx)
+            dbstop = 1
 
-    # Plot setting
-    plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('DD_k=M', fontsize=14)
-    # plt.title(f'dimer_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    
-    plt.show(block=False)
-    # Save plot
-    method_name = "dimer_order"
-    save_dir = os.path.join(script_path, f"./figures_start{start}/dimer_order")
-    os.makedirs(save_dir, exist_ok=True) 
-    file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
-    plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    print(f"Figure saved at: {file_path}")
+        # Plot setting
+        plt.xlabel('J/t', fontsize=14)
+        plt.ylabel('DD_k=M', fontsize=14)
+        # plt.title(f'dimer_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        
+        plt.show(block=False)
+        # Save plot
+        method_name = "dimer_order"
+        save_dir = os.path.join(script_path, f"./figures_start{start}/dimer_order")
+        os.makedirs(save_dir, exist_ok=True) 
+        file_path = os.path.join(save_dir, f"{method_name}_Nrv{Nrv}_mxitr{mxitr}.pdf")
+        plt.savefig(file_path, format="pdf", bbox_inches="tight")
+        print(f"Figure saved at: {file_path}")
 
 
 
