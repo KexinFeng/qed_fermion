@@ -82,11 +82,14 @@ def plot_spin_r():
         if Lx <= 40:
             hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
         elif Lx == 46:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_40_cmp_False_step_10000.pt"
+            Nrv = 40
+            bs = 2
+            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs{bs}_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_{Nrv}_cmp_False_step_10000.pt"
         elif Lx == 56:
             hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_10000.pt"
         elif Lx == 60:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_6800_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_6800.pt"
+            Nstp = 6800
+            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{Nstp}_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_{Nstp}.pt"
 
         hmc_filename = os.path.join(hmc_folder, hmc_file)
         
