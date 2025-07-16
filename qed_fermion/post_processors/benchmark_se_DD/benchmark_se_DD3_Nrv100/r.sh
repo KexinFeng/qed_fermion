@@ -1,6 +1,7 @@
 cd "$(dirname "$0")"
 
 Nrv_array=$(echo '40 80 100 140 200')
+Nrv_array=$(echo '10 14 16 20 26 30')
 L_array=$(echo '6 8 10')  # 10 h (-2)
 
 export debug=0
