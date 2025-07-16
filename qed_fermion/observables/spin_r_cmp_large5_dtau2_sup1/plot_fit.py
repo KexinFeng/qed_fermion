@@ -90,7 +90,7 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(1, Lx // 2 + 1, 2):
+        for r in range(1, Lx, 2):
             x = r
             y = 0  
             
@@ -131,8 +131,8 @@ def plot_spin_r():
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                      linestyle='', marker='o', lw=1.5, color=color, 
                      label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
-        plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                 label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
+        # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
+        #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
 
         # # Semi-log fit: fit log_corr vs r (i.e., log-linear fit)
         # coeffs_semilog = np.polyfit(r_fit, log_corr, 1)

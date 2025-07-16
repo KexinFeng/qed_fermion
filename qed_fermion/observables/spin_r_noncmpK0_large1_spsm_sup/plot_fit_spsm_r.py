@@ -20,6 +20,26 @@ from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import LogLocator
 
 
+start_dist = 1
+step_dist = 2 
+y_diplacement = lambda x: 0
+
+# Only use r > 0 for log-log fit to avoid log(0)
+lw = 3 if start_dist == 0 else 0
+up = 7
+
+suffix = None
+if start_dist == 1 and step_dist == 2:
+    suffix = "odd"
+elif start_dist == 0 and step_dist == 2:
+    suffix = "even"
+else:
+    if y_diplacement(1) == 0:
+        suffix = "all"
+    else:
+        suffix = "diag"
+
+# Data
 loge_r_l20 = np.array([-0.000672932415154438,
 1.1003491771532000,
 1.6095347046200500,
@@ -102,13 +122,13 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(1, Lx, 2):
+        for r in range(start_dist, Lx, step_dist):
             x = r
-            y = 0  
+            y = y_diplacement(x) 
             
             r_values.append(r)
-            val = 1/2 * (spsm_r_np_abs[y, x] + spsm_r_np_abs[y, Lx - x])
-            err = 1/2 * (spsm_r_avg_std_np[y, x] + spsm_r_avg_std_np[y, Lx - x] + spsm_r_avg_std_np[x, y] + spsm_r_avg_std_np[Lx - x, y])
+            val = 1/2 * (spsm_r_np_abs[y, x] + spsm_r_np_abs[y, Lx - x]) if y != x else spsm_r_np_abs[y, x]
+            err = 1/2 * (spsm_r_avg_std_np[y, x] + spsm_r_avg_std_np[y, Lx - x]) if y != x else spsm_r_avg_std_np[y, x] 
             spin_corr_values.append(val)
             spin_corr_errors.append(err / np.sqrt(len(seq_idx) * bs))
 
@@ -123,8 +143,8 @@ def plot_spin_r():
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
         color = f"C{i}"
         # Only use r > 0 for log-log fit to avoid log(0)
-        lw = 3
-        up = 7
+        lw = lw
+        up = up
         r_fit = np.array(r_values[lw:up])
         spin_corr_fit = np.array(spin_corr_values[lw:up])
         # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
@@ -210,7 +230,7 @@ def plot_spin_r():
     plt.ylim(1e-6, None)
 
     # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
+    save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
