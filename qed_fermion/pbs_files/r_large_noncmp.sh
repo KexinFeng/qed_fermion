@@ -16,14 +16,17 @@ cd "$(dirname "$0")"
 # L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
 # J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
-# J_array=$(echo '1.25')
-J_array=$(echo '1.0')
+J_array=$(echo '1.25')
+# J_array=$(echo '1.0')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
-L_array=$(echo '46 40 36 30 20 16 12 10 8 6')
-# L_array=$(echo '50') # 60 56 cuda kernel launch failure
-L_array=$(echo '56 50') 
-L_array=$(echo '60 66') 
+
+# L_array=$(echo '46 40 36 30 20 16 12 10 8 6')
+# L_array=$(echo '56 50') 
+# L_array=$(echo '60 66') 
+L_array=$(echo '36 30 20 16 12 10 8 6')
+L_array=$(echo '46 40')
+L_array=$(echo '50')
 
 # L_array=$(echo '24 20 16 12 10 8 6')
 
@@ -31,13 +34,13 @@ L_array=$(echo '60 66')
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=6800
+Nstep=6600
 export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large2_spsm_J1
-export asym=1
+export suffix=noncmpK0_large3_spsm_asym15
+export asym=1.5
 export compact=0
 export K=0
 export dtau=0.1
