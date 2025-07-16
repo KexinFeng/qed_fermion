@@ -169,8 +169,10 @@ def plot_spin_r():
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
     r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
-    coeffs_l20[0] = -3.6
-    fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
+    # coeffs_l20[0] = -3.6
+    # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
+    coeffs_l20[0] = -3.3
+    fit_line_l20 = np.exp(coeffs_l20[1] - 0.6) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line for L20 data
     plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'L20 fit: y~x^{coeffs_l20[0]:.2f}')
