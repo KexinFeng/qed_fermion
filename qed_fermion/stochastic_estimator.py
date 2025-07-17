@@ -7,8 +7,9 @@ from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
+import torch.nn.functional as F
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
@@ -65,6 +66,7 @@ class StochaticEstimator:
         self.graph_memory_pool = hmc.graph_memory_pool        
         self.graph_runner = FermionObsrGraphRunner(self)
         self.G_eta_graph_runner = GEtaGraphRunner(self)
+        self.L0_graph_runner = L0GraphRunner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
@@ -80,6 +82,23 @@ class StochaticEstimator:
         # Cache
         self.GD0_G0D = None
         self.GD0 = None
+
+    def initialize(self):
+        # Tunable parameters
+        # Batch processing to avoid OOM
+        batch_size = self.batch_size(Nrv)
+        inner_batch_size = batch_size  # int(0.1*Nrv)
+        num_inner_loops = self.num_inner_loops # 200
+        outer_stride = inner_batch_size * num_inner_loops
+
+        params = Params()
+        params.num_inner_loops = num_inner_loops
+        params.inner_batch_size = inner_batch_size
+        params.total_num_samples = self.num_samples(Nrv)
+        params.outer_stride = outer_stride
+        params.Ly = self.Ly
+        params.Lx = self.Lx
+        self.params = params
 
     def init_cuda_graph(self):
         hmc = self.hmc_sampler
@@ -113,6 +132,16 @@ class StochaticEstimator:
                 max_iter_se=hmc._MAX_ITERS_TO_CAPTURE[0],
                 graph_memory_pool=self.graph_memory_pool)
             print(f"G_eta_graph_runner initialization complete")
+            print('')
+
+            # L0_graph_runner
+            print("Initializing L0_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init L0_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.L0_graph_runner.capture(
+                params=self.params,
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"L0_graph_runner initialization complete")
             print('')
 
 
@@ -1163,24 +1192,18 @@ class StochaticEstimator:
         total_num_samples = self.num_samples(Nrv)
         # perm = torch.randperm(len(sa), device=eta.device)
 
-        # Batch processing to avoid OOM
-        batch_size = min(len(sa), self.batch_size(Nrv))
-
         G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
 
-        # Tunable parameters
-        inner_batch_size = batch_size  # int(0.1*Nrv)
-        num_inner_loops = self.num_inner_loops # 200
+        # # Batch processing to avoid OOM
+        # batch_size = min(len(sa), self.batch_size(Nrv))
+        # # Tunable parameters
+        # inner_batch_size = batch_size  # int(0.1*Nrv)
+        # num_inner_loops = self.num_inner_loops # 200
 
-        outer_stride = inner_batch_size * num_inner_loops
+        # outer_stride = inner_batch_size * num_inner_loops
+
+        outer_stride = self.params.outer_stride
         num_outer_loops = math.ceil(total_num_samples / outer_stride)
-
-        params = Params()
-        params.num_inner_loops = num_inner_loops
-        params.inner_batch_size = inner_batch_size
-        params.total_num_samples = total_num_samples
-        params.Ly = self.Ly
-        params.Lx = self.Lx
 
         for chunk_idx in range(num_outer_loops):
             sa_chunk = sa[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
@@ -1188,12 +1211,20 @@ class StochaticEstimator:
             sc_chunk = sc[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
             sd_chunk = sd[chunk_idx * outer_stride: (chunk_idx + 1) * outer_stride]
 
-            # if self.cuda_graph_se:
-            diff_G_delta_0_G_delta_0_mean = self.L0_graph_runner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj)
-            # else:
-            diff_G_delta_0_G_delta_0_mean_ref = self.L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, params)
+            # Pad sa_chunk, sb_chunk, sc_chunk, sd_chunk if they are shorter than outer_stride
+            if len(sa_chunk) < outer_stride:
+                padding_length = outer_stride - len(sa_chunk)
+                sa_chunk = F.pad(sa_chunk, (0, padding_length), value=0)
+                sb_chunk = F.pad(sb_chunk, (0, padding_length), value=0)
+                sc_chunk = F.pad(sc_chunk, (0, padding_length), value=0)
+                sd_chunk = F.pad(sd_chunk, (0, padding_length), value=0)
 
-            torch.testing.assert_close(diff_G_delta_0_G_delta_0_mean_ref, G_delta_0_G_delta_0_mean, rtol=1e-5, atol=1e-5)
+            if self.cuda_graph_se:
+                diff_G_delta_0_G_delta_0_mean = self.L0_graph_runner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj)
+            else:
+                diff_G_delta_0_G_delta_0_mean = self.L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, self.params)
+
+            # torch.testing.assert_close(diff_G_delta_0_G_delta_0_mean_ref, diff_G_delta_0_G_delta_0_mean, rtol=1e-5, atol=1e-5)
 
             G_delta_0_G_delta_0_mean += diff_G_delta_0_G_delta_0_mean
 
@@ -1201,16 +1232,17 @@ class StochaticEstimator:
 
     @staticmethod
     def L0_inner(sa_chunk, sb_chunk, sc_chunk, sd_chunk, G_eta, eta_conj, params):
+        # TODO: a mask is needed when sa_chunk etc are padded.
         num_inner_loops = params.num_inner_loops
         inner_batch_size = params.inner_batch_size
-        total_num_samples = params.total_num_samples
+        outer_stride = params.outer_stride
 
         G_delta_0_G_delta_0_mean = torch.zeros((params.Ly, params.Lx), dtype=G_eta.dtype, device=G_eta.device)
 
         for inner_loop in range(num_inner_loops):
             start_idx = inner_loop * inner_batch_size
-            end_idx = min(start_idx + inner_batch_size, total_num_samples)
-            if start_idx >= total_num_samples: break
+            end_idx = min(start_idx + inner_batch_size, outer_stride)
+            # if start_idx >= outer_stride: break
             sa_batch = sa_chunk[start_idx:end_idx]
             sb_batch = sb_chunk[start_idx:end_idx]
             sc_batch = sc_chunk[start_idx:end_idx]
@@ -1231,7 +1263,7 @@ class StochaticEstimator:
             b_F = torch.fft.fftn(b, (params.Ly, params.Lx), norm="forward")
             batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (params.Ly, params.Lx), norm="forward")
 
-            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / total_num_samples
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / params.total_num_samples
 
         return G_delta_0_G_delta_0_mean
 
@@ -2040,7 +2072,7 @@ class StochaticEstimator:
         return 0.5 * szsz
 
     @torch.inference_mode()
-    def get_fermion_obsr(self, bosons, eta, indices, indices_r2):
+    def get_fermion_obsr(self, bosons, eta):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2051,15 +2083,15 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
-        self.indices = indices
-        self.indices_r2 = indices_r2
+        # self.indices = indices
+        # self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_spsm_per_b())
+            # obsr.update(self.get_spsm_per_b())
             obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
@@ -2073,7 +2105,7 @@ class StochaticEstimator:
         return consolidated_obsr
     
     @torch.inference_mode()
-    def get_fermion_obsr_compile(self, bosons, eta, indices, indices_r2):
+    def get_fermion_obsr_compile(self, bosons, eta):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2084,8 +2116,8 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
-        self.indices = indices
-        self.indices_r2 = indices_r2
+        # self.indices = indices
+        # self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 
