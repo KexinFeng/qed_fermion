@@ -353,7 +353,7 @@ class SpsmGraphRunner:
     def __call__(
         self,
         eta,    # [Nrv, Ltau * Ly * Lx]
-        G_eta       # [Nrv, Ltau * Ly * Lx]
+        G_eta   # [Nrv, Ltau * Ly * Lx]
     ):
         """Execute the captured graph with the given inputs."""
         self.input_buffers['G_eta'].copy_(G_eta)
