@@ -7,8 +7,6 @@ rcParams['figure.raise_window'] = False
 
 
 
-Lx = 4
-Ltau = 40
 debug = True
 
 def get_precon_man():

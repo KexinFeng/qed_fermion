@@ -166,7 +166,7 @@ def plot_spin_r():
         dbstop = 1
     
     # Plot the r_l20 and corr_l20 data on the same plot for comparison
-    plt.plot(r_l20, corr_l20, 's', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+    # plt.plot(r_l20, corr_l20, 's', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
     # Linear fit for r_l20 and corr_l20 in log-log space
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
@@ -175,10 +175,10 @@ def plot_spin_r():
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
     coeffs_l20[0] = -3.3
-    fit_line_l20 = np.exp(coeffs_l20[1] - 0.6) * r_l20_aug ** coeffs_l20[0]
+    fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line for L20 data
-    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'L20 fit: y~x^{coeffs_l20[0]:.2f}')
+    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'y~x^{coeffs_l20[0]:.2f}')
 
     # Linear axes
     plt.xlabel('Distance r (lattice units)', fontsize=14)
@@ -229,13 +229,13 @@ def plot_spin_r():
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
-    # Set y-axis lower limit to 1e-6
-    plt.ylim(1e-6, None)
+    # Set y-axis lower limit to 1e-7
+    plt.ylim(1e-7, None)
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK0.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 

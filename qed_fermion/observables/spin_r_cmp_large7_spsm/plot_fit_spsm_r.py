@@ -19,7 +19,26 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import LogLocator
 
+start_dist = 1
+step_dist = 2 
+y_diplacement = lambda x: 0
 
+# Only use r > 0 for log-log fit to avoid log(0)
+lw = 3 if start_dist == 0 else 0
+up = 7
+
+suffix = None
+if start_dist == 1 and step_dist == 2:
+    suffix = "odd"
+elif start_dist in {0, 2} and step_dist == 2:
+    suffix = "even"
+else:
+    if y_diplacement(1) == 0:
+        suffix = "all"
+    else:
+        suffix = "diag"
+
+# Data
 loge_r_l20 = np.array([-0.000672932415154438,
 1.1003491771532000,
 1.6095347046200500,
@@ -100,13 +119,15 @@ def plot_spin_r():
         spin_corr_errors = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
-        for r in range(1, Lx // 2 + 1, 2):
+        for r in range(start_dist, Lx, step_dist):
             x = r
-            y = 0  
+            y = y_diplacement(x) 
             
             r_values.append(r)
-            spin_corr_values.append(spsm_r_np_abs[y, x])
-            spin_corr_errors.append(spsm_r_avg_std_np[y, x] / np.sqrt(len(seq_idx) * bs))
+            val = 1/2 * (spsm_r_np_abs[y, x] + spsm_r_np_abs[y, Lx - x]) if y != x else spsm_r_np_abs[y, x]
+            err = 1/2 * (spsm_r_avg_std_np[y, x] + spsm_r_avg_std_np[y, Lx - x]) if y != x else spsm_r_avg_std_np[y, x] 
+            spin_corr_values.append(val)
+            spin_corr_errors.append(err / np.sqrt(len(seq_idx) * bs))
 
         # Store data for analysis
         all_data[Lx] = {
@@ -133,15 +154,27 @@ def plot_spin_r():
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
-                     linestyle='', marker='o', lw=1.5, color=color, 
+                     linestyle=':', marker='o', lw=1.5, color=color, 
                      label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
-        plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                 label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
+        # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
+        #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
         dbstop = 1
     
-    # Plot the r_l20 and corr_l20 data on the same plot for comparison
-    plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+    # # Plot the r_l20 and corr_l20 data on the same plot for comparison
+    # plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+    
+    log_r_l20 = np.log(r_l20)
+    log_corr_l20 = np.log(corr_l20)
+    coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
+    # coeffs_l20[0] = -3.6
+    # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
+    coeffs_l20[0] = -3.4
+    fit_line_l20 = np.exp(coeffs_l20[1] - 0.85) * r_l20_aug ** coeffs_l20[0]
+
+    # Plot the fit line for L20 data
+    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'y~x^{coeffs_l20[0]:.2f}')
 
 
     # Linear axes
@@ -191,11 +224,14 @@ def plot_spin_r():
     plt.legend(fontsize=10, ncol=2)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
+    
+    # Set y-axis lower limit to 1e-7
+    plt.ylim(1e-7, None)
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log.pdf")
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_cmp.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 
