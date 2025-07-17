@@ -290,6 +290,78 @@ class L0GraphRunner:
         self.graph.replay()
         
         # Return the outputs
-        return self.output_buffers 
+        return self.output_buffers
+
+
+class SpsmGraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = None
+
+    def capture(
+        self,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        """Capture the spsm_r_util function execution as a CUDA graph."""
+        input_buffers = {
+            "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+        }
+
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        start_mem = device_mem()[1]
+        print(f"Inside SpsmGraphRunner capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.spsm_r_util(
+                    input_buffers['eta'],
+                    input_buffers['G_eta']
+                )
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        start_mem = device_mem()[1]
+        print(f"Inside SpsmGraphRunner capture start_mem: {start_mem:.2f} MB\n")
+
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.spsm_r_util(
+                input_buffers['eta'],
+                input_buffers['G_eta']
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside SpsmGraphRunner capture end_mem: {end_mem:.2f} MB\n")
+        print(f"SpsmGraphRunner CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        eta,    # [Nrv, Ltau * Ly * Lx]
+        G_eta       # [Nrv, Ltau * Ly * Lx]
+    ):
+        """Execute the captured graph with the given inputs."""
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['eta'].copy_(eta)
+
+        self.graph.replay()
+        return self.output_buffers
+
+
 
 

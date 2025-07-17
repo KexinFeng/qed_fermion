@@ -74,7 +74,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         #     obsr = se.get_fermion_obsr(boson.to(se.device), eta, indices, indices_r2)
         obsr = se.get_fermion_obsr_compile(boson.to(se.device), eta)
 
-        spsm_k.append(obsr['spsm_k_abs'].cpu().numpy())
+        spsm_k.append(obsr['spsm_k'].cpu().numpy())
         DD_k.append(obsr['DD_k'].cpu().numpy())
 
         dbstop = 1
