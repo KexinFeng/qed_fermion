@@ -7,7 +7,7 @@ from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner, T1GraphRunner, T2GraphRunner, T3GraphRunner, T4GraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
 import torch.nn.functional as F
 
@@ -68,6 +68,10 @@ class StochaticEstimator:
         self.G_eta_graph_runner = GEtaGraphRunner(self)
         self.L0_graph_runner = L0GraphRunner(self)
         self.spsm_graph_runner = SpsmGraphRunner(self)
+        self.T1_graph_runner = T1GraphRunner(self)
+        self.T2_graph_runner = T2GraphRunner(self)
+        self.T3_graph_runner = T3GraphRunner(self)
+        self.T4_graph_runner = T4GraphRunner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
@@ -154,6 +158,42 @@ class StochaticEstimator:
             self.graph_memory_pool = self.spsm_graph_runner.capture(
                 graph_memory_pool=self.graph_memory_pool)
             print(f"spsm_graph_runner initialization complete")
+            print('')
+
+            # T1_graph_runner
+            print("Initializing T1_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init T1_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.T1_graph_runner.capture(
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"T1_graph_runner initialization complete")
+            print('')
+
+            # T2_graph_runner
+            print("Initializing T2_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init T2_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.T2_graph_runner.capture(
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"T2_graph_runner initialization complete")
+            print('')
+
+            # T3_graph_runner
+            print("Initializing T3_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init T3_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.T3_graph_runner.capture(
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"T3_graph_runner initialization complete")
+            print('')
+
+            # T4_graph_runner
+            print("Initializing T4_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init T4_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.T4_graph_runner.capture(
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"T4_graph_runner initialization complete")
             print('')
 
 
@@ -2502,7 +2542,7 @@ class StochaticEstimator:
         # eta: [Nrv, Ltau * Ly * Lx]
         # G_eta: [Nrv, Ltau, Ly, Lx]
         # boson: [1, 2, Ltau, Ly, Lx]
-        
+
         # if self.cuda_graph_se:
         T1 = self.T1_graph_runner(self.eta, self.G_eta, boson)
         # else:

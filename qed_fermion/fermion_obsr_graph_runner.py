@@ -362,6 +362,290 @@ class SpsmGraphRunner:
         self.graph.replay()
         return self.output_buffers
 
+class T1GraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = None
+
+    def capture(
+        self,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        input_buffers = {
+            "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+        }
+
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        start_mem = device_mem()[1]
+        print(f"Inside T1GraphRunner capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.T1(
+                    input_buffers['eta'],
+                    input_buffers['G_eta'],
+                    input_buffers['boson']
+                )
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        start_mem = device_mem()[1]
+        print(f"Inside T1GraphRunner capture start_mem: {start_mem:.2f} MB\n")
+
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.T1(
+                input_buffers['eta'],
+                input_buffers['G_eta'],
+                input_buffers['boson']
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside T1GraphRunner capture end_mem: {end_mem:.2f} MB\n")
+        print(f"T1GraphRunner CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        eta,    # [Nrv, Ltau * Ly * Lx]
+        G_eta,  # [Nrv, Ltau * Ly * Lx]
+        boson   # [1, 2, Ltau, Ly, Lx]
+    ):
+        self.input_buffers['eta'].copy_(eta)
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['boson'].copy_(boson)
+        self.graph.replay()
+        return self.output_buffers
+
+class T2GraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = None
+
+    def capture(
+        self,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        input_buffers = {
+            "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+        }
+
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        start_mem = device_mem()[1]
+        print(f"Inside T2GraphRunner capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.T2(
+                    input_buffers['eta'],
+                    input_buffers['G_eta'],
+                    input_buffers['boson']
+                )
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        start_mem = device_mem()[1]
+        print(f"Inside T2GraphRunner capture start_mem: {start_mem:.2f} MB\n")
+
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.T2(
+                input_buffers['eta'],
+                input_buffers['G_eta'],
+                input_buffers['boson']
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside T2GraphRunner capture end_mem: {end_mem:.2f} MB\n")
+        print(f"T2GraphRunner CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        eta,    # [Nrv, Ltau * Ly * Lx]
+        G_eta,  # [Nrv, Ltau * Ly * Lx]
+        boson   # [1, 2, Ltau, Ly, Lx]
+    ):
+        self.input_buffers['eta'].copy_(eta)
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['boson'].copy_(boson)
+        self.graph.replay()
+        return self.output_buffers
+
+class T3GraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = None
+
+    def capture(
+        self,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        input_buffers = {
+            "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+        }
+
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        start_mem = device_mem()[1]
+        print(f"Inside T3GraphRunner capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.T3(
+                    input_buffers['eta'],
+                    input_buffers['G_eta'],
+                    input_buffers['boson']
+                )
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        start_mem = device_mem()[1]
+        print(f"Inside T3GraphRunner capture start_mem: {start_mem:.2f} MB\n")
+
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.T3(
+                input_buffers['eta'],
+                input_buffers['G_eta'],
+                input_buffers['boson']
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside T3GraphRunner capture end_mem: {end_mem:.2f} MB\n")
+        print(f"T3GraphRunner CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        eta,    # [Nrv, Ltau * Ly * Lx]
+        G_eta,  # [Nrv, Ltau * Ly * Lx]
+        boson   # [1, 2, Ltau, Ly, Lx]
+    ):
+        self.input_buffers['eta'].copy_(eta)
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['boson'].copy_(boson)
+        self.graph.replay()
+        return self.output_buffers
+
+class T4GraphRunner:
+    def __init__(self, se):
+        self.graph = None
+        self.se = se
+        self.input_buffers = {}
+        self.output_buffers = None
+
+    def capture(
+        self,
+        graph_memory_pool=None,
+        n_warmups=3
+    ):
+        input_buffers = {
+            "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
+            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+        }
+
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+
+        start_mem = device_mem()[1]
+        print(f"Inside T4GraphRunner capture start_mem_0: {start_mem:.2f} MB\n")
+
+        s = torch.cuda.Stream()
+        s.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(s):
+            for n in range(n_warmups):
+                static_outputs = self.se.T4(
+                    input_buffers['eta'],
+                    input_buffers['G_eta'],
+                    input_buffers['boson']
+                )
+            s.synchronize()
+
+        torch.cuda.current_stream().wait_stream(s)
+
+        start_mem = device_mem()[1]
+        print(f"Inside T4GraphRunner capture start_mem: {start_mem:.2f} MB\n")
+
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, pool=graph_memory_pool):
+            static_outputs = self.se.T4(
+                input_buffers['eta'],
+                input_buffers['G_eta'],
+                input_buffers['boson']
+            )
+
+        end_mem = device_mem()[1]
+        print(f"Inside T4GraphRunner capture end_mem: {end_mem:.2f} MB\n")
+        print(f"T4GraphRunner CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+
+        self.graph = graph
+        self.input_buffers = input_buffers
+        self.output_buffers = static_outputs
+
+        return graph.pool()
+
+    def __call__(
+        self,
+        eta,    # [Nrv, Ltau * Ly * Lx]
+        G_eta,  # [Nrv, Ltau * Ly * Lx]
+        boson   # [1, 2, Ltau, Ly, Lx]
+    ):
+        self.input_buffers['eta'].copy_(eta)
+        self.input_buffers['G_eta'].copy_(G_eta)
+        self.input_buffers['boson'].copy_(boson)
+        self.graph.replay()
+        return self.output_buffers
+
 
 
 
