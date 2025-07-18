@@ -3195,19 +3195,19 @@ class HmcSampler(object):
         axes[0, 0].set_title("Greens Function Over Steps")
         axes[0, 0].legend()
 
-        # spsm_r
+        # BB_r
         # axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
         axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
         axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
-        axes[0, 2].set_ylabel("Spsm_r")
-        axes[0, 2].set_title("spsm_r Over Steps")
+        axes[0, 2].set_ylabel("BB_r")
+        axes[0, 2].set_title("BB_r Over Steps")
         axes[0, 2].legend()
 
         # BB_k
         axes[1, 2].plot(self.BB_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
         axes[1, 2].plot(self.BB_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
         axes[1, 2].plot(self.BB_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
-        axes[1, 2].set_ylabel("Spsm_k")
+        axes[1, 2].set_ylabel("BB_k")
         axes[1, 2].set_title("BB_k Over Steps")
         axes[1, 2].legend()
 
