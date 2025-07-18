@@ -20,6 +20,7 @@ J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
 # L_array=$(echo '16 12 10')  # 10 h (-2)
 
+# spsm_r lattice sizes
 # L_array=$(echo '46 40 36 30 20 16 12 10 8 6')
 # L_array=$(echo '56 50')
 # L_array=$(echo '60 66')
@@ -30,6 +31,10 @@ L_array=$(echo '30 20 16 12 10 8 6')
 L_array=$(echo '40 36')
 L_array=$(echo '50 46')
 
+# BB_r lattice sizes
+L_array=$(echo '36 30 20 16 12 10 8 6')
+L_array=$(echo '46 40')
+L_array=$(echo '60 56 50')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
@@ -39,8 +44,8 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large3_spsm_asym20
-export asym=2
+export suffix=noncmpK0_large4_BBr
+export asym=1
 export compact=0
 export K=0
 export dtau=0.1
