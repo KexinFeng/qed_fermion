@@ -1553,7 +1553,7 @@ class StochaticEstimator:
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
         # boson: [1, 2, Lx, Ly, Ltau]
         boson = boson.permute(0, 1, 4, 3, 2) # [1, 2, Ltau, Ly, Lx]
-        
+
         # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
         s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
         
@@ -2547,29 +2547,29 @@ class StochaticEstimator:
         # G_eta: [Nrv, Ltau * Ly * Lx]
         # boson: [1, 2, Lx, Ly, Ltau]
 
-        # if self.cuda_graph_se:
-        T1 = self.T1_graph_runner(self.eta, self.G_eta, boson)
-        # else:
-        T1_ref = self.T1(self.eta, self.G_eta, boson)
-        torch.testing.assert_close(T1, T1_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        if self.cuda_graph_se:
+            T1 = self.T1_graph_runner(self.eta, self.G_eta, boson)
+        else:
+            T1 = self.T1(self.eta, self.G_eta, boson)
+        # torch.testing.assert_close(T1, T1_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        # if self.cuda_graph_se:
-        T2 = self.T2_graph_runner(self.eta, self.G_eta, boson)
-        # else:
-        T2_ref = self.T2(self.eta, self.G_eta, boson)
-        torch.testing.assert_close(T2, T2_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        if self.cuda_graph_se:
+            T2 = self.T2_graph_runner(self.eta, self.G_eta, boson)
+        else:
+            T2 = self.T2(self.eta, self.G_eta, boson)
+        # torch.testing.assert_close(T2, T2_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        # if self.cuda_graph_se:
-        T3 = self.T3_graph_runner(self.eta, self.G_eta, boson)
-        # else:
-        T3_ref = self.T3(self.eta, self.G_eta, boson)
-        torch.testing.assert_close(T3, T3_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        if self.cuda_graph_se:
+            T3 = self.T3_graph_runner(self.eta, self.G_eta, boson)
+        else:
+            T3 = self.T3(self.eta, self.G_eta, boson)
+        # torch.testing.assert_close(T3, T3_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        # if self.cuda_graph_se:
-        T4 = self.T4_graph_runner(self.eta, self.G_eta, boson)
-        # else:
-        T4_ref = self.T4(self.eta, self.G_eta, boson)
-        torch.testing.assert_close(T4, T4_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        if self.cuda_graph_se:
+            T4 = self.T4_graph_runner(self.eta, self.G_eta, boson)
+        else:
+            T4 = self.T4(self.eta, self.G_eta, boson)
+        # torch.testing.assert_close(T4, T4_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         BB_r = (T1 + T2 + T3 + T4) * 2
         BB_k = torch.fft.ifft2(BB_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
