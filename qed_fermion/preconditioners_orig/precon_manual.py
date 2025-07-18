@@ -158,7 +158,7 @@ def get_precon_man():
     for rank in range(1, 6):
         values = torch.tensor([corner_value_list[rank-1]], dtype=cdtype, device=device)
         values = values.repeat_interleave(vs)
-        indices = torch.arange(vs * 1)
+        indices = torch.arange(vs * 1, device=device)
         indices = torch.stack([indices, indices + (Ltau - rank) * vs], dim=0)
         out_values.append(values)
         out_indices.append(indices)
@@ -167,8 +167,8 @@ def get_precon_man():
         out_indices.append(torch.flip(indices, dims=(0,)))
     
     precon_man = torch.sparse_coo_tensor(
-        torch.cat(out_indices, dim=1, device=device),
-        torch.cat(out_values, dim=0, device=device),
+        torch.cat(out_indices, dim=1),
+        torch.cat(out_values, dim=0),
         size=(size, size),
         dtype=cdtype,
         device=device
