@@ -12,10 +12,10 @@ Lx = 10
 Ltau = 100
 debug = False
 
-def get_precon_man():
-    Lx = int(os.getenv("L", '6'))
-    asym = float(os.environ.get("asym", '1'))
-    Ltau = int(asym*Lx * 10) 
+def get_precon_man(Lx, Ltau):
+    # Lx = int(os.getenv("L", '6'))
+    # asym = float(os.environ.get("asym", '1'))
+    # Ltau = int(asym*Lx * 10) 
     
     Ly = Lx
     vs = Lx * Ly
@@ -158,7 +158,7 @@ def get_precon_man():
     for rank in range(1, 6):
         values = torch.tensor([corner_value_list[rank-1]], dtype=cdtype, device=device)
         values = values.repeat_interleave(vs)
-        indices = torch.arange(vs * 1)
+        indices = torch.arange(vs * 1, device=device)
         indices = torch.stack([indices, indices + (Ltau - rank) * vs], dim=0)
         out_values.append(values)
         out_indices.append(indices)
@@ -223,5 +223,5 @@ def get_precon_man():
 
 
 if __name__ == '__main__':
-    get_precon_man()
+    get_precon_man(Lx, Ltau)
     

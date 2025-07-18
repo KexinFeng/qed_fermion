@@ -507,28 +507,28 @@ class HmcSampler(object):
             exit(0)
         
         elif not os.path.exists(file_path):
-            get_precon_man()
-            exit(0)
+            get_precon_man(self.Lx, self.Ltau)
+            # exit(0)
             
-        else:
-            # Load preconditioner from file
-            precon_dict = torch.load(file_path)
-            print(f"Loaded preconditioner from {file_path}")
+        # else:
+        # Load preconditioner from file
+        precon_dict = torch.load(file_path)
+        print(f"Loaded preconditioner from {file_path}")
 
-            indices = precon_dict["indices"].to(device)
-            values = precon_dict["values"].to(device)
-            
-            # Create a new sparse tensor with the filtered entries
-            precon = torch.sparse_coo_tensor(
-                indices,
-                values,
-                size=precon_dict["size"],
-                dtype=cdtype,
-                device=device
-            ).coalesce()
+        indices = precon_dict["indices"].to(device)
+        values = precon_dict["values"].to(device)
+        
+        # Create a new sparse tensor with the filtered entries
+        precon = torch.sparse_coo_tensor(
+            indices,
+            values,
+            size=precon_dict["size"],
+            dtype=cdtype,
+            device=device
+        ).coalesce()
 
-            # self.precon = precon
-            self.precon_csr = precon.to_sparse_csr()
+        # self.precon = precon
+        self.precon_csr = precon.to_sparse_csr()
 
  
     @staticmethod
