@@ -2499,14 +2499,35 @@ class StochaticEstimator:
         return spsm_r
 
     def get_bond_bond_per_b2(self, boson):
+        # eta: [Nrv, Ltau * Ly * Lx]
+        # G_eta: [Nrv, Ltau, Ly, Lx]
         # boson: [1, 2, Ltau, Ly, Lx]
-        if self.cuda_graph_se:
-            BB_r = self.BB_graph_runner(self.eta, self.G_eta, boson)
-        else:
-            BB_r = self.BB_r_util(self.eta, self.G_eta, boson)
+        
+        # if self.cuda_graph_se:
+        T1 = self.T1_graph_runner(self.eta, self.G_eta, boson)
+        # else:
+        T1_ref = self.T1(self.eta, self.G_eta, boson)
+        torch.testing.assert_close(T1, T1_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        torch.testing.assert_close(BB_r, BB_r_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        # if self.cuda_graph_se:
+        T2 = self.T2_graph_runner(self.eta, self.G_eta, boson)
+        # else:
+        T2_ref = self.T2(self.eta, self.G_eta, boson)
+        torch.testing.assert_close(T2, T2_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
+        # if self.cuda_graph_se:
+        T3 = self.T3_graph_runner(self.eta, self.G_eta, boson)
+        # else:
+        T3_ref = self.T3(self.eta, self.G_eta, boson)
+        torch.testing.assert_close(T3, T3_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        # if self.cuda_graph_se:
+        T4 = self.T4_graph_runner(self.eta, self.G_eta, boson)
+        # else:
+        T4_ref = self.T4(self.eta, self.G_eta, boson)
+        torch.testing.assert_close(T4, T4_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        BB_r = (T1 + T2 + T3 + T4) * 2
         BB_k = torch.fft.ifft2(BB_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         BB_k = self.reorder_fft_grid2(BB_k)  # [Ly, Lx]
 
@@ -2515,18 +2536,6 @@ class StochaticEstimator:
         obsr['BB_r'] = BB_r.real
         obsr['BB_k'] = BB_k.real
         return obsr
-
-    def BB_r_util(self, eta, G_eta, boson):
-        # eta: [Nrv, Ltau * Ly * Lx]
-        # G_eta: [Nrv, Ltau, Ly, Lx]
-        # boson: [1, 2, Ltau, Ly, Lx]
-        T1 = self.T1(eta, G_eta, boson)
-        T2 = self.T2(eta, G_eta, boson)
-        T3 = self.T3(eta, G_eta, boson)
-        T4 = self.T4(eta, G_eta, boson)
-
-        BB_r = (T1 + T2 + T3 + T4) * 2 # [Ly, Lx]
-        return BB_r
 
     def get_spsm(self, bosons, eta):
         bs, _, Lx, Ly, Ltau = bosons.shape
