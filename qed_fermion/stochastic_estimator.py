@@ -1340,6 +1340,222 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0_mean
 
+    def T1(self, eta, G_eta, boson):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        # boson: [1, 2, Ltau, Ly, Lx]
+
+        # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
+        s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
+        
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        Nrv = eta_conj.shape[0]
+        num_samples = self.num_samples(Nrv)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_diag_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            a = torch.roll(eta_conj[s_batch],       shifts=-0, dims=-1) * \
+                torch.roll(G_eta[s_prime_batch],    shifts=-1, dims=-1) * \
+                torch.exp(1j * boson[0, 0, :, :, :])
+
+            b = torch.roll(G_eta[s_batch],          shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[s_prime_batch], shifts=-0, dims=-1) * \
+                torch.exp(1j * boson[0, 0, :, :, :])
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += - batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+        
+        G_diag_mean = torch.roll(G_eta,     shifts=-1, dims=-1) * \
+                      torch.roll(eta_conj,  shifts=+1, dims=-1) * \
+                      torch.exp(1j * boson[0, 0, :, :, :])      * \
+                      torch.exp(1j * torch.roll(boson, shifts=+1, dims=-1)[0, 0, :, :, :])
+
+        G_diag_mean = G_diag_mean.mean(dim=(0, 1, 2, 3))
+        G_delta_0_G_delta_0_mean[0, -1] += G_diag_mean
+
+        # G_diag_mean += (-c1 - c2 + c3).mean(dim=(0, 1, 2, 3)) * (end_idx - start_idx) / num_samples
+        # G_delta_0_G_delta_0_mean[0, 0] += G_res_mean[0]
+        
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+    
+    def T2(self, eta, G_eta, boson):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        # boson: [1, 2, Ltau, Ly, Lx]
+
+        # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
+        s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
+        
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        Nrv = eta_conj.shape[0]
+        num_samples = self.num_samples(Nrv)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_diag_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            a = (
+                torch.roll(eta_conj[s_batch],       shifts=-1, dims=-1) * \
+                torch.roll(G_eta[s_prime_batch],    shifts=-0, dims=-1) 
+                + \
+                torch.roll(eta_conj[s_prime_batch], shifts=-1, dims=-1) * \
+                torch.roll(G_eta[s_batch],          shifts=-0, dims=-1)
+            ) * torch.exp(-1j * boson[0, 0, :, :, :]) / 2
+
+            b = (
+                torch.roll(G_eta[s_batch],          shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[s_prime_batch], shifts=-0, dims=-1) 
+                + \
+                torch.roll(G_eta[s_prime_batch],    shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[s_batch],       shifts=-0, dims=-1) 
+            ) * torch.exp(1j * boson[0, 0, :, :, :]) / 2
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += - batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+        
+        G_diag_mean = torch.roll(G_eta,     shifts=-0, dims=-1) * \
+                      torch.roll(eta_conj,  shifts=-0, dims=-1)
+
+        G_diag_mean = G_diag_mean.mean(dim=(0, 1, 2, 3))
+        G_delta_0_G_delta_0_mean[0, 0] += G_diag_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+    
+    def T3(self, eta, G_eta, boson):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        # boson: [1, 2, Ltau, Ly, Lx]
+
+        # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
+        s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
+        
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        Nrv = eta_conj.shape[0]
+        num_samples = self.num_samples(Nrv)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_diag_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            a = (
+                torch.roll(eta_conj[s_batch],       shifts=-0, dims=-1) * \
+                torch.roll(G_eta[s_prime_batch],    shifts=-1, dims=-1)
+                + \
+                torch.roll(eta_conj[s_prime_batch], shifts=-0, dims=-1) * \
+                torch.roll(G_eta[s_batch],          shifts=-1, dims=-1) 
+                ) * torch.exp(1j * boson[0, 0, :, :, :]) / 2
+
+            b = (
+                torch.roll(G_eta[s_batch],          shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[s_prime_batch], shifts=-1, dims=-1)
+                + \
+                torch.roll(G_eta[s_prime_batch],          shifts=-0, dims=-1) * \
+                torch.roll(eta_conj[s_batch], shifts=-1, dims=-1)
+                ) * torch.exp(-1j * boson[0, 0, :, :, :]) / 2
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += - batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+        
+        G_diag_mean = torch.roll(G_eta,     shifts=0, dims=-1) * \
+                      torch.roll(eta_conj,  shifts=0, dims=-1)
+
+        G_diag_mean = G_diag_mean.mean(dim=(0, 1, 2, 3))
+        G_delta_0_G_delta_0_mean[0, 0] += G_diag_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+    
+    def T4(self, eta, G_eta, boson):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        # boson: [1, 2, Ltau, Ly, Lx]
+
+        # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
+        s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
+        
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        Nrv = eta_conj.shape[0]
+        num_samples = self.num_samples(Nrv)
+
+        # Batch processing to avoid OOM
+        batch_size = min(len(s), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_diag_mean = torch.zeros((1,), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            s_batch = s[start_idx:end_idx]
+            s_prime_batch = s_prime[start_idx:end_idx]
+
+            a = torch.roll(eta_conj[s_batch],       shifts=-1, dims=-1) * \
+                torch.roll(G_eta[s_prime_batch],    shifts=0 , dims=-1) * \
+                torch.exp(-1j * boson[0, 0, :, :, :])
+
+            b = torch.roll(G_eta[s_batch],          shifts=0 , dims=-1) * \
+                torch.roll(eta_conj[s_prime_batch], shifts=-1, dims=-1) * \
+                torch.exp(-1j * boson[0, 0, :, :, :])
+
+            # FFT
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward")
+
+            G_delta_0_G_delta_0_mean += - batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+        
+        G_diag_mean = torch.roll(G_eta,     shifts=0, dims=-1) * \
+                      torch.roll(eta_conj,  shifts=-2, dims=-1) * \
+                      torch.exp(-1j * boson[0, 0, :, :, :])      * \
+                      torch.exp(-1j * torch.roll(boson, shifts=-1, dims=-1)[0, 0, :, :, :])
+
+        G_diag_mean = G_diag_mean.mean(dim=(0, 1, 2, 3))
+        G_delta_0_G_delta_0_mean[0, 1] += G_diag_mean
+
+        return G_delta_0_G_delta_0_mean  # [Ly, Lx]
+    
+
     def G_delta_delta_G_0_0_ext_batch(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
@@ -2197,7 +2413,8 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
             self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_spsm_per_b2())
+            # obsr.update(self.get_spsm_per_b2())
+            obsr.update(self.get_bond_bond_per_b2(boson))
             # obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
@@ -2280,6 +2497,36 @@ class StochaticEstimator:
         spsm[0, 0, 0] += GD0[0, 0, 0]
         spsm_r = spsm[0]  # Return only tau=0 slice: [Ly, Lx]
         return spsm_r
+
+    def get_bond_bond_per_b2(self, boson):
+        # boson: [1, 2, Ltau, Ly, Lx]
+        if self.cuda_graph_se:
+            BB_r = self.BB_graph_runner(self.eta, self.G_eta, boson)
+        else:
+            BB_r = self.BB_r_util(self.eta, self.G_eta, boson)
+
+        torch.testing.assert_close(BB_r, BB_r_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        BB_k = torch.fft.ifft2(BB_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        BB_k = self.reorder_fft_grid2(BB_k)  # [Ly, Lx]
+
+        # Output
+        obsr = {}
+        obsr['BB_r'] = BB_r.real
+        obsr['BB_k'] = BB_k.real
+        return obsr
+
+    def BB_r_util(self, eta, G_eta, boson):
+        # eta: [Nrv, Ltau * Ly * Lx]
+        # G_eta: [Nrv, Ltau, Ly, Lx]
+        # boson: [1, 2, Ltau, Ly, Lx]
+        T1 = self.T1(eta, G_eta, boson)
+        T2 = self.T2(eta, G_eta, boson)
+        T3 = self.T3(eta, G_eta, boson)
+        T4 = self.T4(eta, G_eta, boson)
+
+        BB_r = (T1 + T2 + T3 + T4) * 2 # [Ly, Lx]
+        return BB_r
 
     def get_spsm(self, bosons, eta):
         bs, _, Lx, Ly, Ltau = bosons.shape
