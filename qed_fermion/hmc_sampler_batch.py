@@ -197,9 +197,10 @@ class HmcSampler(object):
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
-        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        # self.dimer_dimer_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        # self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        # self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.BB_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
 
         if self.Lx <= 10 and buffer:
             # boson_seq
@@ -427,6 +428,7 @@ class HmcSampler(object):
     @time_execution
     def init_stochastic_estimator(self):
         self.se = StochaticEstimator(self, cuda_graph_se=True)
+        self.se.initialize()
         self.se.init_cuda_graph()
 
         # # Randomly select num_samples from indices without replacement
@@ -2965,7 +2967,7 @@ class HmcSampler(object):
         futures = {}
 
         # Define CPU computations to run asynchronously
-        def async_cpu_computations(i, boson_cpu, spsm_r_cpu, spsm_k_abs_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+        def async_cpu_computations(i, boson_cpu, BB_r_cpu, BB_k_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
             # Update metrics
             self.accp_list[i] = accp_cpu
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -2985,8 +2987,8 @@ class HmcSampler(object):
             self.delta_t_list[i] = delta_t_cpu
             if self.Lx <= 10 and buffer:
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-            self.spsm_r_list[i] = spsm_r_cpu  # [bs, Lx, Ly]
-            self.spsm_k_list[i] = spsm_k_abs_cpu  # [bs, Lx, Ly] 
+            self.BB_r_list[i] = BB_r_cpu  # [bs, Lx, Ly]
+            self.BB_k_list[i] = BB_k_cpu  # [bs, Lx, Ly] 
             # self.dimer_dimer_r_list[i] = dimer_dimer_r_cpu  # [bs, Lx, Ly] 
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
@@ -3015,14 +3017,9 @@ class HmcSampler(object):
                 sys.stdout.flush()
 
             eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-            if self.se.cuda_graph_se:
-                obsr = self.se.graph_runner(boson, eta, self.indices, self.indices_r2)
-            else:
-                obsr = self.se.get_fermion_obsr(boson, eta, self.indices, self.indices_r2)
-
-            spsm_r = obsr['spsm_r']  # [bs, Ly, Lx]
-            spsm_k_abs = obsr['spsm_k_abs']  # [bs, Ly, Lx]
-            # dimer_dimer_r = obsr['DD_r'] # [bs, Lx, Ly]
+            obsr = self.se.get_fermion_obsr_compile(boson, eta)
+            BB_r = obsr['BB_r']  # [bs, Ly, Lx]
+            BB_k = obsr['BB_k']  # [bs, Ly, Lx]
 
             if i % 1000 == 0:  # Print timing every 100 steps
                 if torch.cuda.is_available():
@@ -3037,8 +3034,8 @@ class HmcSampler(object):
                 async_cpu_computations, 
                 i, 
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
-                spsm_r.cpu() if spsm_r.is_cuda else spsm_r.clone(),
-                spsm_k_abs.cpu() if spsm_k_abs.is_cuda else spsm_k_abs.clone(),
+                BB_r.cpu() if BB_r.is_cuda else BB_r.clone(),
+                BB_k.cpu() if BB_k.is_cuda else BB_k.clone(),
                 # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
@@ -3119,8 +3116,8 @@ class HmcSampler(object):
                         'G_list': self.G_list,
                         'S_plaq_list': self.S_plaq_list,
                         'S_tau_list': self.S_tau_list,
-                        'spsm_r_list': self.spsm_r_list,
-                        'spsm_k_list': self.spsm_k_list,
+                        'BB_r_list': self.BB_r_list,
+                        'BB_k_list': self.BB_k_list,
                         'cg_iter_list': self.cg_iter_list,
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
@@ -3144,8 +3141,8 @@ class HmcSampler(object):
                'G_list': self.G_list,
                'S_plaq_list': self.S_plaq_list,
                'S_tau_list': self.S_tau_list,
-                'spsm_r_list': self.spsm_r_list,
-                'spsm_k_list': self.spsm_k_list,
+                'BB_r_list': self.BB_r_list,
+                'BB_k_list': self.BB_k_list,
                'cg_iter_list': self.cg_iter_list,
                'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}
@@ -3199,19 +3196,19 @@ class HmcSampler(object):
         axes[0, 0].legend()
 
         # spsm_r
-        # axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
-        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
-        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
+        # axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
+        axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
+        axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
         axes[0, 2].set_ylabel("Spsm_r")
         axes[0, 2].set_title("spsm_r Over Steps")
         axes[0, 2].legend()
 
-        # spsm_k
-        axes[1, 2].plot(self.spsm_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
-        axes[1, 2].plot(self.spsm_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
-        axes[1, 2].plot(self.spsm_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
+        # BB_k
+        axes[1, 2].plot(self.BB_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
+        axes[1, 2].plot(self.BB_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
+        axes[1, 2].plot(self.BB_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
         axes[1, 2].set_ylabel("Spsm_k")
-        axes[1, 2].set_title("spsm_k Over Steps")
+        axes[1, 2].set_title("BB_k Over Steps")
         axes[1, 2].legend()
 
         # S_plaq

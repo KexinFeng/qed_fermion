@@ -2449,8 +2449,6 @@ class StochaticEstimator:
         """
         bs = bosons.shape[0]
         obsrs = []
-        # self.indices = indices
-        # self.indices_r2 = indices_r2
         for b in range(bs):
             obsr = {}
 
