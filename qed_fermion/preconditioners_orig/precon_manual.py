@@ -167,8 +167,8 @@ def get_precon_man():
         out_indices.append(torch.flip(indices, dims=(0,)))
     
     precon_man = torch.sparse_coo_tensor(
-        torch.cat(out_indices, dim=1),
-        torch.cat(out_values, dim=0),
+        torch.cat(out_indices, dim=1, device=device),
+        torch.cat(out_values, dim=0, device=device),
         size=(size, size),
         dtype=cdtype,
         device=device
