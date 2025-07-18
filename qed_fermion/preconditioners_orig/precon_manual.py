@@ -12,10 +12,10 @@ Lx = 10
 Ltau = 100
 debug = False
 
-def get_precon_man():
-    Lx = int(os.getenv("L", '6'))
-    asym = float(os.environ.get("asym", '1'))
-    Ltau = int(asym*Lx * 10) 
+def get_precon_man(Lx, Ltau):
+    # Lx = int(os.getenv("L", '6'))
+    # asym = float(os.environ.get("asym", '1'))
+    # Ltau = int(asym*Lx * 10) 
     
     Ly = Lx
     vs = Lx * Ly
@@ -223,5 +223,5 @@ def get_precon_man():
 
 
 if __name__ == '__main__':
-    get_precon_man()
+    get_precon_man(Lx, Ltau)
     
