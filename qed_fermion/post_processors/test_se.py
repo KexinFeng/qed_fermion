@@ -10,7 +10,7 @@ import os
 script_path = os.path.dirname(os.path.abspath(__file__))
 import torch
 import sys
-sys.path.insert(0, script_path + '/../../../')
+sys.path.insert(0, script_path + '/../../')
 import time
 from qed_fermion.hmc_sampler_batch import HmcSampler
 from qed_fermion.stochastic_estimator import StochaticEstimator
@@ -44,7 +44,7 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
     se.Nrv = Nrv
     se.max_iter_se = mxitr
     se.num_samples = lambda nrv: nrv** 2 // 10
-    se.num_samples = lambda nrv: math.comb(nrv, 4)
+    se.num_samples = lambda nrv: math.comb(nrv, 2)
     se.batch_size = lambda nrv: int(nrv * 0.1)
 
     # Randomly select num_samples from indices without replacement
@@ -74,7 +74,8 @@ def postprocess_and_write_spsm(bosons, output_dir, Lx, Ly, Ltau, bid=1, Nrv=10, 
         #     obsr = se.get_fermion_obsr(boson.to(se.device), eta, indices, indices_r2)
         obsr = se.get_fermion_obsr_compile(boson.to(se.device), eta)
 
-        spsm_k.append(obsr['spsm_k'].cpu().numpy())
+        # spsm_k.append(obsr['spsm_k'].cpu().numpy())
+        spsm_k.append(obsr['BB_k'].cpu().numpy())
         # DD_k.append(obsr['DD_k'].cpu().numpy())
 
         dbstop = 1

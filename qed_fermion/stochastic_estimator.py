@@ -1383,7 +1383,8 @@ class StochaticEstimator:
     def T1(self, eta, G_eta, boson):
         # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
-        # boson: [1, 2, Ltau, Ly, Lx]
+        # boson: [1, 2, Lx, Ly, Ltau]
+        boson = boson.permute(0, 1, 4, 3, 2) # [1, 2, Ltau, Ly, Lx]
 
         # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
         s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
@@ -1436,7 +1437,8 @@ class StochaticEstimator:
     def T2(self, eta, G_eta, boson):
         # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
-        # boson: [1, 2, Ltau, Ly, Lx]
+        # boson: [1, 2, Lx, Ly, Ltau]
+        boson = boson.permute(0, 1, 4, 3, 2) # [1, 2, Ltau, Ly, Lx]
 
         # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
         s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
@@ -1492,7 +1494,8 @@ class StochaticEstimator:
     def T3(self, eta, G_eta, boson):
         # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
-        # boson: [1, 2, Ltau, Ly, Lx]
+        # boson: [1, 2, Lx, Ly, Ltau]
+        boson = boson.permute(0, 1, 4, 3, 2) # [1, 2, Ltau, Ly, Lx]
 
         # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
         s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
@@ -1548,8 +1551,9 @@ class StochaticEstimator:
     def T4(self, eta, G_eta, boson):
         # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
-        # boson: [1, 2, Ltau, Ly, Lx]
-
+        # boson: [1, 2, Lx, Ly, Ltau]
+        boson = boson.permute(0, 1, 4, 3, 2) # [1, 2, Ltau, Ly, Lx]
+        
         # Use torch.combinations to get all unique pairs (s, s_prime) with s < s_prime
         s, s_prime = self.indices_r2[:, 0], self.indices_r2[:, 1]
         
@@ -2450,7 +2454,7 @@ class StochaticEstimator:
         for b in range(bs):
             obsr = {}
 
-            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Lx, Ly, Ltau]
             self.set_eta_G_eta(boson, eta)
 
             # obsr.update(self.get_spsm_per_b2())
@@ -2540,8 +2544,8 @@ class StochaticEstimator:
 
     def get_bond_bond_per_b2(self, boson):
         # eta: [Nrv, Ltau * Ly * Lx]
-        # G_eta: [Nrv, Ltau, Ly, Lx]
-        # boson: [1, 2, Ltau, Ly, Lx]
+        # G_eta: [Nrv, Ltau * Ly * Lx]
+        # boson: [1, 2, Lx, Ly, Ltau]
 
         # if self.cuda_graph_se:
         T1 = self.T1_graph_runner(self.eta, self.G_eta, boson)
@@ -2584,7 +2588,7 @@ class StochaticEstimator:
         # szsz = torch.zeros((bs, Lx, Ly), dtype=self.dtype, device=self.device)
         
         for b in range(bs):
-            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
+            boson = bosons[b].unsqueeze(0)  # [1, 2, Lx, Ly, Ltau]
 
             self.set_eta_G_eta(boson, eta, b)
             GD0_G0D = self.G_delta_0_G_0_delta_ext_batch(b) # [Ltau, Ly, Lx]

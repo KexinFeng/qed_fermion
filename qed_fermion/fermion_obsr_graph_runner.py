@@ -377,7 +377,7 @@ class T1GraphRunner:
         input_buffers = {
             "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
             "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
-            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+            "boson": torch.zeros((1, 2, self.se.Lx, self.se.Ly, self.se.Ltau), device=self.se.device, dtype=self.se.dtype),
         }
 
         torch.cuda.empty_cache()
@@ -425,7 +425,7 @@ class T1GraphRunner:
         self,
         eta,    # [Nrv, Ltau * Ly * Lx]
         G_eta,  # [Nrv, Ltau * Ly * Lx]
-        boson   # [1, 2, Ltau, Ly, Lx]
+        boson   # [1, 2, Lx, Ly, Ltau]
     ):
         self.input_buffers['eta'].copy_(eta)
         self.input_buffers['G_eta'].copy_(G_eta)
@@ -448,7 +448,7 @@ class T2GraphRunner:
         input_buffers = {
             "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
             "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
-            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+            "boson": torch.zeros((1, 2, self.se.Lx, self.se.Ly, self.se.Ltau), device=self.se.device, dtype=self.se.dtype),
         }
 
         torch.cuda.empty_cache()
@@ -496,7 +496,7 @@ class T2GraphRunner:
         self,
         eta,    # [Nrv, Ltau * Ly * Lx]
         G_eta,  # [Nrv, Ltau * Ly * Lx]
-        boson   # [1, 2, Ltau, Ly, Lx]
+        boson   # [1, 2, Lx, Ly, Ltau]
     ):
         self.input_buffers['eta'].copy_(eta)
         self.input_buffers['G_eta'].copy_(G_eta)
@@ -519,7 +519,7 @@ class T3GraphRunner:
         input_buffers = {
             "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
             "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
-            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+            "boson": torch.zeros((1, 2, self.se.Lx, self.se.Ly, self.se.Ltau), device=self.se.device, dtype=self.se.dtype),
         }
 
         torch.cuda.empty_cache()
@@ -567,7 +567,7 @@ class T3GraphRunner:
         self,
         eta,    # [Nrv, Ltau * Ly * Lx]
         G_eta,  # [Nrv, Ltau * Ly * Lx]
-        boson   # [1, 2, Ltau, Ly, Lx]
+        boson   # [1, 2, Lx, Ly, Ltau]
     ):
         self.input_buffers['eta'].copy_(eta)
         self.input_buffers['G_eta'].copy_(G_eta)
@@ -590,7 +590,7 @@ class T4GraphRunner:
         input_buffers = {
             "eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
             "G_eta": torch.zeros((self.se.Nrv, self.se.Ltau * self.se.Ly * self.se.Lx), device=self.se.device, dtype=self.se.cdtype),
-            "boson": torch.zeros((1, 2, self.se.Ltau, self.se.Ly, self.se.Lx), device=self.se.device, dtype=self.se.dtype),
+            "boson": torch.zeros((1, 2, self.se.Lx, self.se.Ly, self.se.Ltau), device=self.se.device, dtype=self.se.dtype),
         }
 
         torch.cuda.empty_cache()
@@ -638,7 +638,7 @@ class T4GraphRunner:
         self,
         eta,    # [Nrv, Ltau * Ly * Lx]
         G_eta,  # [Nrv, Ltau * Ly * Lx]
-        boson   # [1, 2, Ltau, Ly, Lx]
+        boson   # [1, 2, Lx, Ly, Ltau]
     ):
         self.input_buffers['eta'].copy_(eta)
         self.input_buffers['G_eta'].copy_(G_eta)
