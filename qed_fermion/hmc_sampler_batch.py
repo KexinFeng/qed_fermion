@@ -960,17 +960,30 @@ class HmcSampler(object):
         """
         data_folder = os.path.join(script_path, "check_points/boson_ensemble/")
         bosons = []
-        for step in [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
+        delta_t_tensors = []
+        for step in [10, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
             file_name = f"boson_{self.specifics}_{step}.pt"
             file_path = os.path.join(data_folder, file_name)
             if os.path.exists(file_path):
-                boson_loaded = torch.load(file_path)
-                boson = boson_loaded.to(self.device)
-                bosons.append(boson)
+                loaded = torch.load(file_path)
+                if isinstance(loaded, dict):
+                    boson_loaded = loaded['boson'] 
+                    delta_t_tensor = loaded['delta_t_tensor']
+                    boson = boson_loaded.to(self.device)
+                    bosons.append(boson)
+                    delta_t_tensors.append(delta_t_tensor.to(self.device))
+                else:
+                    boson_loaded = loaded
+                    boson = boson_loaded.to(self.device)
+                    bosons.append(boson)            
                 print(f"Loaded boson ensemble from {file_path}")
+        
         if bosons:
-            print(f"Boson ensemble size: {len(bosons)}")
-            self.boson = bosons[torch.randint(len(bosons), (1,)).item()]
+            idx_rand = torch.randint(len(bosons), (1,)).item()
+            print(f"Boson ensemble size: {len(bosons)}, selected {idx_rand} for initialization.")
+            self.boson = bosons[idx_rand]
+            if delta_t_tensors:
+                self.delta_t_tensor = delta_t_tensors[idx_rand]
         else:
             print("No boson ensemble files found. Falling back to initialize_boson_pi_flux_randn_matfree().")
             self.initialize_boson_pi_flux_randn_matfree()
@@ -3120,8 +3133,10 @@ class HmcSampler(object):
                 # Save the boson sequence to file every 500 steps
                 data_folder = script_path + f"/check_points/boson_ensemble/"
                 file_name = f"boson_{self.specifics}_{self.step-1}"
-                self.save_to_file(self.boson.cpu(), data_folder, file_name)  
-   
+                ckpt_data = {'boson': self.boson.cpu(),
+                             'delta_t_tensor': self.delta_t_tensor.cpu()}
+                self.save_to_file(ckpt_data, data_folder, file_name)
+
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
                'step': self.step,
