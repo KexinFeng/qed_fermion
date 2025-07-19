@@ -963,7 +963,7 @@ class HmcSampler(object):
         data_folder = os.path.join(script_path, "check_points/boson_ensemble/")
         bosons = []
         delta_t_tensors = []
-        for step in [10, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
+        for step in [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
             file_name = f"boson_{self.specifics}_{step}.pt"
             file_path = os.path.join(data_folder, file_name)
             if os.path.exists(file_path):
