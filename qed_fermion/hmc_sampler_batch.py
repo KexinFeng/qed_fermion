@@ -27,6 +27,10 @@ mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass
 print(f"mass_mode: {mass_mode}")
 compact = int(os.getenv("compact", '0')) != 0
 print(f"compact turned on: {compact}")
+compute_BB = int(os.getenv("compute_BB", '0')) != 0
+print(f"compute_BB: {compute_BB}")
+compute_spsm = int(os.getenv("compute_spsm", '0')) != 0
+print(f"compute_spsm: {compute_spsm}")
 K = float(os.getenv("K", '1'))
 print(f"K: {K}")
 max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
@@ -2954,9 +2958,10 @@ class HmcSampler(object):
             # d_mem_str, d_mem2 = device_mem()
             # print(f"After init metropolis_graph: {d_mem_str}, incr.by: {d_mem2 - d_mem1:.2f} MB\n")
 
-            self.init_stochastic_estimator()  
-            d_mem_str, d_mem3 = device_mem()
-            print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
+            if compute_BB or compute_spsm:
+                self.init_stochastic_estimator()  
+                d_mem_str, d_mem3 = device_mem()
+                print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
 
         # Measure
         # fig = plt.figure()
@@ -2987,9 +2992,10 @@ class HmcSampler(object):
             self.delta_t_list[i] = delta_t_cpu
             if self.Lx <= 10 and buffer:
                 self.boson_seq_buffer[cnt_stream_write] = boson_cpu.view(self.bs, -1)
-            self.BB_r_list[i] = BB_r_cpu  # [bs, Lx, Ly]
-            self.BB_k_list[i] = BB_k_cpu  # [bs, Lx, Ly] 
-            # self.dimer_dimer_r_list[i] = dimer_dimer_r_cpu  # [bs, Lx, Ly] 
+            if BB_r_cpu is not None:
+                self.BB_r_list[i] = BB_r_cpu  # [bs, Ly, Lx]
+            if BB_k_cpu is not None:
+                self.BB_k_list[i] = BB_k_cpu  # [bs, Ly, Lx] 
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -3016,10 +3022,15 @@ class HmcSampler(object):
                 print(f"Step {i}: metropolis update took {(start_time - start_time0)*1:.2f} sec")
                 sys.stdout.flush()
 
-            eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-            obsr = self.se.get_fermion_obsr_compile(boson, eta)
-            BB_r = obsr['BB_r']  # [bs, Ly, Lx]
-            BB_k = obsr['BB_k']  # [bs, Ly, Lx]
+            if compute_BB or compute_spsm:
+                eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+                obsr = self.se.get_fermion_obsr_compile(boson, eta)
+                BB_r = obsr['BB_r'] if compute_BB else None
+                BB_k = obsr['BB_k'] if compute_BB else None
+                spsm_r = obsr['spsm_r'] if compute_spsm else None
+                spsm_k = obsr['spsm_k'] if compute_spsm else None
+            else:
+                BB_r = BB_k = spsm_r = spsm_k = None
 
             if i % 1000 == 0:  # Print timing every 100 steps
                 if torch.cuda.is_available():
@@ -3034,8 +3045,8 @@ class HmcSampler(object):
                 async_cpu_computations, 
                 i, 
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
-                BB_r.cpu() if BB_r.is_cuda else BB_r.clone(),
-                BB_k.cpu() if BB_k.is_cuda else BB_k.clone(),
+                (BB_r.cpu() if BB_r is not None and BB_r.is_cuda else (BB_r.clone() if BB_r is not None else None)),
+                (BB_k.cpu() if BB_k is not None and BB_k.is_cuda else (BB_k.clone() if BB_k is not None else None)),
                 # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
