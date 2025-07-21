@@ -6,6 +6,14 @@ import os
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
 
+import os
+script_path = os.path.dirname(os.path.abspath(__file__))
+import sys
+sys.path.insert(0, script_path + '/../../../')
+from qed_fermion.utils.prep_plots import set_default_plotting
+set_default_plotting()
+
+
 plt.ion()
 
 Ls = [6, 10, 16, 20]
@@ -17,7 +25,7 @@ speedup = [latency_naive_gpu[i] / latency_opt_cuda[i] for i in range(len(latency
 fig, ax1 = plt.subplots()
 
 # Plot latencies on the primary y-axis (blue)
-line1, = ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#2f89e4", label='Naive GPU impl.')
+line1, = ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#2f89e4", label='Naive GPU implementation')
 line2, = ax1.plot(Ls, latency_opt_cuda, marker='o', linestyle='-', color="#0A5197", label='Optimized CUDA kernel')
 ax1.set_xlabel(r'$V_s \times N_\tau$')
 ax1.set_ylabel(r'Latency (sec / sample)')
