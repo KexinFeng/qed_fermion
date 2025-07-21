@@ -24,7 +24,7 @@ L_array=$(echo '60 56 50')
 # L_array=$(echo '60 56 50 46 40 36 30 20 16 12 10 8 6')
 # L_array=$(echo '60 56 50 46 40 36 30 26 20 16 10')
 L_array=$(echo '60 50 40 30 20 10')
-L_array=$(echo '60 50')
+L_array=$(echo '60')
 max_iter_array=$(echo '200 400 800 1200')
 
 # J_array=$(echo '1.0')

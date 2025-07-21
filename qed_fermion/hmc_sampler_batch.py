@@ -979,7 +979,7 @@ class HmcSampler(object):
                 file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
             if self.Lx == 60:
                 file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
-                file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_6800")
+                file_name = file_name.replace(f"Nstp_10000", "Nstp_6800")
             file_path = os.path.join(data_folder, file_name)
             if os.path.exists(file_path):
                 loaded = torch.load(file_path)
@@ -3157,7 +3157,7 @@ class HmcSampler(object):
                     file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
                 if self.Lx == 60:
                     file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
-                    file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_6800")
+                    file_name = file_name.replace(f"Nstp_10000", "Nstp_6800")
                     
                 ckpt_data = {'boson': self.boson.cpu(),
                              'delta_t_tensor': self.delta_t_tensor.cpu()}
