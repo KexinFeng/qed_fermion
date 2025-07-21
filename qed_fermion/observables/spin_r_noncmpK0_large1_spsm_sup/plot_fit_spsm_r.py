@@ -59,54 +59,9 @@ corr_l20 = np.exp(loge_corr_l20)
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
-import matplotlib as mpl
+from qed_fermion.utils.prep_plots import set_default_plotting
+set_default_plotting()  
 
-# Parameters from the Matlab code
-width = 6      # inches
-height = 4.2   # inches
-fsz = 16       # Font size
-fna = 'Helvetica'  # Font name
-line_width = 2.5       # Line width
-msz = 10        # Marker size
-interp = 'latex' # Text interpreter
-
-mpl.rcParams.update({
-    "font.family": fna,
-    "font.size": fsz,
-    "axes.labelsize": fsz + 1,
-    "axes.titlesize": fsz,
-    "xtick.labelsize": fsz,
-    "ytick.labelsize": fsz,
-    "legend.fontsize": fsz,
-    "figure.titlesize": fsz + 2,
-    "lines.linewidth": line_width,
-    "lines.markersize": msz,
-    "axes.linewidth": 1.0,
-    "xtick.direction": "in",
-    "ytick.direction": "in",
-    "xtick.top": True,
-    "ytick.right": True,
-    "xtick.major.size": 6,
-    "ytick.major.size": 6,
-    "xtick.minor.size": 3,
-    "ytick.minor.size": 3,
-    "xtick.major.width": 1.0,
-    "ytick.major.width": 1.0,
-    "xtick.minor.width": 0.8,
-    "ytick.minor.width": 0.8,
-    "figure.dpi": 120,
-    "savefig.dpi": 300,
-    "figure.figsize": (width, height),
-    "legend.frameon": False,
-    "text.usetex": interp == 'latex',
-    "axes.grid": False,
-    "grid.alpha": 0.3,
-    "grid.linestyle": "-",
-    "figure.autolayout": True,
-})
-
-
-   
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
     
@@ -120,7 +75,7 @@ def plot_spin_r():
     start = 6000  # Skip initial equilibration steps
     sample_step = 1
     
-    plt.figure(figsize=(8, 6))
+    plt.figure()
     
     # Store data for normalization analysis
     all_data = {}
@@ -288,14 +243,12 @@ def plot_spin_r():
     # plt.tight_layout()
 
 
-
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK0.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
-
 
     plt.show()
 
