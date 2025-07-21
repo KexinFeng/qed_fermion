@@ -64,10 +64,10 @@ import matplotlib as mpl
 # Parameters from the Matlab code
 width = 6      # inches
 height = 4.2   # inches
-fsz = 14       # Font size
+fsz = 16       # Font size
 fna = 'Helvetica'  # Font name
-lw = 2.5       # Line width
-msz = 6        # Marker size
+line_width = 2.5       # Line width
+msz = 10        # Marker size
 interp = 'tex' # Text interpreter
 
 mpl.rcParams.update({
@@ -79,7 +79,7 @@ mpl.rcParams.update({
     "ytick.labelsize": fsz,
     "legend.fontsize": fsz,
     "figure.titlesize": fsz + 2,
-    "lines.linewidth": lw,
+    "lines.linewidth": line_width,
     "lines.markersize": msz,
     "axes.linewidth": 1.0,
     "xtick.direction": "in",
@@ -98,7 +98,7 @@ mpl.rcParams.update({
     "savefig.dpi": 300,
     "figure.figsize": (width, height),
     "legend.frameon": False,
-    "text.usetex": interp == 'tex',
+    "text.usetex": interp == 'latex',
     "axes.grid": False,
     "grid.alpha": 0.3,
     "grid.linestyle": "--",
@@ -207,8 +207,8 @@ def plot_spin_r():
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
-                     linestyle=':', marker='o', lw=1.5, color=color, 
-                     label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
+                     linestyle=':', marker='o', lw=2.5, color=color, 
+                     label=f'{Lx}x{Ltau}', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
@@ -230,16 +230,16 @@ def plot_spin_r():
     handles, labels = plt.gca().get_legend_handles_labels()
     
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'y~x^{coeffs_l20[0]:.2f}')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeffs_l20[0]:.2f}}}$')
     # Ensure the fit line is appended at the end
     handles = handles + [line_fit]
     labels = labels + [line_fit.get_label()]
 
     # Linear axes
-    plt.xlabel('r', fontsize=14)
-    plt.ylabel('$\\langle S^{+}(0) S^{-}(r) \\rangle$', fontsize=14)
+    plt.xlabel('r')
+    plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$')
 
-    plt.legend(handles, labels, fontsize=10, ncol=2)
+    plt.legend(handles, labels, ncol=2)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
