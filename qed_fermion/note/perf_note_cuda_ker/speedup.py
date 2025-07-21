@@ -17,7 +17,8 @@ set_default_plotting()
 plt.ion()
 
 Ls = [6, 10, 16, 20]
-Ls = [L**3 * 40 for L in Ls]
+# Ls = [L**3 * 40 for L in Ls]
+Ls = [L**3 *40 for L in Ls]
 latency_naive_gpu = [8.05, 13.52, 24.43, 30.09]
 latency_opt_cuda = [2.71, 4.36, 8.41, 7.82]
 speedup = [latency_naive_gpu[i] / latency_opt_cuda[i] for i in range(len(latency_naive_gpu))]   
@@ -54,6 +55,8 @@ ax2.spines['left'].set_visible(False)  # ← Hide overlapping right spine from a
 lines = [line1, line2, line3]
 labels = [line.get_label() for line in lines]
 ax1.legend(lines, labels, loc='upper left')
+
+plt.xscale('log')
 
 plt.show(block=False)
 
