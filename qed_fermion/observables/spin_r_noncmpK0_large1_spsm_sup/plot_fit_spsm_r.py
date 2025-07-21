@@ -68,12 +68,12 @@ fsz = 16       # Font size
 fna = 'Helvetica'  # Font name
 line_width = 2.5       # Line width
 msz = 10        # Marker size
-interp = 'tex' # Text interpreter
+interp = 'latex' # Text interpreter
 
 mpl.rcParams.update({
     "font.family": fna,
     "font.size": fsz,
-    "axes.labelsize": fsz,
+    "axes.labelsize": fsz + 1,
     "axes.titlesize": fsz,
     "xtick.labelsize": fsz,
     "ytick.labelsize": fsz,
@@ -101,7 +101,7 @@ mpl.rcParams.update({
     "text.usetex": interp == 'latex',
     "axes.grid": False,
     "grid.alpha": 0.3,
-    "grid.linestyle": "--",
+    "grid.linestyle": "-",
     "figure.autolayout": True,
 })
 
