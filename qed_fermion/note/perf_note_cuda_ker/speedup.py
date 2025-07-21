@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, script_path + '/../../../')
 from qed_fermion.utils.prep_plots import set_default_plotting
 set_default_plotting()
+from matplotlib.ticker import MaxNLocator
 
 
 plt.ion()
@@ -37,6 +38,7 @@ ax1.spines['left'].set_linewidth(1.2)
 ax1.spines['left'].set_visible(True)
 ax1.spines['right'].set_visible(False)
 # ax1.tick_params(axis='y', colors='#2f89e4')  # Set left y-axis tick colors
+ax1.yaxis.set_major_locator(MaxNLocator(nbins=4))
 
 # Create a secondary y-axis for speedup (red)
 ax2 = ax1.twinx()
@@ -50,6 +52,7 @@ ax2.spines['right'].set_linewidth(1.2)
 ax2.spines['right'].set_visible(True)
 ax2.spines['left'].set_visible(False)  # ← Hide overlapping right spine from ax1
 # ax2.tick_params(axis='y', colors='r')  # Set left y-axis tick colors
+ax2.yaxis.set_major_locator(MaxNLocator(nbins=3))
 
 # Combine legends from both axes
 lines = [line1, line2, line3]
@@ -57,6 +60,7 @@ labels = [line.get_label() for line in lines]
 ax1.legend(lines, labels, loc='upper left')
 
 plt.xscale('log')
+
 
 plt.show(block=False)
 

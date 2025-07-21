@@ -4,6 +4,7 @@ import os
 import sys
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
+from matplotlib.ticker import MaxNLocator
 
 # Add import for curve_fit
 from scipy.optimize import curve_fit
@@ -69,6 +70,9 @@ plt.legend(lines, labels, loc='upper left', ncol=2)
 plt.grid(True)
 plt.xscale('log')
 plt.yscale('log')
+
+ax = fig.gca()
+ax.yaxis.set_major_locator(plt.LogLocator(base=10.0, numticks=4))
 
 # Save the plot
 script_path = os.path.dirname(os.path.abspath(__file__))
