@@ -974,6 +974,12 @@ class HmcSampler(object):
             file_name = f"boson_{self.specifics}_{step}.pt"
             file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
             file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
+            file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
+            if self.Lx == 50:
+                file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+            if self.Lx == 60:
+                file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_6800")
             file_path = os.path.join(data_folder, file_name)
             if os.path.exists(file_path):
                 loaded = torch.load(file_path)
@@ -3142,9 +3148,15 @@ class HmcSampler(object):
             if i % 500 == 0 and i >= 4000 or i == 10:
                 # Save the boson sequence to file every 500 steps
                 data_folder = script_path + f"/check_points/boson_ensemble/"
-                file_name = f"boson_{self.specifics}_{self.step-1}"
                 file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
                 file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
+                file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
+                if self.Lx == 50:
+                    file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                if self.Lx == 60:
+                    file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                    file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_6800")
+                    
                 ckpt_data = {'boson': self.boson.cpu(),
                              'delta_t_tensor': self.delta_t_tensor.cpu()}
                 self.save_to_file(ckpt_data, data_folder, file_name)
