@@ -976,9 +976,9 @@ class HmcSampler(object):
             file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
             file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
             if self.Lx == 50:
-                file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
             if self.Lx == 60:
-                file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
                 file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_6800")
             file_path = os.path.join(data_folder, file_name)
             if os.path.exists(file_path):
@@ -3152,9 +3152,9 @@ class HmcSampler(object):
                 file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
                 file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
                 if self.Lx == 50:
-                    file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                    file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
                 if self.Lx == 60:
-                    file_name = file_name.replace(f"Jtau_{self.Jtau}", "Jtau_1")
+                    file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
                     file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_6800")
                     
                 ckpt_data = {'boson': self.boson.cpu(),
