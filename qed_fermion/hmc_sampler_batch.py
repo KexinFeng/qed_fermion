@@ -3148,6 +3148,8 @@ class HmcSampler(object):
             if i % 500 == 0 and i >= 4000 or i == 10:
                 # Save the boson sequence to file every 500 steps
                 data_folder = script_path + f"/check_points/boson_ensemble/"
+                file_name = f"boson_{self.specifics}_{self.step-1}"
+                
                 file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
                 file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
                 file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
