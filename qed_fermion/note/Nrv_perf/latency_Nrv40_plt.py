@@ -2,6 +2,11 @@ import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import os
+import sys
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../../../')
+from qed_fermion.utils.prep_plots import set_default_plotting
+set_default_plotting()
 
 # Data
 L = [10, 16, 20, 30, 36, 40, 46, 50]  # beta = L

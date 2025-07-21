@@ -2,9 +2,9 @@ import matplotlib as mpl
 
 def set_default_plotting():
     """Set default plotting settings for physics scientific publication (Matlab style)."""
-    width = 8      # inches
-    height = 6   # inches
-    fsz = 16       # Font size
+    width = 6      # inches
+    height = 4.5   # inches
+    fsz = 14       # Font size
     fna = 'Helvetica'  # Font name
     line_width = 2.5       # Line width
     msz = 10        # Marker size
@@ -17,7 +17,7 @@ def set_default_plotting():
         "axes.titlesize": fsz,
         "xtick.labelsize": fsz,
         "ytick.labelsize": fsz,
-        "legend.fontsize": fsz,
+        "legend.fontsize": fsz - 1,
         "figure.titlesize": fsz + 2,
         "lines.linewidth": line_width,
         "lines.markersize": msz,
@@ -41,6 +41,6 @@ def set_default_plotting():
         "text.usetex": interp == 'latex',
         "axes.grid": False,
         "grid.alpha": 0.3,
-        "grid.linestyle": "-",
+        "grid.linestyle": "",
         "figure.autolayout": True,
     }) 

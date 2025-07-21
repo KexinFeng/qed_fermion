@@ -39,52 +39,36 @@ coeff_se, exponent_se = popt_se
 alpha_se = 3 * exponent_se
 
 # Create plot
-fig, ax1 = plt.subplots(figsize=(8, 6))
+fig = plt.figure(figsize=(6, 5))
 
-# Plot mc_latency on left y-axis (blue)
-line1, = ax1.plot(L_cubed, mc_latency, f'C{0}o', label='MC latency')
-fit_line_mc, = ax1.plot(L_cubed, power_law(np.array(L_cubed), coeff_mc, exponent_mc), f'C{0}-',
+# Plot mc_latency (blue)
+line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='MC latency')
+fit_line_mc, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_mc, exponent_mc), f'C{0}-',
                        label=f'MC fit: $y \sim (L^3)^{{{exponent_mc:.3f}}}$')
-ax1.set_xlabel(r'$L^3$')
-ax1.set_ylabel('MC latency (sec/item)', color=f"C{0}")
-ax1.tick_params(axis='y', labelcolor=f"C{0}")
-ax1.set_yscale('log')
-# Set left axis line color and width, hide right spine
-ax1.spines['left'].set_color(f"C{0}")
-ax1.spines['left'].set_linewidth(1.2)
-ax1.spines['left'].set_visible(True)
-ax1.spines['right'].set_visible(False)
 
-# Add guideline to axis1
+# Plot se_latency (red)
+line3, = plt.plot(L_cubed, se_latency, f'C{3}o', label='SE latency')
+fit_line_se, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent_se), f'C{3}-',
+                       label=f'SE fit: $y \sim (L^3)^{{{exponent_se:.3f}}}$')
+
+plt.xlabel(r'$L^3$')
+plt.ylabel('Latency (sec / sample)')
+
+# Add guideline
 ref_idx = 0
 ref_x = L_cubed[ref_idx]
-ref_y = mc_latency[ref_idx]
+ref_y = mc_latency[ref_idx] / 3
 scaling = 7/3
 guideline = ref_y * (np.array(L_cubed) / ref_x) ** scaling
-line2, = ax1.plot(L_cubed, guideline, f'C{0}--', label=r'$L^{7}$ guideline')
+line2, = plt.plot(L_cubed, guideline, f'C{1}--', label=r'$L^{7}$ guideline')
 
-# Create a secondary y-axis for se_latency (red)
-ax2 = ax1.twinx()
-line3, = ax2.plot(L_cubed, se_latency, f'C{3}o', label='SE latency')
-fit_line_se, = ax2.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent_se), f'C{3}-',
-                       label=f'SE fit: $y \sim (L^3)^{{{exponent_se:.3f}}}$')
-ax2.set_ylabel('SE latency (sec/item)', color=f'C{3}')
-ax2.tick_params(axis='y', labelcolor=f'C{3}')
-ax2.set_yscale('log')
-# Set right axis line color and width, hide left spine
-ax2.spines['right'].set_color(f'C{3}')
-ax2.spines['right'].set_linewidth(1.2)
-ax2.spines['right'].set_visible(True)
-ax2.spines['left'].set_visible(False)
-
-# Combine legends from both axes
 lines = [line1, line3, fit_line_mc, fit_line_se, line2]
 labels = [line.get_label() for line in lines]
-ax1.legend(lines, labels, loc='upper left')
+plt.legend(lines, labels, loc='upper left')
 
 plt.grid(True)
 plt.xscale('log')
-# plt.yscale('log')
+plt.yscale('log')
 
 # Save the plot
 script_path = os.path.dirname(os.path.abspath(__file__))
