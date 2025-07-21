@@ -33,7 +33,7 @@ from qed_fermion.stochastic_estimator import StochaticEstimator
 # end_dqmc = 10000
 
 start_dist = 1
-step_dist = 1
+step_dist = 2
 y_diplacement = lambda x: 0
 
 # Only use r > 0 for log-log fit to avoid log(0)

@@ -57,6 +57,55 @@ corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
+
+# Set default plotting settings for physics scientific publication (Matlab style)
+import matplotlib as mpl
+
+# Parameters from the Matlab code
+width = 6      # inches
+height = 4.2   # inches
+fsz = 14       # Font size
+fna = 'Helvetica'  # Font name
+lw = 2.5       # Line width
+msz = 6        # Marker size
+interp = 'tex' # Text interpreter
+
+mpl.rcParams.update({
+    "font.family": fna,
+    "font.size": fsz,
+    "axes.labelsize": fsz,
+    "axes.titlesize": fsz,
+    "xtick.labelsize": fsz,
+    "ytick.labelsize": fsz,
+    "legend.fontsize": fsz,
+    "figure.titlesize": fsz + 2,
+    "lines.linewidth": lw,
+    "lines.markersize": msz,
+    "axes.linewidth": 1.0,
+    "xtick.direction": "in",
+    "ytick.direction": "in",
+    "xtick.top": True,
+    "ytick.right": True,
+    "xtick.major.size": 6,
+    "ytick.major.size": 6,
+    "xtick.minor.size": 3,
+    "ytick.minor.size": 3,
+    "xtick.major.width": 1.0,
+    "ytick.major.width": 1.0,
+    "xtick.minor.width": 0.8,
+    "ytick.minor.width": 0.8,
+    "figure.dpi": 120,
+    "savefig.dpi": 300,
+    "figure.figsize": (width, height),
+    "legend.frameon": False,
+    "text.usetex": interp == 'tex',
+    "axes.grid": False,
+    "grid.alpha": 0.3,
+    "grid.linestyle": "--",
+    "figure.autolayout": True,
+})
+
+
    
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
@@ -177,14 +226,20 @@ def plot_spin_r():
     coeffs_l20[0] = -3.3
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
+    # Plot the fit line and merge its handle/label to the end of the existing legend entries
+    handles, labels = plt.gca().get_legend_handles_labels()
+    
     # Plot the fit line for L20 data
-    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'y~x^{coeffs_l20[0]:.2f}')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'y~x^{coeffs_l20[0]:.2f}')
+    # Ensure the fit line is appended at the end
+    handles = handles + [line_fit]
+    labels = labels + [line_fit.get_label()]
 
     # Linear axes
-    plt.xlabel('Distance r (lattice units)', fontsize=14)
-    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+    plt.xlabel('r', fontsize=14)
+    plt.ylabel('$\\langle S^{+}(0) S^{-}(r) \\rangle$', fontsize=14)
 
-    plt.legend(fontsize=10, ncol=2)
+    plt.legend(handles, labels, fontsize=10, ncol=2)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
@@ -198,6 +253,9 @@ def plot_spin_r():
     # Set log scales
     plt.xscale('log')
     plt.yscale('log')
+
+    # Set y-axis lower limit to 1e-7
+    plt.ylim(1e-7, None)
 
     # # Set log scales first
     # plt.xscale('log', base=np.e)
@@ -222,15 +280,14 @@ def plot_spin_r():
     # x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
     # plt.gca().set_xticks(x_ticks)
 
-    plt.xlabel('Distance r (lattice units)', fontsize=14)
-    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+    # plt.xlabel('Distance r (lattice units)', fontsize=14)
+    # plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
 
-    plt.legend(fontsize=10, ncol=2)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    # plt.legend(fontsize=10, ncol=2)
+    # plt.grid(True, alpha=0.3)
+    # plt.tight_layout()
 
-    # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-7, None)
+
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
