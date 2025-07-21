@@ -56,19 +56,23 @@ corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large4_Nrv40/hmc_check_point_cmp_large4_Nrv40"
-   
+
+# Set default plotting settings for physics scientific publication (Matlab style)
+from qed_fermion.utils.prep_plots import set_default_plotting
+set_default_plotting()
+
 def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes."""
     
     # Define lattice sizes to analyze
-    lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     # lattice_sizes = [8, 10]
      
     # Sampling parameters
     start = 6000  # Skip initial equilibration steps
     sample_step = 1
     
-    plt.figure(figsize=(8, 6))
+    plt.figure()
     
     # Store data for normalization analysis
     all_data = {}
@@ -154,16 +158,16 @@ def plot_spin_r():
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
-                     linestyle=':', marker='o', lw=1.5, color=color, 
-                     label=f'{Lx}x{Ltau}', markersize=8, alpha=0.8)
+                     linestyle=':', marker='o', lw=2.5, color=color, 
+                     label=f'{Lx}x{Ltau}', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
         dbstop = 1
     
     # # Plot the r_l20 and corr_l20 data on the same plot for comparison
-    # plt.plot(r_l20, corr_l20, 's--', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
-    
+    # plt.plot(r_l20, corr_l20, 's', color='black', label='L20 dqmc', markersize=8, alpha=0.8)
+    # Linear fit for r_l20 and corr_l20 in log-log space
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
@@ -173,27 +177,37 @@ def plot_spin_r():
     coeffs_l20[0] = -3.4
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.85) * r_l20_aug ** coeffs_l20[0]
 
+    # Plot the fit line and merge its handle/label to the end of the existing legend entries
+    handles, labels = plt.gca().get_legend_handles_labels()
+    
     # Plot the fit line for L20 data
-    plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=f'y~x^{coeffs_l20[0]:.2f}')
-
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeffs_l20[0]:.2f}}}$')
+    # Ensure the fit line is appended at the end
+    handles = handles + [line_fit]
+    labels = labels + [line_fit.get_label()]
 
     # Linear axes
-    plt.xlabel('Distance r (lattice units)', fontsize=14)
-    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+    plt.xlabel('r')
+    plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$')
 
-    plt.legend(fontsize=10, ncol=2)
+    plt.legend(handles, labels, ncol=2)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    
-    # Save the plot (linear axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
-    os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
-    plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    print(f"Raw values figure saved at: {file_path}")
 
+    # Set log scales
     plt.xscale('log')
     plt.yscale('log')
+
+    # Set y-axis lower limit to 1e-7
+    plt.ylim(1*10**-7.5, None)
+
+    # # Save the plot (linear axes)
+    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
+    # os.makedirs(save_dir, exist_ok=True)
+    # file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
+    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    # print(f"Raw values figure saved at: {file_path}")
+
 
     # # Set log scales first
     # plt.xscale('log', base=np.e)
@@ -218,23 +232,20 @@ def plot_spin_r():
     # x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
     # plt.gca().set_xticks(x_ticks)
 
-    plt.xlabel('Distance r (lattice units)', fontsize=14)
-    plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
+    # plt.xlabel('r')
+    # plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$')
 
-    plt.legend(fontsize=10, ncol=2)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    # plt.legend(handles, labels, ncol=2)
+    # plt.grid(True, alpha=0.3)
+    # plt.tight_layout()
     
-    # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-7, None)
 
     # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
+    save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_cmp.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
-
 
     plt.show()
 
