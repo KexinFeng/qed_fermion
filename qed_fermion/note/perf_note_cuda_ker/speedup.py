@@ -31,7 +31,7 @@ ax1.set_xlabel(r'$V_s \times N_\tau$')
 ax1.set_ylabel(r'Latency (sec / sample)')
 ax1.tick_params(axis='y')
 # ax1.grid(True)
-ax1.spines['left'].set_color("#2f89e4")  # Set left axis line color
+ax1.spines['left'].set_color("#1673d1")  # Set left axis line color
 ax1.spines['left'].set_linewidth(1.2)
 ax1.spines['left'].set_visible(True)
 ax1.spines['right'].set_visible(False)
@@ -42,7 +42,7 @@ ax2 = ax1.twinx()
 line3, = ax2.plot(Ls, speedup, marker='^', linestyle='--', color='r', label='Speedup ratio')
 ax2.set_ylabel(r'Speedup ratio')
 ax2.tick_params(axis='y')
-ax2.set_ylim([1, 8])
+ax2.set_ylim([1, 6])
 
 ax2.spines['right'].set_color('r')  # Set right axis line color
 ax2.spines['right'].set_linewidth(1.2)

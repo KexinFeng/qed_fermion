@@ -39,17 +39,17 @@ coeff_se, exponent_se = popt_se
 alpha_se = 3 * exponent_se
 
 # Create plot
-fig = plt.figure(figsize=(6, 5))
+fig = plt.figure()
 
 # Plot mc_latency (blue)
 line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='MC latency')
 fit_line_mc, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_mc, exponent_mc), f'C{0}-',
-                       label=f'MC fit: $y \sim (L^3)^{{{exponent_mc:.3f}}}$')
+                       label=f'$y \sim (L^3)^{{{exponent_mc:.3f}}}$')
 
 # Plot se_latency (red)
-line3, = plt.plot(L_cubed, se_latency, f'C{3}o', label='SE latency')
-fit_line_se, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent_se), f'C{3}-',
-                       label=f'SE fit: $y \sim (L^3)^{{{exponent_se:.3f}}}$')
+line3, = plt.plot(L_cubed, se_latency, f'C{1}o', label='SE latency')
+fit_line_se, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent_se), f'C{1}-',
+                       label=f'$y \sim (L^3)^{{{exponent_se:.3f}}}$')
 
 plt.xlabel(r'$L^3$')
 plt.ylabel('Latency (sec / sample)')
@@ -60,11 +60,11 @@ ref_x = L_cubed[ref_idx]
 ref_y = mc_latency[ref_idx] / 3
 scaling = 7/3
 guideline = ref_y * (np.array(L_cubed) / ref_x) ** scaling
-line2, = plt.plot(L_cubed, guideline, f'C{1}--', label=r'$L^{7}$ guideline')
+line2, = plt.plot(L_cubed, guideline, f'C{2}--', label=r'$L^{7}$ guideline')
 
-lines = [line1, line3, fit_line_mc, fit_line_se, line2]
+lines = [line1, line3, line2, fit_line_mc, fit_line_se]
 labels = [line.get_label() for line in lines]
-plt.legend(lines, labels, loc='upper left')
+plt.legend(lines, labels, loc='upper left', ncol=2)
 
 plt.grid(True)
 plt.xscale('log')
