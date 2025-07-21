@@ -25,14 +25,15 @@ L_array=$(echo '60 56 50')
 # L_array=$(echo '60 56 50 46 40 36 30 26 20 16 10')
 L_array=$(echo '60 50 40 30 20 10')
 L_array=$(echo '60 50')
-L_array=$(echo '40 30 20 10')
+# L_array=$(echo '40 30 20 10')
 max_iter_array=$(echo '200 400 800 1200')
+max_iter_array=$(echo '200')
 # max_iter_array=$(echo '200 400')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-export Nstep=6000
+export Nstep=2000
 export debug=0
 export cuda_graph=1
 export bs=1
