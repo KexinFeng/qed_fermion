@@ -281,7 +281,7 @@ class HmcSampler(object):
         self.cg_rtol = 1e-9
         self.cg_rtol = 1e-15
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
-        self.max_iter = 1000
+        self.max_iter = max_iter
 
         self.precon = None
         self.precon_csr = None
@@ -297,7 +297,7 @@ class HmcSampler(object):
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         # self._MAX_ITERS_TO_CAPTURE = [100, 200, 400] # [100] will lead 10^-2 rtol
-        self._MAX_ITERS_TO_CAPTURE = [max_iter] if not (dtau <= 0.1 and precon_on) else [400]
+        self._MAX_ITERS_TO_CAPTURE = [max_iter] if dtau <= 0.1 and precon_on else [400]
         if self.cuda_graph:
             self.max_iter = self._MAX_ITERS_TO_CAPTURE[0]
         print(f"cg_rtol: {self.cg_rtol} max_iter: {self.max_iter}")

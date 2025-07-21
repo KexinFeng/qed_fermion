@@ -24,15 +24,15 @@ L_array=$(echo '60 56 50')
 # L_array=$(echo '60 56 50 46 40 36 30 20 16 12 10 8 6')
 # L_array=$(echo '60 56 50 46 40 36 30 26 20 16 10')
 L_array=$(echo '60 50 40 30 20 10')
-L_array=$(echo '60 40 20')
-# L_array=$(echo '10')
+L_array=$(echo '60 50')
+L_array=$(echo '40 30 20 10')
 max_iter_array=$(echo '200 400 800 1200')
 # max_iter_array=$(echo '200 400')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=6000
+export Nstep=6000
 export debug=0
 export cuda_graph=1
 export bs=1
@@ -63,7 +63,7 @@ for L in $L_array; do
                 --time=6-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
-                s_hmc_noncmp.cmd
+                s_pcg_iter.cmd
         done
 done
 
