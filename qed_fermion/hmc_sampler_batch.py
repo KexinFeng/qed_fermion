@@ -970,7 +970,7 @@ class HmcSampler(object):
         data_folder = os.path.join(script_path, "check_points/boson_ensemble/")
         bosons = []
         delta_t_tensors = []
-        for step in [5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
+        for step in [4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]:
             file_name = f"boson_{self.specifics}_{step}.pt"
             file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
             file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
@@ -3139,7 +3139,7 @@ class HmcSampler(object):
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)  
 
-            if i % 500 == 0 and i >= 5000 or i == 10:
+            if i % 500 == 0 and i >= 4000 or i == 10:
                 # Save the boson sequence to file every 500 steps
                 data_folder = script_path + f"/check_points/boson_ensemble/"
                 file_name = f"boson_{self.specifics}_{self.step-1}"
