@@ -30,7 +30,7 @@ fig, ax1 = plt.subplots()
 line1, = ax1.plot(Ls, latency_naive_gpu, marker='o', linestyle='-', color="#2f89e4", label='Naive GPU implementation')
 line2, = ax1.plot(Ls, latency_opt_cuda, marker='o', linestyle='-', color="#0A5197", label='Optimized CUDA kernel')
 ax1.set_xlabel(r'$V_s \times N_\tau$')
-ax1.set_ylabel(r'Latency (sec / sample)')
+ax1.set_ylabel(r'Latency')
 ax1.tick_params(axis='y')
 # ax1.grid(True)
 ax1.spines['left'].set_color("#1673d1")  # Set left axis line color
@@ -38,7 +38,7 @@ ax1.spines['left'].set_linewidth(1.2)
 ax1.spines['left'].set_visible(True)
 ax1.spines['right'].set_visible(False)
 # ax1.tick_params(axis='y', colors='#2f89e4')  # Set left y-axis tick colors
-ax1.yaxis.set_major_locator(MaxNLocator(nbins=4))
+ax1.yaxis.set_major_locator(MaxNLocator(nbins=6))
 
 # Create a secondary y-axis for speedup (red)
 ax2 = ax1.twinx()

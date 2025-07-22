@@ -4,7 +4,6 @@ import os
 import sys
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
-from matplotlib.ticker import MaxNLocator
 
 # Add import for curve_fit
 from scipy.optimize import curve_fit
@@ -53,7 +52,7 @@ fit_line_se, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent
                        label=f'$y \sim (L^3)^{{{exponent_se:.3f}}}$')
 
 plt.xlabel(r'$L^3$')
-plt.ylabel('Latency (sec / sample)')
+plt.ylabel('Latency')
 
 # Add guideline
 ref_idx = 0

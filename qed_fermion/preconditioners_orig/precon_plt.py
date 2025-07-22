@@ -4,7 +4,14 @@ plt.ion()
 from matplotlib import rcParams
 import os
 rcParams['figure.raise_window'] = False
+import sys
+import os
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../../')
 
+from qed_fermion.utils.prep_plots import set_default_plotting
+set_default_plotting()
+from matplotlib.ticker import MaxNLocator
 
 
 debug = True
@@ -198,7 +205,7 @@ def get_precon_man():
         print("precon_man size:", precon_man.size())
 
         # Plot
-        plt.figure(figsize=(8, 8))
+        plt.figure()
         plt.spy(precon_man.to_dense().real, markersize=0.5)
         # plt.title("Sparsity Pattern of Preconditioner")
         plt.xlabel("Columns")
@@ -218,13 +225,18 @@ def get_precon_man():
         print("precon_man is close to precon.")
 
         # Plot Corner
-        plt.figure(figsize=(8, 8))
+        plt.figure()
         plt.spy(precon_man.to_dense().real[:502, :502], markersize=0.5)
         # plt.title("Sparsity Pattern of Preconditioner")
-        # plt.xlabel("Columns")
-        # plt.ylabel("Rows")
+        ax = plt.gca()
+        ax.xaxis.set_label_position('top')
+        ax.set_xlabel("columns", fontsize=16, labelpad=10)
+        plt.ylabel("rows", fontsize=16, labelpad=10)
         plt.show(block=False)
-        
+        plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=3))
+        plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=3))
+
+
         file_name = "sparse_pattern_subset.pdf"
         # Define save directory and file name
         script_path = os.path.dirname(os.path.abspath(__file__))

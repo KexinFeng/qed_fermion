@@ -16,9 +16,12 @@ import sys
 sys.path.insert(0, script_path + '/../../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from matplotlib.ticker import LogLocator
 
+from qed_fermion.utils.prep_plots import set_default_plotting
+set_default_plotting()
+import matplotlib.lines as mlines
 
 start_dist = 1
 step_dist = 2 
@@ -75,7 +78,7 @@ def plot_spin_r():
     start = 6000  # Skip initial equilibration steps
     sample_step = 1
     
-    plt.figure()
+    plt.figure(figsize=(8, 6))
     
     # Store data for normalization analysis
     all_data = {}
@@ -162,7 +165,7 @@ def plot_spin_r():
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
-                     linestyle=':', marker='o', lw=2.5, color=color, 
+                     linestyle=':', marker='o', color=color, 
                      label=f'{Lx}x{Ltau}', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
@@ -182,66 +185,33 @@ def plot_spin_r():
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line and merge its handle/label to the end of the existing legend entries
-    handles, labels = plt.gca().get_legend_handles_labels()
+    handles, _ = plt.gca().get_legend_handles_labels()
     
     # Plot the fit line for L20 data
     line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeffs_l20[0]:.2f}}}$')
     # Ensure the fit line is appended at the end
-    handles = handles + [line_fit]
-    labels = labels + [line_fit.get_label()]
+    handles.insert(0, line_fit)
+    place_holder_handle = mlines.Line2D([], [], color='none', label='')
+    handles.insert(6, place_holder_handle)
+    labels = [line.get_label() for line in handles]
 
     # Linear axes
-    plt.xlabel('r')
-    plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$')
+    plt.xlabel('r', fontsize=19)
+    plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$', fontsize=19)
 
     plt.legend(handles, labels, ncol=2)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    
-    # # Save the plot (linear axes)
-    # save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")
-    # os.makedirs(save_dir, exist_ok=True)
-    # file_path = os.path.join(save_dir, "spin_r_vs_x_fit.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Raw values figure saved at: {file_path}")
 
     # Set log scales
     plt.xscale('log')
     plt.yscale('log')
 
+    # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
+    plt.gca().yaxis.set_major_locator(plt.LogLocator(base=10.0, numticks=6))
+
     # Set y-axis lower limit to 1e-7
     plt.ylim(1e-7, None)
-
-    # # Set log scales first
-    # plt.xscale('log', base=np.e)
-    # plt.yscale('log', base=np.e)
-    
-    # # Set custom tick labels to show exponents instead of powers of e
-    # def exp_formatter(x, pos):
-    #     """Format ticks to show exponent of e instead of e^x"""
-    #     if x <= 0:
-    #         return '0'
-    #     log_val = np.log(x)
-    #     if abs(log_val - round(log_val)) < 0.01:  # Close to integer
-    #         return f'{int(round(log_val))}'
-    #     else:
-    #         return f'{log_val:.1f}'
-    
-    # # Apply formatters and set ticks
-    # plt.gca().xaxis.set_major_formatter(FuncFormatter(exp_formatter))
-    # plt.gca().yaxis.set_major_formatter(FuncFormatter(exp_formatter))
-
-    # # Add more x and y ticks at regular intervals in log space
-    # x_ticks = np.exp([0, 0.5, 1, 1.5, 2]).tolist()   
-    # plt.gca().set_xticks(x_ticks)
-
-    # plt.xlabel('Distance r (lattice units)', fontsize=14)
-    # plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
-
-    # plt.legend(fontsize=10, ncol=2)
-    # plt.grid(True, alpha=0.3)
-    # plt.tight_layout()
-
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
