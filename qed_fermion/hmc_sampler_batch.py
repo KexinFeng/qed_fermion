@@ -276,10 +276,7 @@ class HmcSampler(object):
         self.lambda_ = lambda_
 
         # CG
-        self.cg_rtol = 1e-7
-        self.cg_rtol = 1e-5
-        self.cg_rtol = 1e-9
-        self.cg_rtol = 1e-15
+        self.cg_rtol = 1e-15 if 'pcg_iter' in suffix else 1e-9
         # self.max_iter = 400  # at around 450 rtol is so small that becomes nan
         self.max_iter = max_iter
 
