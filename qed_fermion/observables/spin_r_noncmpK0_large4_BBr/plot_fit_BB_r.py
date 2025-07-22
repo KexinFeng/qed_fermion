@@ -176,7 +176,12 @@ def plot_spin_r():
     handles, labels = plt.gca().get_legend_handles_labels()
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeff0:.2f}}}$')
     handles.insert(0, line_fit)
-    plt.legend(handles, [line.get_label() for line in handles], ncol=2)
+
+    # Ensure the fit line is appended at the end
+    place_holder_handle = mlines.Line2D([], [], color='none', label='')
+    handles.insert(4, place_holder_handle)
+    labels = [line.get_label() for line in handles]
+    plt.legend(handles, labels, ncol=2)
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -192,9 +197,9 @@ def plot_spin_r():
     ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=5)))
 
     # Save the plot (log-log axes)
-    save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
+    save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
+    file_path = os.path.join(save_dir, "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 
