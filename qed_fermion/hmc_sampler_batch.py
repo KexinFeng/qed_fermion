@@ -3133,6 +3133,7 @@ class HmcSampler(object):
             if i % self.ckp_rate == 0 and i > 0:
                 res = {'boson': boson,
                         'step': self.step,
+                        'cur_step': self.cur_step,
                         'G_list': self.G_list,
                         'S_plaq_list': self.S_plaq_list,
                         'S_tau_list': self.S_tau_list,

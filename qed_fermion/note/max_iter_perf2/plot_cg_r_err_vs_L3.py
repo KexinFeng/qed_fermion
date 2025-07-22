@@ -49,9 +49,11 @@ for (L, max_iter), (step, fname) in file_dict.items():
 
     fpath = os.path.join(ckpt_dir, fname)
     d = torch.load(fpath, map_location='cpu')
+    cur_step = d['step']
+    assert cur_step - 1 == step or cur_step == step
     cg_r_err = d['cg_r_err_list']  # shape (N_step, 1)
     # Take last 2000 steps
-    cg_r_err_last = cg_r_err[-2000:]
+    cg_r_err_last = cg_r_err[max(step - 2000, 0): step]
     mean_err = cg_r_err_last.mean().item()
     sigma_err = cg_r_err_last.std().item() / np.sqrt(len(cg_r_err_last))
     results[max_iter].append((L, mean_err, sigma_err))
