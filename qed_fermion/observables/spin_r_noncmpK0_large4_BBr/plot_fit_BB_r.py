@@ -57,7 +57,7 @@ def plot_spin_r():
     lattice_sizes = [12, 16, 20, 30, 36, 40]
     
     # Sampling parameters
-    start = 6000  # Skip initial equilibration steps
+    start = 2000  # Skip initial equilibration steps
     sample_step = 1
     
     plt.figure(figsize=(8, 6))
@@ -119,8 +119,9 @@ def plot_spin_r():
             y = y_diplacement(x) 
             
             r_values.append(r)
-            val = 1/2 * (bb_r_np_abs[y, x] + bb_r_np_abs[y, Lx - x]) if y != x else bb_r_np_abs[y, x]
+            val = 1/2 * (bb_r_np_abs[y, x] + bb_r_np_abs[y, Lx - x]) if y != x else bb_r_np_abs[y, x]  # bb_r_np_abs[Ly - y, x] will err, since y = 0.
             err = 1/2 * (bb_r_avg_std_np[y, x] + bb_r_avg_std_np[y, Lx - x]) if y != x else bb_r_avg_std_np[y, x] 
+            
             spin_corr_values.append(val)
             spin_corr_errors.append(err / np.sqrt(len(seq_idx) * bs))
 
@@ -145,15 +146,25 @@ def plot_spin_r():
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
         # Plot data and fit in log-log space
-        plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
-                     linestyle=':', marker='o', color=color, 
-                     label=f'{Lx}x{Ltau}', alpha=0.8)
+        # Plot error bars with alpha=1 (fully opaque)
+        eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
+                          linestyle=':', marker='o', color=color, 
+                          label=f'{Lx}x{Ltau}', alpha=1.0)
+        # Set only the marker (dots) to have alpha=0.8
+        if hasattr(eb, 'lines') and len(eb.lines) > 0:
+            eb.lines[0].set_alpha(0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
+        # plt.yscale('log')
+        # plt.xscale('log')
+        # plt.ylim(1e-6, 10**-0.5)
+
+        dbstop = 1
+
     # Linear axes
     plt.xlabel('r', fontsize=19)
-    plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$', fontsize=19)
+    plt.ylabel('$\\langle B_r B_0 \\rangle$', fontsize=19)
 
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
@@ -171,14 +182,14 @@ def plot_spin_r():
     plt.tight_layout()
     
     # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-7, None)
+    plt.ylim(1e-6, 10**-0.5)
     
     # Set log scales
     plt.xscale('log')
     plt.yscale('log')
 
     ax = plt.gca()
-    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
+    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=5)))
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
