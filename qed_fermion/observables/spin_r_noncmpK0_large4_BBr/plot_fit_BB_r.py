@@ -169,9 +169,9 @@ def plot_spin_r():
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
-    r_fitline = np.linspace(r_min, (r_max + r_min + 2)// 2, 100)
-    coeff0 = -3.5
-    coeff1 = -3.5
+    r_fitline = np.linspace(r_min, (r_max + r_min - 6)// 2, 100)
+    coeff0 = -3.6
+    coeff1 = -3.0
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeff0:.2f}}}$')
