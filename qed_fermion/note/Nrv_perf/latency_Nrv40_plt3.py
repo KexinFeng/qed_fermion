@@ -42,7 +42,7 @@ alpha_se = 3 * exponent_se
 fig = plt.figure()
 
 # Plot mc_latency (blue)
-line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='MC latency')
+line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='HMC latency')
 fit_line_mc, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_mc, exponent_mc), f'C{0}-',
                        label=f'$y \sim (L^3)^{{{exponent_mc:.3f}}}$')
 
@@ -52,7 +52,7 @@ fit_line_se, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent
                        label=f'$y \sim (L^3)^{{{exponent_se:.3f}}}$')
 
 plt.xlabel(r'$L^3$')
-plt.ylabel('Latency')
+plt.ylabel('Latency (s / sample)')
 
 # Add guideline
 ref_idx = 0
