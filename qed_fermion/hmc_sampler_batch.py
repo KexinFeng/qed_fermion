@@ -975,6 +975,7 @@ class HmcSampler(object):
             file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
             file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
             file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
+            file_name = file_name.replace(f"cmp_True", "cmp_False")
             if self.Lx == 50:
                 file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
             if self.Lx == 60:
@@ -3153,6 +3154,7 @@ class HmcSampler(object):
                 file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
                 file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
                 file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
+                file_name = file_name.replace(f"cmp_True", "cmp_False")
                 if self.Lx == 50:
                     file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
                 if self.Lx == 60:
