@@ -15,7 +15,7 @@ import torch
 import sys
 sys.path.insert(0, script_path + '/../../../')
 
-from qed_fermion.utils.prep_plots import set_default_plotting
+from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
 set_default_plotting()
 
 import os
@@ -215,7 +215,8 @@ def plot_spin_r():
     # plt.ylim(1*10**-7.5, None)
     plt.ylim(1e-7, None)
 
-    plt.gca().yaxis.set_major_locator(plt.LogLocator(base=10.0, numticks=6))
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # # Save the plot (linear axes)
     # save_dir = os.path.join(script_path, "./figures/spin_r_fit_odd")

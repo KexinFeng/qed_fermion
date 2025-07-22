@@ -1,4 +1,5 @@
 import matplotlib as mpl
+import numpy as np
 
 def set_default_plotting():
     """Set default plotting settings for physics scientific publication (Matlab style)."""
@@ -44,3 +45,20 @@ def set_default_plotting():
         "grid.linestyle": "",
         "figure.autolayout": True,
     }) 
+
+def selective_log_label_func(ax, numticks=6):
+    def selective_log_label(y, pos):
+        # Only label at most numticks ticks, spaced logarithmically
+        ticks = ax.get_yticks()
+        # Only label the first, last, and up to 4 evenly spaced in between
+        if len(ticks) <= numticks:
+            show = ticks
+        else:
+            idx = np.linspace(0, len(ticks)-1, numticks, dtype=int)
+            show = set(np.array(ticks)[idx])
+        if y in show and y != 0:
+            exponent = int(np.log10(y))
+            return f"$10^{{{exponent}}}$"
+        else:
+            return ""
+    return selective_log_label

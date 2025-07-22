@@ -1,3 +1,4 @@
+from matplotlib.ticker import FuncFormatter
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -10,7 +11,7 @@ from scipy.optimize import curve_fit
 
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../../../')
-from qed_fermion.utils.prep_plots import set_default_plotting
+from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
 set_default_plotting()
 plt.ion()
 
@@ -71,7 +72,7 @@ plt.xscale('log')
 plt.yscale('log')
 
 ax = fig.gca()
-ax.yaxis.set_major_locator(plt.LogLocator(base=10.0, numticks=4))
+ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
 # Save the plot
 script_path = os.path.dirname(os.path.abspath(__file__))

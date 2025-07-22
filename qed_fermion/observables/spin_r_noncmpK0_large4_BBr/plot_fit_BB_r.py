@@ -19,7 +19,8 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from matplotlib.ticker import LogLocator
 
-from qed_fermion.utils.prep_plots import set_default_plotting
+from qed_fermion.utils.prep_plots import set_default_plotting, selective_log_label_func
+
 set_default_plotting()
 import matplotlib.lines as mlines
 
@@ -154,18 +155,30 @@ def plot_spin_r():
     plt.xlabel('r', fontsize=19)
     plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$', fontsize=19)
 
-    plt.legend(ncol=2)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
+    r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
+    r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
+    r_fitline = np.linspace(r_min, (r_max + r_min + 2)// 2, 100)
+    coeff0 = -3.5
+    coeff1 = -3.5
+    fit_line = np.exp(coeff1) * r_fitline ** coeff0
+    handles, labels = plt.gca().get_legend_handles_labels()
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeff0:.2f}}}$')
+    handles.insert(0, line_fit)
+    plt.legend(handles, [line.get_label() for line in handles], ncol=2)
 
+    # plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    # Set y-axis lower limit to 1e-7
+    plt.ylim(1e-7, None)
+    
     # Set log scales
     plt.xscale('log')
     plt.yscale('log')
 
-    plt.gca().yaxis.set_major_locator(plt.LogLocator(base=10.0, numticks=6))
-
-    # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-7, None)
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")

@@ -19,7 +19,7 @@ from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_c
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from matplotlib.ticker import LogLocator
 
-from qed_fermion.utils.prep_plots import set_default_plotting
+from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
 set_default_plotting()
 import matplotlib.lines as mlines
 
@@ -208,7 +208,8 @@ def plot_spin_r():
     plt.yscale('log')
 
     # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
-    plt.gca().yaxis.set_major_locator(plt.LogLocator(base=10.0, numticks=6))
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Set y-axis lower limit to 1e-7
     plt.ylim(1e-7, None)
