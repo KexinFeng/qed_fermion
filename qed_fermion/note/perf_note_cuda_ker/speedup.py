@@ -85,8 +85,8 @@ fig, ax1 = plt.subplots()
 if Ls_speedup:
     line1, = ax1.plot(np.array(Ls_speedup)**3*10, latency_ck0, marker='o', linestyle='-', color="#2f89e4", label='Kernel off')
     line2, = ax1.plot(np.array(Ls_speedup)**3*10, latency_ck1, marker='o', linestyle='-', color="#0A5197", label='Kernel on (matched)')
-if Ls_ck1_only:
-    line2_only, = ax1.plot(np.array(Ls_ck1_only)**3*10, latency_ck1_only, marker='x', linestyle='None', color="#0A5197", label='Kernel on (no off/OOM)')
+# if Ls_ck1_only:
+#     line2_only, = ax1.plot(np.array(Ls_ck1_only)**3*10, latency_ck1_only, marker='x', linestyle='None', color="#0A5197", label='Kernel on (no off/OOM)')
 
 ax1.set_xlabel(r'$V_s\times N_\tau$')
 ax1.set_ylabel(r'Latency (s / sample)')
@@ -110,9 +110,9 @@ if Ls_speedup:
     ax2.spines['left'].set_visible(False)
     ax2.yaxis.set_major_locator(MaxNLocator(nbins=6))
 
-    lines = [line1, line2, line2_only, line3] if Ls_ck1_only else [line1, line2, line3]
+    lines = [line1, line2, line3] if Ls_ck1_only else [line1, line2, line3]
     labels = [line.get_label() for line in lines]
-    ax1.legend(lines, labels, loc='upper center', bbox_to_anchor=(0.65, 1.0))
+    ax1.legend(lines, labels, loc='upper left')
 else:
     lines = [line2_only]
     labels = [line.get_label() for line in lines]
