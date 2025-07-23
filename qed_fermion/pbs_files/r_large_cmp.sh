@@ -26,17 +26,17 @@ L_array=$(echo '56')
 # L_array=$(echo '60 66') 
 
 # BB_r lattice sizes
-L_array=$(echo '36 30 20 16 12 10 8 6')
-# L_array=$(echo '46 40')
-# L_array=$(echo '60 56 50')
+# L_array=$(echo '36 30 20 16 12 10 8 6')
+L_array=$(echo '46 40')
+L_array=$(echo '60 56 50')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=10000
+Nstep=6500
 export debug=0
 export cuda_graph=1
-export bs=2
+export bs=1
 
 export suffix=cmp_large8_BBr
 export asym=1
@@ -45,7 +45,9 @@ export K=1
 export dtau=0.1
 export precon=1
 
-export seed=49
+export compute_BB=1
+
+export seed=249
 
 for L in $L_array; do
         #
