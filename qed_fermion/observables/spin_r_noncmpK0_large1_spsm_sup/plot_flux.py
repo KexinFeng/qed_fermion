@@ -68,8 +68,16 @@ for i, Lx in enumerate(lattice_sizes):
     G_std = G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1)) / np.sqrt(len(seq_idx) * bs)
     x = np.arange(G_mean.shape[0])
 
+    # Filter: keep all for tau <= 10, every 3rd for tau > 10
+    tau = x + 1
+    idx_leq_10 = np.where(tau <= 10)[0]
+    idx_gt_10 = np.where(tau > 10)[0]
+    idx_gt_10_sparse = idx_gt_10[::3]  # every 3rd point for tau > 10
+    idx_plot = np.concatenate([idx_leq_10, idx_gt_10_sparse])
+    idx_plot.sort()
+
     color = f"C{i%10}"
-    plt.errorbar(x+1, G_mean, yerr=G_std, linestyle='', marker='o', markersize=7, label=f'{Lx}x{Ltau}', color=color, lw=2, alpha=0.8)
+    plt.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=f'{Lx}x{Ltau}', color=color, lw=2, alpha=0.8)
 
 plt.xlabel(r"$\tau$", fontsize=17)
 plt.ylabel(r"$G(\tau)$", fontsize=17)
@@ -103,7 +111,7 @@ plt.legend(handles, labels, fontsize=15, ncol=2)
 plt.ylim(10**-5, 1)
 # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
 ax = plt.gca()
-ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=10)))
+ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=5)))
 
 save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
 os.makedirs(save_dir, exist_ok=True)
