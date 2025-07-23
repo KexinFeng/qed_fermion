@@ -104,6 +104,7 @@ from qed_fermion.stochastic_estimator import StochaticEstimator
 from qed_fermion.utils.util import device_mem, report_tensor_memory, tensor_memory_MB
 from qed_fermion.metropolis_graph_runner import LeapfrogCmpGraphRunner
 from qed_fermion.preconditioners_orig.precon_manual import get_precon_man
+from qed_fermion.utils.util import unravel_index
 
 BLOCK_SIZE = (4, 8)
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
@@ -3233,9 +3234,19 @@ class HmcSampler(object):
         axes[0, 2].legend()
 
         # BB_k
-        axes[1, 2].plot(self.BB_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
-        axes[1, 2].plot(self.BB_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
-        axes[1, 2].plot(self.BB_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
+        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
+        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
+        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
+
+        # .reshape(-1, vs)[:, vs//2]
+        # Convert (self.vs // 2) to (y, x) indices with (Ly, Lx) shape using qed_fermion.utils.util.unravel_index
+        vs = self.Ly * self.Lx
+        idx_flat = vs // 2
+        y, x = unravel_index(torch.tensor(idx_flat), (self.Ly, self.Lx))
+
+        axes[1, 2].plot(self.BB_k_list[seq_idx, :, y, x].mean(axis=1).numpy(), label=f'M 0')
+        axes[1, 2].plot(self.BB_k_list[seq_idx, :, y+1, x].mean(axis=1).numpy(), label=f'M-dk, 0')
+        axes[1, 2].plot(self.BB_k_list[seq_idx, :, y+2, x].mean(axis=1).numpy(), label=f'M-2dk, 0')
         axes[1, 2].set_ylabel("BB_k")
         axes[1, 2].set_title("BB_k Over Steps")
         axes[1, 2].legend()

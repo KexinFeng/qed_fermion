@@ -192,9 +192,10 @@ def plot_spin_r():
 
     # Set y-axis lower limit to 1e-7
     plt.ylim(1e-6, 10**-0.5)
+    plt.ylim(10**-7.1, 10**-0.9)
 
     ax = plt.gca()
-    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=5)))
+    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
