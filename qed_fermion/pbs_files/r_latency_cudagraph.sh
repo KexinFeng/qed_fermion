@@ -57,7 +57,8 @@ for L in $L_array; do
                 #
                 config=$(echo graph${cudagraph}_L${L})
                 echo $config
-                export L cudagraph
+                export L
+                export cuda_graph=$cudagraph
                 #
                 sbatch --job-name=${config} \
                 --time=0-0:59:00 \
