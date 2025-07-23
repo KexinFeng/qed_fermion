@@ -17,7 +17,7 @@ import re
 import torch
 
 # Directory containing the checkpoint files
-ckpt_dir = os.path.join(os.path.dirname(__file__), 'pcg_iter1/hmc_check_point_pcg_iter')
+ckpt_dir = os.path.join(os.path.dirname(__file__), 'pcg_iter2/hmc_check_point_pcg_iter')
 
 # Parse all filenames
 all_files = [f for f in os.listdir(ckpt_dir) if f.endswith('.pt')]
@@ -53,7 +53,8 @@ for (L, max_iter), (step, fname) in file_dict.items():
     assert cur_step - 1 == step or cur_step == step
     cg_r_err = d['cg_r_err_list']  # shape (N_step, 1)
     # Take last 2000 steps
-    cg_r_err_last = cg_r_err[max(step - 6000, 0): step]
+    num_sample = 2000 if max_iter < 800 else 500
+    cg_r_err_last = torch.log10(cg_r_err[max(step - num_sample, 0): step])
     mean_err = cg_r_err_last.mean().item()
     sigma_err = cg_r_err_last.std().item() / np.sqrt(len(cg_r_err_last))
     results[max_iter].append((L, mean_err, sigma_err))
@@ -67,9 +68,9 @@ for idx, max_iter in enumerate(sorted(results.keys())):
     if arr.size == 0:
         continue
     Ls = arr[:,0]
-    val_errs = arr[:,1]
+    val_errs = 10**arr[:,1]
     sigma_errs = arr[:,2]
-    line = plt.errorbar(Ls, val_errs, yerr=sigma_errs, fmt=f'C{idx}o-', label=f'max_iter={max_iter}')
+    line = plt.errorbar(Ls, val_errs, yerr=val_errs * np.log(10) * sigma_errs, fmt=f'C{idx}o-', label=f'max_iter={max_iter}')
     lines.append(line)
     labels.append(line.get_label())
 
@@ -87,7 +88,7 @@ plt.yscale('log', base=10)
 # Save the plot
 save_dir = os.path.join(script_path, 'figures')
 os.makedirs(save_dir, exist_ok=True)
-file_path = os.path.join(save_dir, 'cg_r_err_vs_L3.pdf')
+file_path = os.path.join(save_dir, 'cg_r_err_vs_L.pdf')
 plt.savefig(file_path, format='pdf', bbox_inches='tight')
 print(f"Figure saved at: {file_path}")
 plt.show() 
