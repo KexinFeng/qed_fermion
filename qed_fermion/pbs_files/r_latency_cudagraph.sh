@@ -25,7 +25,7 @@ L_array=$(echo '60 56 50')
 # L_array=$(echo '60 56 50 46 40 36 30 26 20 16 10')
 L_array=$(echo '60 50 40 30 20 10 8 6')
 
-cudagraph_array=$(echo '0 1')
+cuda_kernel_array=$(echo '0 1')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
@@ -33,10 +33,10 @@ cudagraph_array=$(echo '0 1')
 
 export Nstep=500
 export debug=0
-# export cuda_graph=1
+export cuda_graph=0
 export bs=1
 
-export suffix=latency_cudagraph
+export suffix=latency_cuda_kernel
 export asym=1
 export compact=0
 export K=0
@@ -53,15 +53,15 @@ export seed=49
 
 for L in $L_array; do
         #
-        for cudagraph in $cudagraph_array; do
+        for use_cuda_kernel in $cuda_kernel_array; do
                 #
-                config=$(echo graph${cudagraph}_L${L})
+                config=$(echo ck${use_cuda_kernel}_L${L})
                 echo $config
                 export L
-                export cuda_graph=$cudagraph
+                export use_cuda_kernel=$use_cuda_kernel
                 #
                 sbatch --job-name=${config} \
-                --time=0-0:59:00 \
+                --time=0-0:20:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_pcg_iter.cmd

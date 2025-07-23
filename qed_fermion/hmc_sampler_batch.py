@@ -21,8 +21,10 @@ process = psutil.Process(os.getpid())
 debug_mode = int(os.getenv("debug", '0')) != 0
 print(f"debug_mode: {debug_mode}")
 
-cuda_graph = int(os.getenv("cuda_graph", '0')) != 0
+cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
 print(f"cuda_graph: {cuda_graph}")
+use_cuda_kernel = int(os.getenv("use_cuda_kernel", '1')) != 0
+print(f"use_cuda_kernel: {use_cuda_kernel}")
 mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
 print(f"mass_mode: {mass_mode}")
 compact = int(os.getenv("compact", '0')) != 0
@@ -285,7 +287,7 @@ class HmcSampler(object):
         self.precon_csr = None
         self.plt_cg = False
         self.verbose_cg = False
-        self.use_cuda_kernel = torch.cuda.is_available()
+        self.use_cuda_kernel = use_cuda_kernel and torch.cuda.is_available()
         
         # CUDA Graph for force_f_fast
         self.cuda_graph = cuda_graph and torch.cuda.is_available()
