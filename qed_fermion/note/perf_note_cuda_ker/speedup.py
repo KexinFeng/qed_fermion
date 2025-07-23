@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, script_path + '/../../../')
 from qed_fermion.utils.prep_plots import set_default_plotting
 set_default_plotting()
+
 from matplotlib.ticker import MaxNLocator
 
 
