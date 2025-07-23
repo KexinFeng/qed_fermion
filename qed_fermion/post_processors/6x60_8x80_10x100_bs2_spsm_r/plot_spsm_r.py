@@ -17,6 +17,7 @@ sys.path.insert(0, script_path + '/../../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 from qed_fermion.stochastic_estimator import StochaticEstimator
+from qed_fermion.utils.fft_err import fft2_real_error_analytical
 
 from load_write2file_convert import time_execution
 
@@ -112,6 +113,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
         
         spin_r = np.mean(szsz_r, axis=(0, 1))
         spin_r_err = np.std(szsz_r, axis=(0, 1)) / np.sqrt(np.prod(szsz_r.shape[:2]))  # Standard error
+        spin_r_err = np.std(szsz_r, axis=(0, 1))  # Standard error
         spin_r_values.append(spin_r)
         spin_r_errors.append(spin_r_err)
 
@@ -168,13 +170,14 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     # =========== Load dqmc and plot =========== #
     dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     dqmc_filename = dqmc_folder + f"/l{Lx}b{Lx}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
-    szsz_k_dqmc = np.genfromtxt(dqmc_filename)
-    szsz_k_dqmc = torch.tensor(szsz_k_dqmc[:, 2]).view(Ly+1, Lx+1)
-    szsz_k_dqmc_err = torch.tensor(szsz_k_dqmc[:, 3]).view(Ly+1, Lx+1)
+    szsz_k_dqmc_data = np.genfromtxt(dqmc_filename)
+    szsz_k_dqmc = torch.tensor(szsz_k_dqmc_data[:, 2]).view(Ly+1, Lx+1)
+    szsz_k_dqmc_err = torch.tensor(szsz_k_dqmc_data[:, 3]).view(Ly+1, Lx+1)
     szsz_k_dqmc = szsz_k_dqmc[:-1, :-1] 
     szsz_k_dqmc_err = szsz_k_dqmc_err[:-1, :-1]
     szsz_k_dqmc = StochaticEstimator.reorder_fft_grid2_inverse(szsz_k_dqmc)
     szsz_r = torch.fft.fft2(szsz_k_dqmc, dim=(-2, -1)).real
+    szsz_r_err = fft2_real_error_analytical(szsz_k_dqmc, szsz_k_dqmc_err)
     
     # --------- Plot spin_r_values --------- #
     spin_r = np.abs(szsz_r) # [Ly, Lx]
@@ -189,6 +192,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
         
         r_values.append(r)
         spin_corr_values.append(spin_r[y, x])
+        spin_corr_errors.append(szsz_r_err[y, x])
     
     # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
     color = f"C{color_idx + 1}"
@@ -206,13 +210,13 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
     # Plot data and fit in log-log space
-    plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=None, 
+    plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                     linestyle='', marker='o', lw=1.5, color=color, 
                     label=f'dqmc_{Lx}x{Ltau}_szsz_J{J}', markersize=8, alpha=0.8)
     # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
     #             label=f'dqmc L={Lx}: y~x^{coeffs[0]:.2f}')
     
-    plt.xscale('log')
+    # plt.xscale('log')
     plt.yscale('log')
     plt.xlabel('Distance r (lattice units)', fontsize=14)
     plt.ylabel('Spin-Spin Correlation $\\langle S(0) S(r) \\rangle$', fontsize=14)
