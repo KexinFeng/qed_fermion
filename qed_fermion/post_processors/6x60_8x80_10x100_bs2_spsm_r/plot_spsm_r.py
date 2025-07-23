@@ -34,7 +34,7 @@ from load_write2file_convert import time_execution
 # end_dqmc = 10000
 
 start_dist = 1
-step_dist = 2 
+step_dist = 1 
 y_diplacement = lambda x: 0
 
 # Only use r > 0 for log-log fit to avoid log(0)
@@ -58,7 +58,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
 
     color_idx, color_idx2 = ipair
 
-    Js = [1, 1.5, 2, 2.3, 2.5, 3]
     Js = [J]
     r_afm_values = []
     r_afm_errors = []
@@ -135,7 +134,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     spin_corr_errors = []
 
     # Simplified: plot spin correlation along x-direction only (y=0)
-    for r in range(start_dist, Lx // 2 + 1, step_dist):
+    for r in range(start_dist, Lx, step_dist):
         x = r
         y = y_diplacement(x)
         
@@ -162,8 +161,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                     linestyle='', marker='o', lw=1.5, color=color, 
                     label=f'hmc_{Lx}x{Ltau}_szsz_J{J}', markersize=8, alpha=0.8)
-    plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                label=f'hmc L={Lx}: y~x^{coeffs[0]:.2f}')
+    # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
+    #             label=f'hmc L={Lx}: y~x^{coeffs[0]:.2f}')
 
 
     # =========== Load dqmc and plot =========== #
@@ -171,7 +170,9 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     dqmc_filename = dqmc_folder + f"/l{Lx}b{Lx}js{J:.1f}jpi1.0mu0.0nf2_dqmc_bin.dat"
     szsz_k_dqmc = np.genfromtxt(dqmc_filename)
     szsz_k_dqmc = torch.tensor(szsz_k_dqmc[:, 2]).view(Ly+1, Lx+1)
+    szsz_k_dqmc_err = torch.tensor(szsz_k_dqmc[:, 3]).view(Ly+1, Lx+1)
     szsz_k_dqmc = szsz_k_dqmc[:-1, :-1] 
+    szsz_k_dqmc_err = szsz_k_dqmc_err[:-1, :-1]
     szsz_k_dqmc = StochaticEstimator.reorder_fft_grid2_inverse(szsz_k_dqmc)
     szsz_r = torch.fft.fft2(szsz_k_dqmc, dim=(-2, -1)).real
     
@@ -182,7 +183,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     spin_corr_errors = []
 
     # Simplified: plot spin correlation along x-direction only (y=0)
-    for r in range(start_dist, Lx // 2 + 1, step_dist):
+    for r in range(start_dist, Lx, step_dist):
         x = r
         y = y_diplacement(x)
         
@@ -208,8 +209,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
     plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=None, 
                     linestyle='', marker='o', lw=1.5, color=color, 
                     label=f'dqmc_{Lx}x{Ltau}_szsz_J{J}', markersize=8, alpha=0.8)
-    plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                label=f'dqmc L={Lx}: y~x^{coeffs[0]:.2f}')
+    # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
+    #             label=f'dqmc L={Lx}: y~x^{coeffs[0]:.2f}')
     
     plt.xscale('log')
     plt.yscale('log')
@@ -224,7 +225,8 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1), J=1):
 
 if __name__ == '__main__':
     batch_size = 2
-    for J in [1, 1.5, 2, 2.3, 2.5, 3]:
+    # for J in [1, 1.5, 2, 2.3, 2.5, 3]:
+    for J in [1]:
         plt.figure(figsize=(8, 6))
         for idx, Lx in enumerate([8, 10]):
             Ltau = Lx * 10
@@ -250,7 +252,7 @@ if __name__ == '__main__':
         plt.tight_layout()
         
         # Set log scales first
-        plt.xscale('log')
+        # plt.xscale('log')
         plt.yscale('log')
         
         plt.show(block=False)
