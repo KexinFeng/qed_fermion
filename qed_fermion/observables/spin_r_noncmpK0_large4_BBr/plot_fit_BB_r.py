@@ -186,12 +186,12 @@ def plot_spin_r():
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
     
-    # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-6, 10**-0.5)
-    
     # Set log scales
     plt.xscale('log')
     plt.yscale('log')
+
+    # Set y-axis lower limit to 1e-7
+    plt.ylim(1e-6, 10**-0.5)
 
     ax = plt.gca()
     ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=5)))

@@ -17,7 +17,7 @@ import re
 import torch
 
 # Directory containing the checkpoint files
-ckpt_dir = os.path.join(os.path.dirname(__file__), 'hmc_check_point_pcg_iter')
+ckpt_dir = os.path.join(os.path.dirname(__file__), 'pcg_iter1/hmc_check_point_pcg_iter')
 
 # Parse all filenames
 all_files = [f for f in os.listdir(ckpt_dir) if f.endswith('.pt')]
@@ -53,7 +53,7 @@ for (L, max_iter), (step, fname) in file_dict.items():
     assert cur_step - 1 == step or cur_step == step
     cg_r_err = d['cg_r_err_list']  # shape (N_step, 1)
     # Take last 2000 steps
-    cg_r_err_last = cg_r_err[max(step - 2000, 0): step]
+    cg_r_err_last = cg_r_err[max(step - 6000, 0): step]
     mean_err = cg_r_err_last.mean().item()
     sigma_err = cg_r_err_last.std().item() / np.sqrt(len(cg_r_err_last))
     results[max_iter].append((L, mean_err, sigma_err))
