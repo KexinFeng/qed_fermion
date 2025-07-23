@@ -75,7 +75,7 @@ for idx, max_iter in enumerate(sorted(results.keys())):
     labels.append(line.get_label())
 
 plt.xlabel(r'$L$')
-plt.ylabel(r'$\log_{10} err$')
+plt.ylabel(r'$\varepsilon$')
 # plt.title('log10(CG residual error) vs $L^3$ for each max_iter')
 plt.legend(lines, labels, loc='best')
 plt.grid(True)
