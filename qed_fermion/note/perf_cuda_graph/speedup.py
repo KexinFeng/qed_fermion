@@ -1,3 +1,4 @@
+from collections import Counter
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -25,15 +26,22 @@ def extract_latency_from_line(line):
         return 1.0 / float(m.group(1))
     return None
 
-def get_middle_latency(filepath):
+def get_most_common_latency(filepath):
     with open(filepath, 'r') as f:
         lines = f.readlines()
     tqdm_lines = [l for l in lines if re.search(r'\d+%\|', l) and ('it/s' in l or 's/it' in l)]
     if not tqdm_lines:
         return None
-    mid = len(tqdm_lines) // 2
-    latency = extract_latency_from_line(tqdm_lines[mid])
-    return latency
+    latencies = []
+    for line in tqdm_lines:
+        latency = extract_latency_from_line(line)
+        if latency is not None:
+            latencies.append(round(latency, 3))  # round to 3 decimals for mode
+    if not latencies:
+        return None
+    most_common = Counter(latencies).most_common(1)
+    return most_common[0][0] if most_common else None
+
 
 def get_L_from_filename(filename):
     m = re.search(r'_L(\d+)_', filename)
@@ -64,8 +72,8 @@ latency_graph1 = []
 for L in Ls:
     f0 = os.path.join(err_dir, graph0[L])
     f1 = os.path.join(err_dir, graph1[L])
-    lat0 = get_middle_latency(f0)
-    lat1 = get_middle_latency(f1)
+    lat0 = get_most_common_latency(f0)
+    lat1 = get_most_common_latency(f1)
     latency_graph0.append(lat0)
     latency_graph1.append(lat1)
 
@@ -74,9 +82,9 @@ speedup = [latency_graph0[i] / latency_graph1[i] if latency_graph1[i] else np.na
 fig, ax1 = plt.subplots()
 
 # Plot latencies on the primary y-axis (blue)
-line1, = ax1.plot(np.array(Ls)**3*10, latency_graph0, marker='o', linestyle='-', color="#2f89e4", label='CUDA Graph off')
-line2, = ax1.plot(np.array(Ls)**3*10, latency_graph1, marker='o', linestyle='-', color="#0A5197", label='CUDA Graph on')
-ax1.set_xlabel(r'$V_s\times N_\tau$')
+line1, = ax1.plot(np.array(Ls), latency_graph0, marker='o', linestyle='-', color="#2f89e4", label='CUDA Graph off')
+line2, = ax1.plot(np.array(Ls), latency_graph1, marker='o', linestyle='-', color="#0A5197", label='CUDA Graph on')
+ax1.set_xlabel(r'$L$')
 ax1.set_ylabel(r'Latency (s / sample)')
 ax1.tick_params(axis='y')
 ax1.spines['left'].set_color("#1673d1")
@@ -87,7 +95,7 @@ ax1.yaxis.set_major_locator(MaxNLocator(nbins=6))
 
 # Create a secondary y-axis for speedup (red)
 ax2 = ax1.twinx()
-line3, = ax2.plot(np.array(Ls)**3*10, speedup, marker='^', linestyle='--', color='r', label='Latency ratio')
+line3, = ax2.plot(np.array(Ls), speedup, marker='^', linestyle='--', color='r', label='Latency ratio')
 ax2.set_ylabel(r'Latency ratio')
 ax2.tick_params(axis='y')
 ax2.set_ylim([1, max(6, np.nanmax(speedup)*1.1)])
@@ -102,7 +110,7 @@ lines = [line1, line2, line3]
 labels = [line.get_label() for line in lines]
 ax1.legend(lines, labels, loc='upper center', bbox_to_anchor=(0.65, 1.0))
 
-plt.xscale('log')
+# plt.xscale('log')
 plt.show(block=False)
 
 # Save the plot
