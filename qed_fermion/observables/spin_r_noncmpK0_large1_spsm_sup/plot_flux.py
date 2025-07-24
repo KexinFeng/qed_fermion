@@ -90,7 +90,7 @@ plt.yscale('log')
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
 man_slope = -4.1
-man_intercept = 10.1  # Increase this to move the fit line up
+man_intercept = 10.4  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = plt.plot(
