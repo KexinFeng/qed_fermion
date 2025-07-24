@@ -16,6 +16,9 @@ sys.path.insert(0, script_path + '/../../../')
 from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
 set_default_plotting()
 
+import matplotlib.patches as mpatches
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
 # Parameters for data loading and plotting
 start = 6000  # Skip initial equilibration steps
 sample_step = 1
@@ -27,6 +30,10 @@ lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 plt.figure(figsize=(8, 6))
+main_ax = plt.gca()
+
+# Store processed data for reuse in both main and inset plots
+plot_data = []
 
 for i, Lx in enumerate(lattice_sizes):
     Ltau = int(10 * Lx)
@@ -53,7 +60,6 @@ for i, Lx in enumerate(lattice_sizes):
     res = torch.load(hmc_filename, map_location='cpu')
     print(f'Loaded: {hmc_filename}')
 
-    # G_list: [timesteps, batch_size, num_tau+1]
     G_list = res['G_list']
     hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
     end = int(hmc_match.group(1))
@@ -63,13 +69,11 @@ for i, Lx in enumerate(lattice_sizes):
     seq_idx = np.arange(start, end, sample_step)
     batch_idx = np.arange(bs)
 
-    # Compute mean and std over [timesteps, batch_size]
     G_mean = G_list[seq_idx][:, batch_idx].numpy().mean(axis=(0, 1))
     G_std = G_list[seq_idx][:, batch_idx].numpy().std(axis=(0, 1)) / np.sqrt(len(seq_idx) * bs)
     x = np.arange(G_mean.shape[0])
-
-    # Filter: keep all for tau <= 10, every 3rd for tau > 10
     tau = x + 1
+
     idx_leq_10 = np.where(tau <= 10)[0]
     idx_gt_10 = np.where(tau > 10)[0]
     idx_gt_10_sparse = idx_gt_10[::2]  # every 3rd point for tau > 10
@@ -77,52 +81,87 @@ for i, Lx in enumerate(lattice_sizes):
     idx_plot.sort()
 
     color = f"C{i%10}"
-    plt.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=f'{Lx}x{Ltau}', color=color, lw=2, alpha=0.8)
+    # Store all relevant data for later plotting
+    plot_data.append({
+        'tau': tau,
+        'G_mean': G_mean,
+        'G_std': G_std,
+        'idx_plot': idx_plot,
+        'label': f'{Lx}x{Ltau}',
+        'color': color
+    })
+    # Plot on main axis
+    main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=f'{Lx}x{Ltau}', color=color, lw=2, alpha=0.8)
 
-plt.xlabel(r"$\tau$", fontsize=17)
-plt.ylabel(r"$G(\tau)$", fontsize=17)
-# plt.title("G vs tau (log-log) for different lattice sizes")
-# plt.legend(fontsize=10, ncol=2)
-# plt.grid(True, alpha=0.3)
+main_ax.set_xlabel(r"$\tau$", fontsize=17)
+main_ax.set_ylabel(r"$G(\tau)$", fontsize=17)
 plt.tight_layout()
-plt.xscale('log')
-plt.yscale('log')
+main_ax.set_xscale('log')
+main_ax.set_yscale('log')
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
-man_slope = -4.1
-man_intercept = 10.4  # Increase this to move the fit line up
+man_slope = -4.4
+man_intercept = 11.6  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
-fit_handle, = plt.plot(
+fit_handle, = main_ax.plot(
     x_fit, fit_line, 'k-', lw=1, alpha=0.8, 
     label=fr'$y \sim x^{{{man_slope:.2f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
 
-# # Manual slope and intercept for the fit line (fully manual, not normalized to data)
-# man_slope = -3
-# man_intercept = 7  # Increase this to move the fit line up
-# x_fit = np.arange(10, 101, dtype=float)
-# fit_line = np.exp(man_intercept) * x_fit ** man_slope
-# fit_handle, = plt.plot(
-#     x_fit, fit_line, 'k--', lw=1, alpha=0.8, 
-#     label=fr'$y \sim x^{{{man_slope:.2f}}}$', 
-#     zorder=100  # Ensure this line is drawn on top
-# )
-
 import matplotlib.lines as mlines
 phantom_handle = mlines.Line2D([], [], color='none', label='')
-handles, labels = plt.gca().get_legend_handles_labels()
+handles, labels = main_ax.get_legend_handles_labels()
 handles.insert(6, phantom_handle)
 labels = [h.get_label() for h in handles]
+main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
-# # Remove duplicate labels (keep order)
-plt.legend(handles, labels, fontsize=15, ncol=2)
+main_ax.set_ylim(10**-5, 1)
+ax = main_ax
+ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=8)))
 
-plt.ylim(10**-5, 1)
-# plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
-ax = plt.gca()
-ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=5)))
+# --- Inset axes ---
+# Place inset at top left, slightly below y=4e-1
+inset_width = 0.32  # fraction of main_ax width (smaller)
+inset_height = 0.32  # fraction of main_ax height (smaller)
+# Use axes coordinates for precise placement
+# bbox_to_anchor must be a 4-tuple (x0, y0, width, height) in axes fraction
+inset_ax = inset_axes(
+    main_ax,
+    width="100%", height="100%",
+    loc='upper left',
+    bbox_to_anchor=(0.1, 0.47, inset_width, inset_height),  # x0, y0, width, height (moved right)
+    bbox_transform=main_ax.transAxes,
+    borderpad=0
+)
+
+# Plot the stored data in the inset
+for entry in plot_data:
+    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=1, alpha=0.8)
+
+# Fit line in inset
+inset_ax.plot(x_fit, fit_line, 'k-', lw=1, alpha=0.8, zorder=100)
+
+# Set new xlim for inset
+inset_ax.set_xlim(30, 70)
+inset_ax.set_ylim(3e-3, 6e-2)
+inset_ax.set_xscale('log')
+inset_ax.set_yscale('log')
+inset_ax.tick_params(axis='both', which='major', labelsize=10)
+# Set x-ticks and formatter for inset
+inset_xticks = [30, 40, 50, 60, 70]
+inset_ax.set_xticks(inset_xticks)
+inset_ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: str(int(x)) if x in inset_xticks else ""))
+inset_ax.set_yticks([3e-3, 1e-2])
+# inset_ax.set_yticks([])
+inset_ax.set_xlabel("", fontsize=10)
+inset_ax.set_ylabel("", fontsize=10)
+
+# Rectangle on main plot to show inset region
+# Rectangle parameters updated to match new inset limits
+rect = mpatches.Rectangle((30, 3e-3), 70-30, 6e-2-3e-3, linewidth=1.5, edgecolor='k', linestyle='--', facecolor='none', zorder=200)
+main_ax.add_patch(rect)
 
 save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
 os.makedirs(save_dir, exist_ok=True)
