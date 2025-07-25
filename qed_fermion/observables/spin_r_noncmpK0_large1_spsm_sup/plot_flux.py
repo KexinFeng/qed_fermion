@@ -123,15 +123,15 @@ ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks
 
 # --- Inset axes ---
 # Place inset at top left, slightly below y=4e-1
-inset_width = 0.32  # fraction of main_ax width (smaller)
-inset_height = 0.32  # fraction of main_ax height (smaller)
+inset_width = 0.33  # fraction of main_ax width (smaller)
+inset_height = 0.33  # fraction of main_ax height (smaller)
 # Use axes coordinates for precise placement
 # bbox_to_anchor must be a 4-tuple (x0, y0, width, height) in axes fraction
 inset_ax = inset_axes(
     main_ax,
     width="100%", height="100%",
     loc='upper left',
-    bbox_to_anchor=(0.1, 0.47, inset_width, inset_height),  # x0, y0, width, height (moved right)
+    bbox_to_anchor=(0.08, 0.47, inset_width, inset_height),  # x0, y0, width, height (moved right)
     bbox_transform=main_ax.transAxes,
     borderpad=0
 )
@@ -144,8 +144,8 @@ for entry in plot_data:
 inset_ax.plot(x_fit, fit_line, 'k-', lw=1, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
-inset_ax.set_xlim(30, 70)
-inset_ax.set_ylim(3e-3, 6e-2)
+inset_ax.set_xlim(40, 90)
+inset_ax.set_ylim(6e-4, 1.5e-2)
 inset_ax.set_xscale('log')
 inset_ax.set_yscale('log')
 inset_ax.tick_params(axis='both', which='major', labelsize=10)
