@@ -6,6 +6,7 @@ import numpy as np
 import os
 import torch
 import sys
+import glob
 
 plt.ion()
 from matplotlib import rcParams
@@ -25,6 +26,7 @@ sample_step = 1
 
 # Lattice sizes to analyze
 lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56]
 
 # Data folder (same as in plot_fit_spsm_r.py)
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr/hmc_check_point_noncmpK0_large4_BBr"
@@ -38,24 +40,28 @@ plot_data = []
 for i, Lx in enumerate(lattice_sizes):
     Ltau = int(10 * Lx)
     Ly = Lx
-    if Lx <= 40:
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
-    elif Lx == 46:
-        Nrv = 40
-        bs = 2
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs{bs}_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_{Nrv}_cmp_False_step_10000.pt"
-    elif Lx == 56:
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_10000.pt"
-    elif Lx == 60:
-        Nstp = 6800
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{Nstp}_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_{Nstp}.pt"
-    else:
+    
+    # Use glob to find the correct file for this Lx and Ltau
+    def find_hmc_file(Lx, Ltau):
+        pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5*_cmp_False_step_*.pt"
+        files = glob.glob(os.path.join(hmc_folder, pattern))
+        if not files:
+            print(f"No file found for Lx={Lx}, Ltau={Ltau}")
+            return None
+        # Pick the file with the largest step (sort by step number)
+        def extract_step(filename):
+            m = re.search(r'step_(\d+)\.pt', filename)
+            return int(m.group(1)) if m else 0
+        files.sort(key=extract_step, reverse=True)
+        return files[0]
+
+    hmc_filename = find_hmc_file(Lx, Ltau)
+    if hmc_filename is None:
         continue
 
-    hmc_filename = os.path.join(hmc_folder, hmc_file)
-    if not os.path.exists(hmc_filename):
-        print(f"File not found: {hmc_filename}")
-        continue
+    # Parse bs from filename
+    m_bs = re.search(r'bs(\d+)', hmc_filename)
+    bs = int(m_bs.group(1)) if m_bs else 1
 
     res = torch.load(hmc_filename, map_location='cpu')
     print(f'Loaded: {hmc_filename}')
@@ -63,8 +69,7 @@ for i, Lx in enumerate(lattice_sizes):
     G_list = res['G_list']
     hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
     end = int(hmc_match.group(1))
-    hmc_match_bs = re.search(r'bs(\d+)', hmc_filename)
-    bs = int(hmc_match_bs.group(1)) if hmc_match_bs else 1
+    # bs is already parsed above
 
     seq_idx = np.arange(start, end, sample_step)
     batch_idx = np.arange(bs)
@@ -100,8 +105,8 @@ main_ax.set_xscale('log')
 main_ax.set_yscale('log')
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
-man_slope = -4.4
-man_intercept = 11.6  # Increase this to move the fit line up
+man_slope = -4.0
+man_intercept = 10.4  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(
@@ -146,17 +151,17 @@ inset_ax.plot(x_fit, fit_line, 'k-', lw=1, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
 inset_xlim = (20, 90)
-inset_ylim = (6e-4, 9e-2)
+inset_ylim = (2e-3, 9e-2)
 inset_ax.set_xlim(*inset_xlim)
 inset_ax.set_ylim(*inset_ylim)
 inset_ax.set_xscale('log')
 inset_ax.set_yscale('log')
 inset_ax.tick_params(axis='both', which='major', labelsize=10)
 # Set x-ticks and formatter for inset
-inset_xticks = [30, 40, 50, 60, 70]
+inset_xticks = [20, 30, 40, 50, 60, 70]
 inset_ax.set_xticks(inset_xticks)
 inset_ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: str(int(x)) if x in inset_xticks else ""))
-inset_ax.set_yticks([3e-3, 1e-2])
+inset_ax.set_yticks([2e-3, 1e-2])
 # inset_ax.set_yticks([])
 inset_ax.set_xlabel("", fontsize=10)
 inset_ax.set_ylabel("", fontsize=10)

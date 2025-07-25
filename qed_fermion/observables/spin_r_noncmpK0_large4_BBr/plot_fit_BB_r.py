@@ -57,7 +57,7 @@ def plot_spin_r():
     lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
     
     # Sampling parameters
-    start = 2000  # Skip initial equilibration steps
+    start = 5000  # Skip initial equilibration steps
     sample_step = 1
     
     plt.figure(figsize=(8, 6))
