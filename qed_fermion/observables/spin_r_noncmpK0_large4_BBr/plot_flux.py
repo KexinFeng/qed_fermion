@@ -27,7 +27,7 @@ sample_step = 1
 lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
 
 # Data folder (same as in plot_fit_spsm_r.py)
-hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr/hmc_check_point_noncmpK0_large4_BBr"
 
 plt.figure(figsize=(8, 6))
 main_ax = plt.gca()

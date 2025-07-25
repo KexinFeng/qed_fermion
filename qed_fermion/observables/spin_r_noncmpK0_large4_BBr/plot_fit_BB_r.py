@@ -54,7 +54,7 @@ def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes (large4_BBr)."""
     
     # Define lattice sizes to analyze (from data directory)
-    lattice_sizes = [12, 16, 20, 30, 36, 40]
+    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
     
     # Sampling parameters
     start = 2000  # Skip initial equilibration steps
@@ -68,23 +68,30 @@ def plot_spin_r():
     for i, Lx in enumerate(lattice_sizes):
         # Construct filename for this lattice size
         Ltau = int(10 * Lx)
-        if Lx in [12, 16]:
-            Nrv = 30
-            bs = 2
-        elif Lx in [20, 30, 36]:
-            Nrv = 40
-            bs = 2
-        elif Lx == 40:
-            Nrv = 40
-            bs = 1
-        else:
-            raise ValueError(f"Unexpected Lx: {Lx}")
-        hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs{bs}_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_{Nrv}_cmp_False_step_10000.pt"
-        hmc_filename = os.path.join(data_folder, hmc_file)
         
-        if not os.path.exists(hmc_filename):
-            raise FileNotFoundError(f"File not found: {hmc_filename}")
-            
+        import glob
+        # Find the correct file for this Lx and Ltau
+        def find_hmc_file(Lx, Ltau):
+            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
+            files = glob.glob(os.path.join(data_folder, pattern))
+            if not files:
+                print(f"No file found for Lx={Lx}, Ltau={Ltau}")
+                return None
+            # Pick the file with the largest step (sort by step number)
+            def extract_step(filename):
+                m = re.search(r'step_(\d+)\\.pt', filename)
+                return int(m.group(1)) if m else 0
+            files.sort(key=extract_step, reverse=True)
+            return files[0]
+
+        hmc_filename = find_hmc_file(Lx, Ltau)
+        if hmc_filename is None:
+            continue
+        # Now parse bs and Nrv from filename
+        m_bs = re.search(r'bs(\d+)', hmc_filename)
+        m_nrv = re.search(r'Nrv_(\d+)', hmc_filename)
+        bs = int(m_bs.group(1)) if m_bs else 1
+        Nrv = int(m_nrv.group(1)) if m_nrv else 30
         # Load checkpoint data
         res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')
@@ -96,8 +103,8 @@ def plot_spin_r():
         hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
         end = int(hmc_match.group(1))
         seq_idx = np.arange(start, end, sample_step)
-        hmc_match_bs = re.search(r'bs(\d+)', hmc_filename)
-        bs = int(hmc_match_bs.group(1))
+        # hmc_match_bs = re.search(r'bs(\d+)', hmc_filename) # This line is no longer needed
+        # bs = int(hmc_match_bs.group(1)) # This line is no longer needed
 
         # Average over equilibrated timesteps and batch dimension
         bb_r_avg = bb_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
