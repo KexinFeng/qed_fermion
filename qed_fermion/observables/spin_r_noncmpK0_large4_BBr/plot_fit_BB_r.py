@@ -54,10 +54,10 @@ def plot_spin_r():
     """Plot spin-spin correlation as a function of distance r for different lattice sizes (large4_BBr)."""
     
     # Define lattice sizes to analyze (from data directory)
-    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     
     # Sampling parameters
-    start = 5000  # Skip initial equilibration steps
+    # start = 5000  # Skip initial equilibration steps
     sample_step = 1
     
     plt.figure(figsize=(8, 6))
@@ -68,7 +68,8 @@ def plot_spin_r():
     for i, Lx in enumerate(lattice_sizes):
         # Construct filename for this lattice size
         Ltau = int(10 * Lx)
-        
+        start = 5000 if Lx > 30 else 1000
+
         import glob
         # Find the correct file for this Lx and Ltau
         def find_hmc_file(Lx, Ltau):
@@ -178,17 +179,17 @@ def plot_spin_r():
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min, (r_max + r_min - 6)// 2, 100)
     coeff0 = -3.6
-    coeff1 = -3.0
+    coeff1 = -2.7
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
-    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeff0:.2f}}}$')
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeff0:.2f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
     # Ensure the fit line is appended at the end
-    place_holder_handle = mlines.Line2D([], [], color='none', label='')
-    handles.insert(4, place_holder_handle)
+    # place_holder_handle = mlines.Line2D([], [], color='none', label='')
+    # handles.insert(5, place_holder_handle)
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=2)
+    plt.legend(handles, labels, ncol=1)
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()

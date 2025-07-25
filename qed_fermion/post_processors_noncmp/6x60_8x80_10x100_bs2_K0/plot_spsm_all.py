@@ -108,7 +108,10 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     ys = []
     yerrs = []
     for J in Js:
-        filename = hmc_folder + f"/ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_{J:.2g}_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
+        filename = hmc_folder + f"/ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_{J}_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
+        if not os.path.exists(filename):
+            print(f"File not found, skipping: {filename}")
+            continue
         data = torch.load(filename, map_location='cpu')
         spsm_k_list = data['spsm_k_list'][start_dqmc:end_dqmc]
         ys.append(spsm_k_list.mean(axis=(0, 1))[0, 0])
@@ -135,6 +138,7 @@ if __name__ == '__main__':
         end_dqmc = 10000
 
         # hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/hmc_check_point_noncmp_bench_K0_sup/"
+        hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/K0_deprecated/hmc_check_point_noncmp_bench_K0"
         hmc_folder = f"/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmp_6810/K0_deprecated/hmc_check_point_noncmp_bench_K0"
         root_folder = f"/Users/kx/Desktop/forked/dqmc_u1sl_mag/run6_{Lx}_{Ltau}_noncmp_K0/"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K0.0_tuneJ_b{asym:.1g}l_noncompact_kexin_hk_avg/"
