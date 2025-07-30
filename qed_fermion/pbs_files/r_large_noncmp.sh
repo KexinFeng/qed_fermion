@@ -33,6 +33,7 @@ L_array=$(echo '50 46')
 
 # BB_r lattice sizes
 L_array=$(echo '36 30 20 16 12 10 8')
+L_array=$(echo '36')
 L_array=$(echo '46 40')
 L_array=$(echo '60 56 50')
 
@@ -44,7 +45,7 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large4_BBr_part2
+export suffix=noncmpK0_large4_BBr_part3
 export asym=1
 export compact=0
 export K=0
@@ -53,7 +54,7 @@ export precon=1
 
 export compute_BB=1
 
-export seed=149
+export seed=249
 
 for L in $L_array; do
         #

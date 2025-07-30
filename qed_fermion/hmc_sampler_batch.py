@@ -127,7 +127,7 @@ sigma_mini_batch_size = 50 if debug_mode else 1000
 # print(f"dt_deque_max_len: {dt_deque_max_len}")
 print(f"sigma_mini_batch_size: {sigma_mini_batch_size}")
 
-start_total_monitor = 10 if debug_mode else 100
+start_total_monitor = 10 if debug_mode else 2000
 start_load = 500
 
 # Set a random seed for reproducibility
