@@ -3,17 +3,8 @@ cd "$(dirname "$0")"
 # J_array=$(echo '1.0')
 # L_array=$(echo '4 6 8 10')  # 10 h (-2)
 
-J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
+J_array=$(echo '1.0 1.5 2.0 2.1 2.2 2.3 2.4 2.5 3.0')
 L_array=$(echo '6 8 10')  # 10 h (-2)
-
-# J_array=$(echo '1.0 1.5 2.0 2.5 3.0 3.5')
-# L_array=$(echo '12 14 16')  # 16 h (-2)
-
-# J_array=$(echo '1.0')
-# L_array=$(echo '18 20 22 24') # 26 h (-2)  16: 8g HBM, 20: 15g HBM
-
-# J_array=$(echo '1.0')
-# L_array=$(echo '24') # 32 h 8g RAM 26g HBM
 
 # J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
 # J_array=$(echo '1.25')
@@ -26,27 +17,34 @@ L_array=$(echo '6 8 10')  # 10 h (-2)
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
 Nstep=10000
-
-export suffix=noncmp_bench_K0_sup
 export debug=0
-export asym=1
 export cuda_graph=1
-export Nrv=20
+export bs=2
+
+export suffix=noncmp_small_BBr
+export asym=1
 export compact=0
 export K=0
+export dtau=0.1
+export precon=1
+
+export compute_BB=1
+export compute_spsm=0
+
+export seed=251
 
 for L in $L_array; do
         #
         for J in $J_array; do
                 #
-                config=$(echo L${L}a${asym}J${J}K${K})
+                config=$(echo nL${L}a${asym}J${J})
                 echo $config
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
                 --time=2-00:00:00 \
                 --qos=gpu \
-                --mem-per-cpu=6G \
+                --mem-per-cpu=8G \
                 s_hmc.cmd
         done
 done
