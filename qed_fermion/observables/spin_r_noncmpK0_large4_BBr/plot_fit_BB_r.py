@@ -45,6 +45,7 @@ else:
 
 # HMC data folder for large4_BBr
 data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr/hmc_check_point_noncmpK0_large4_BBr"
+data_folder2 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr_part3/hmc_check_point_noncmpK0_large4_BBr_part3"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -55,7 +56,7 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze (from data directory)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
     
     # Sampling parameters
     # start = 5000  # Skip initial equilibration steps
@@ -73,11 +74,11 @@ def plot_spin_r():
 
         import glob
         # Find the correct file for this Lx and Ltau
-        def find_hmc_file(Lx, Ltau):
+        def find_hmc_file(Lx, Ltau, folder=data_folder):
             pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
-            files = glob.glob(os.path.join(data_folder, pattern))
+            files = glob.glob(os.path.join(folder, pattern))
             if not files:
-                print(f"No file found for Lx={Lx}, Ltau={Ltau}")
+                print(f"No file found for Lx={Lx}, Ltau={Ltau} in {folder}")
                 return None
             # Pick the file with the largest step (sort by step number)
             def extract_step(filename):
@@ -86,6 +87,7 @@ def plot_spin_r():
             files.sort(key=extract_step, reverse=True)
             return files[0]
 
+        # Load data from first folder
         hmc_filename = find_hmc_file(Lx, Ltau)
         if hmc_filename is None:
             continue
@@ -94,7 +96,7 @@ def plot_spin_r():
         m_nrv = re.search(r'Nrv_(\d+)', hmc_filename)
         bs = int(m_bs.group(1)) if m_bs else 1
         Nrv = int(m_nrv.group(1)) if m_nrv else 30
-        # Load checkpoint data
+        # Load checkpoint data from first folder
         res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')
         
@@ -105,18 +107,58 @@ def plot_spin_r():
         hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
         end = int(hmc_match.group(1))
         seq_idx = np.arange(start, end, sample_step)
-        # hmc_match_bs = re.search(r'bs(\d+)', hmc_filename) # This line is no longer needed
-        # bs = int(hmc_match_bs.group(1)) # This line is no longer needed
 
-        # Average over equilibrated timesteps and batch dimension
-        bb_r_avg = bb_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        bb_r_avg_std = bb_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        bb_r_avg_abs = bb_r_avg.abs()            # Take absolute value for correlation
+        # Average over equilibrated timesteps and batch dimension for first folder
+        bb_r_avg1 = bb_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        bb_r_avg_std1 = bb_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        bb_r_avg_abs1 = bb_r_avg1.abs()            # Take absolute value for correlation
         
         # Convert to numpy for easier manipulation
-        bb_r_np = bb_r_avg.numpy()
-        bb_r_np_abs = bb_r_avg_abs.numpy()
-        bb_r_avg_std_np = bb_r_avg_std.numpy()
+        bb_r_np1 = bb_r_avg1.numpy()
+        bb_r_np_abs1 = bb_r_avg_abs1.numpy()
+        bb_r_avg_std_np1 = bb_r_avg_std1.numpy()
+
+        # Load data from second folder
+        hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
+        if hmc_filename2 is None:
+            # If no file found in second folder, use only first folder data
+            bb_r_np_abs = bb_r_np_abs1
+            bb_r_avg_std_np = bb_r_avg_std_np1
+            total_samples = len(seq_idx) * bs
+        else:
+            # Load checkpoint data from second folder
+            res2 = torch.load(hmc_filename2, map_location='cpu')
+            print(f'Loaded: {hmc_filename2}')
+            
+            # Extract spin-spin correlation data: BB_r_list
+            bb_r2 = res2['BB_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
+            
+            # Extract sequence indices for equilibrated samples
+            # hmc_match2 = re.search(r'Nstp_(\d+)', hmc_filename2)
+            # end2 = int(hmc_match2.group(1))
+            start2 = 0
+            end2 = 4000
+            seq_idx2 = np.arange(start2, end2, sample_step)
+
+            # Average over equilibrated timesteps and batch dimension for second folder
+            bb_r_avg2 = bb_r2[seq_idx2].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+            bb_r_avg_std2 = bb_r2[seq_idx2].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+            bb_r_avg_abs2 = bb_r_avg2.abs()            # Take absolute value for correlation
+            
+            # Convert to numpy for easier manipulation
+            bb_r_np2 = bb_r_avg2.numpy()
+            bb_r_np_abs2 = bb_r_avg_abs2.numpy()
+            bb_r_avg_std_np2 = bb_r_avg_std2.numpy()
+
+            # Combine data from both folders (average)
+            n1 = len(seq_idx) * bs
+            n2 = len(seq_idx2) * bs
+            total_samples = n1 + n2
+            bb_r_np_abs = (bb_r_np_abs1 * n1 + bb_r_np_abs2 * n2) / total_samples
+            # For the standard deviation, combine variances weighted by sample size, then take sqrt
+            bb_r_avg_std_np = np.sqrt(
+                (bb_r_avg_std_np1**2 * n1 + bb_r_avg_std_np2**2 * n2) / total_samples
+            )
         
         r_values = []
         spin_corr_values = []
@@ -132,7 +174,7 @@ def plot_spin_r():
             err = 1/2 * (bb_r_avg_std_np[y, x] + bb_r_avg_std_np[y, Lx - x]) if y != x else bb_r_avg_std_np[y, x] 
             
             spin_corr_values.append(val)
-            spin_corr_errors.append(err / np.sqrt(len(seq_idx) * bs))
+            spin_corr_errors.append(err / np.sqrt(total_samples))
 
         # Store data for analysis
         all_data[Lx] = {
@@ -143,7 +185,7 @@ def plot_spin_r():
         }
         
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
-        color = f"C{i+2}"
+        color = f"C{i+1}"
         # Only use r > 0 for log-log fit to avoid log(0)
         r_fit = np.array(r_values[lw:up])
         spin_corr_fit = np.array(spin_corr_values[lw:up])
@@ -179,18 +221,18 @@ def plot_spin_r():
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min, (r_max + r_min - 6)// 2, 100)
-    coeff0 = -3.6
-    coeff1 = -2.7
+    coeff0 = -3.3
+    coeff1 = -3.3
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
-    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeff0:.2f}}}$', zorder=100)
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.2f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
     # Ensure the fit line is appended at the end
     # place_holder_handle = mlines.Line2D([], [], color='none', label='')
     # handles.insert(5, place_holder_handle)
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=1)
+    plt.legend(handles, labels, ncol=2)
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
