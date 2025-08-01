@@ -55,6 +55,7 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze (from data directory)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [16, 20, 30, 36, 40, 46, 56, 60]
     
     # Sampling parameters
     # start = 5000  # Skip initial equilibration steps
@@ -142,7 +143,7 @@ def plot_spin_r():
         }
         
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
-        color = f"C{i}"
+        color = f"C{i+2}"
         # Only use r > 0 for log-log fit to avoid log(0)
         r_fit = np.array(r_values[lw:up])
         spin_corr_fit = np.array(spin_corr_values[lw:up])
@@ -172,7 +173,7 @@ def plot_spin_r():
 
     # Linear axes
     plt.xlabel('r', fontsize=19)
-    plt.ylabel('$\\langle B_r B_0 \\rangle$', fontsize=19)
+    plt.ylabel('$C_B(r, 0)$', fontsize=19)
 
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])

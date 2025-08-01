@@ -99,7 +99,7 @@ for i, Lx in enumerate(lattice_sizes):
     main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=f'{Lx}x{Ltau}', color=color, lw=2, alpha=0.8)
 
 main_ax.set_xlabel(r"$\tau$", fontsize=17)
-main_ax.set_ylabel(r"$G(\tau)$", fontsize=17)
+main_ax.set_ylabel(r"$C_{flux}(\tau)$", fontsize=17)
 plt.tight_layout()
 main_ax.set_xscale('log')
 main_ax.set_yscale('log')
