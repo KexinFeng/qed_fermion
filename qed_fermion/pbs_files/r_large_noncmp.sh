@@ -37,6 +37,7 @@ L_array=$(echo '36')
 L_array=$(echo '46 40')
 L_array=$(echo '60 56 50')
 # L_array=$(echo '80 76 70 66')
+L_array=$(echo '64 62')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)

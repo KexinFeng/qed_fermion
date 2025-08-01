@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 
 J_array=$(echo '1.0 1.5 2.0 2.1 2.2 2.3 2.4 2.5 3.0')
 L_array=$(echo '6 8 10')  # 10 h (-2)
+L_array=$(echo '10')  # 10 h (-2)
 
 # J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
 # J_array=$(echo '1.25')
