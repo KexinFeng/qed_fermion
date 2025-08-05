@@ -191,10 +191,37 @@ def plot_spin_r():
     line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.2f}}}$')
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
-    place_holder_handle = mlines.Line2D([], [], color='none', label='')
-    handles.insert(6, place_holder_handle)
-    labels = [line.get_label() for line in handles]
+    # place_holder_handle = mlines.Line2D([], [], color='none', label='')
+    # handles.insert(6, place_holder_handle)
 
+    # Add dqmc data from file for L=20
+    dqmc_data_path_20 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/l20b20js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_20 = np.loadtxt(dqmc_data_path_20)
+    r_dqmc_20 = dqmc_data_20[:, 0]
+    corr_dqmc_20 = dqmc_data_20[:, 1]
+    err_dqmc_20 = dqmc_data_20[:, 2]
+    dqmc_handle_20 = plt.errorbar(
+        r_dqmc_20, corr_dqmc_20, yerr=err_dqmc_20, fmt='s', 
+        color='k', markersize=8, alpha=0.85, 
+        label='DQMC L=20', capsize=2, lw=1.2
+    )
+    handles.insert(1, dqmc_handle_20[0])
+
+    # Add dqmc data from file for L=16
+    dqmc_data_path_16 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_16 = np.loadtxt(dqmc_data_path_16)
+    r_dqmc_16 = dqmc_data_16[:, 0]
+    corr_dqmc_16 = dqmc_data_16[:, 1]
+    err_dqmc_16 = dqmc_data_16[:, 2]
+    dqmc_handle_16 = plt.errorbar(
+        r_dqmc_16, corr_dqmc_16, yerr=err_dqmc_16, fmt='D', 
+        color='gray', markersize=7, alpha=0.8, 
+        label='DQMC L=16', capsize=2, lw=1.2
+    )
+    handles.insert(2, dqmc_handle_16[0])
+
+
+    labels = [line.get_label() for line in handles]
     # Linear axes
     plt.xlabel('r', fontsize=19)
     plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
