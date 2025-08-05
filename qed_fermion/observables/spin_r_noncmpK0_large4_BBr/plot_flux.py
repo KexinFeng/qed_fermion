@@ -115,10 +115,23 @@ fit_handle, = main_ax.plot(
     zorder=100  # Ensure this line is drawn on top
 )
 
+# Manual slope and intercept for the fit line (fully manual, not normalized to data)
+man_slope = -3.0
+man_intercept = 7.7  # Increase this to move the fit line up
+x_fit3 = np.arange(10, 101, dtype=float)
+fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
+fit_handle3, = main_ax.plot(
+    x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, 
+    label=fr'$y \sim x^{{{man_slope:.2f}}}$', 
+    zorder=100  # Ensure this line is drawn on top
+)
+
 import matplotlib.lines as mlines
-phantom_handle = mlines.Line2D([], [], color='none', label='')
+# phantom_handle = mlines.Line2D([], [], color='none', label='')
+# handles.insert(6, phantom_handle)
 handles, labels = main_ax.get_legend_handles_labels()
-handles.insert(6, phantom_handle)
+handle3 = handles.pop(1)
+handles.insert(6, handle3)
 labels = [h.get_label() for h in handles]
 main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
@@ -148,6 +161,7 @@ for entry in plot_data:
 
 # Fit line in inset
 inset_ax.plot(x_fit, fit_line, 'k-', lw=1, alpha=0.8, zorder=100)
+inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
 inset_xlim = (20, 90)

@@ -166,7 +166,7 @@ def plot_spin_r():
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                      linestyle=':', marker='o', color=color, 
-                     label=f'{Lx}x{Ltau}', alpha=0.8)
+                     label=fr'${Ltau}\times {Lx}^2$', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
@@ -188,7 +188,7 @@ def plot_spin_r():
     handles, _ = plt.gca().get_legend_handles_labels()
     
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeffs_l20[0]:.2f}}}$')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.2f}}}$')
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
     place_holder_handle = mlines.Line2D([], [], color='none', label='')
@@ -197,7 +197,7 @@ def plot_spin_r():
 
     # Linear axes
     plt.xlabel('r', fontsize=19)
-    plt.ylabel('$\\langle S^{+}_r S^{-}_0 \\rangle$', fontsize=19)
+    plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
 
     plt.legend(handles, labels, ncol=2)
     plt.grid(True, alpha=0.3)

@@ -14,6 +14,8 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 import torch
 import sys
 sys.path.insert(0, script_path + '/../../../')
+from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
+set_default_plotting()
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
@@ -69,16 +71,16 @@ if __name__ == '__main__':
         dbstop = 1
 
     # Plot setting
-    plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('S_AF / Ns', fontsize=14)
+    plt.xlabel(r'$J$')
+    plt.ylabel(r'$\langle sign(\det M) \rangle$')
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
     
     plt.show(block=False)
     # Save plot
-    method_name = "sign"
-    save_dir = os.path.join(script_path, f"./figures/sign")
+    method_name = "sign_noncmp"
+    save_dir = os.path.join(script_path, f"./figures/sign_noncmp")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")

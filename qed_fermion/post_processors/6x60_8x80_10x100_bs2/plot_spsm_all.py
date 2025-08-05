@@ -14,6 +14,8 @@ script_path = os.path.dirname(os.path.abspath(__file__))
 import torch
 import sys
 sys.path.insert(0, script_path + '/../../../')
+from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
+set_default_plotting()
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 
@@ -110,7 +112,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 
     # Plot the batch mean
     plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
-                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hmc_{Lx}x{Ltau}')
+                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hqmc_{Lx}x{Ltau}')
 
     # ---- Load dqmc and plot ----
     dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
@@ -139,16 +141,16 @@ if __name__ == '__main__':
         dbstop = 1
 
     # Plot setting
-    plt.xlabel('J/t', fontsize=14)
-    plt.ylabel('S_AF / Ns', fontsize=14)
+    plt.xlabel('J', fontsize=18)    
+    plt.ylabel(r'$\chi_S(k=X)$', fontsize=18)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
     plt.grid(True, alpha=0.3)
-    plt.legend()
+    plt.legend(ncol=2)
     
     plt.show(block=False)
     # Save plot
-    method_name = "spin_order"
-    save_dir = os.path.join(script_path, f"./figures/spin_order")
+    method_name = "spin_order_cmp"
+    save_dir = os.path.join(script_path, f"./figures/spin_order_cmp")
     os.makedirs(save_dir, exist_ok=True) 
     file_path = os.path.join(save_dir, f"{method_name}.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
