@@ -184,8 +184,16 @@ def plot_spin_r():
     coeffs_l20[0] = -3.3
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
+    # Plot the fit line and merge its handle/label to the end of the existing legend entries
+    handles, labels = plt.gca().get_legend_handles_labels()
+    
     # Plot the fit line for L20 data
-    line_fit = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.2f}}}$')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.2f}}}$')
+    # Ensure the fit line is appended at the end
+    handles.insert(0, line_fit)
+
+    # phantom_handle = mlines.Line2D([], [], color='none', label='')
+    # handles.insert(6, phantom_handle)
 
     # Add dqmc data from file for L=20
     dqmc_data_path_20 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/l20b20js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
@@ -193,11 +201,12 @@ def plot_spin_r():
     r_dqmc_20 = dqmc_data_20[:, 0]
     corr_dqmc_20 = dqmc_data_20[:, 1]
     err_dqmc_20 = dqmc_data_20[:, 2]
-    plt.errorbar(
+    dqmc_handle_20 = plt.errorbar(
         r_dqmc_20, corr_dqmc_20, yerr=err_dqmc_20, fmt='s', 
         color='k', markersize=8, alpha=0.85, 
         label='DQMC L=20', capsize=2, lw=1.2
     )
+    handles.insert(1, dqmc_handle_20)
 
     # Add dqmc data from file for L=16
     dqmc_data_path_16 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
@@ -205,20 +214,20 @@ def plot_spin_r():
     r_dqmc_16 = dqmc_data_16[:, 0]
     corr_dqmc_16 = dqmc_data_16[:, 1]
     err_dqmc_16 = dqmc_data_16[:, 2]
-    plt.errorbar(
+    dqmc_handle_16 = plt.errorbar(
         r_dqmc_16, corr_dqmc_16, yerr=err_dqmc_16, fmt='D', 
         color='gray', markersize=7, alpha=0.8, 
         label='DQMC L=16', capsize=2, lw=1.2
     )
+    handles.insert(2, dqmc_handle_16)
+
+
+    labels = [line.get_label() for line in handles]
     # Linear axes
     plt.xlabel('r', fontsize=19)
     plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
 
-    # handles = plt.gca().get_legend_handles_labels()
-    # labels = [line.get_label() for line in handles]
-    # plt.legend(handles, labels, ncol=2)
-
-    plt.legend(ncol=2)
+    plt.legend(handles, labels, ncol=2)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
