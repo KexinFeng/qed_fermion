@@ -27,6 +27,8 @@ sample_step = 1
 # Lattice sizes to analyze
 lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
 lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56]
+lattice_sizes = [20, 30, 36, 40, 46, 56, 60, 62, 64, 66]
+lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
 
 # Data folder (same as in plot_fit_spsm_r.py)
 hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr/hmc_check_point_noncmpK0_large4_BBr"
@@ -85,14 +87,14 @@ for i, Lx in enumerate(lattice_sizes):
     idx_plot = np.concatenate([idx_leq_10, idx_gt_10_sparse])
     idx_plot.sort()
 
-    color = f"C{i%10}"
+    color = f"C{(i+1)%10}"
     # Store all relevant data for later plotting
     plot_data.append({
         'tau': tau,
         'G_mean': G_mean,
         'G_std': G_std,
         'idx_plot': idx_plot,
-        'label': f'{Lx}x{Ltau}',
+        'label': rf'${Ltau}x{Lx}^2$',
         'color': color
     })
     # Plot on main axis
@@ -107,6 +109,7 @@ main_ax.set_yscale('log')
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
 man_slope = -4.0
 man_intercept = 10.4  # Increase this to move the fit line up
+man_intercept = 9.9  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(

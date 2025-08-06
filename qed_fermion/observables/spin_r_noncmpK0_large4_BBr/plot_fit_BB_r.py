@@ -200,7 +200,7 @@ def plot_spin_r():
         # Plot error bars with alpha=1 (fully opaque)
         eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                           linestyle=':', marker='o', color=color, 
-                          label=f'{Lx}x{Ltau}', alpha=1.0)
+                          label=rf'${Ltau}x{Lx}^2$', alpha=1.0)
         # Set only the marker (dots) to have alpha=0.8
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
             eb.lines[0].set_alpha(0.8)
@@ -221,8 +221,8 @@ def plot_spin_r():
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min, (r_max + r_min - 6)// 2, 100)
-    coeff0 = -3.3
-    coeff1 = -3.3
+    coeff0 = -3.2
+    coeff1 = -3.6
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.2f}}}$', zorder=100)
@@ -232,7 +232,7 @@ def plot_spin_r():
     # place_holder_handle = mlines.Line2D([], [], color='none', label='')
     # handles.insert(5, place_holder_handle)
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=2)
+    plt.legend(handles, labels, ncol=1)
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -244,6 +244,7 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     plt.ylim(1e-6, 10**-0.5)
     plt.ylim(10**-7.1, 10**-0.9)
+    # plt.xlim(0.4, 100)
 
     ax = plt.gca()
     ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
