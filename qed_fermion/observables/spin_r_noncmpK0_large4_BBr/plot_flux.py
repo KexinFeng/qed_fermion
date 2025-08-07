@@ -98,7 +98,7 @@ for i, Lx in enumerate(lattice_sizes):
         'color': color
     })
     # Plot on main axis
-    main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=f'{Lx}x{Ltau}', color=color, lw=2, alpha=0.8)
+    main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=rf'${Ltau}x{Lx}^2$', color=color, lw=2, alpha=0.8)
 
 main_ax.set_xlabel(r"$\tau$", fontsize=17)
 main_ax.set_ylabel(r"$C_{flux}(\tau)$", fontsize=17)

@@ -1,6 +1,6 @@
 import re
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, NullFormatter
 
 import numpy as np
 import os
@@ -120,18 +120,21 @@ x_fit3 = np.arange(10, 101, dtype=float)
 fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
 fit_handle3, = main_ax.plot(
     x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, 
-    label=fr'$y \sim x^{{{man_slope:.2f}}}$', 
+    label=fr'$y \sim \tau^{{{man_slope:.2f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
 
 import matplotlib.lines as mlines
 # phantom_handle = mlines.Line2D([], [], color='none', label='')
-handles, labels = main_ax.get_legend_handles_labels()
 # handles.insert(6, phantom_handle)
+handles, labels = main_ax.get_legend_handles_labels()
+handle3 = handles.pop(1)
+handles.insert(6, handle3)
 labels = [h.get_label() for h in handles]
 main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
-main_ax.set_ylim(10**-5, 1)
+main_ax.set_ylim(10**-6, 1)
+main_ax.set_xlim(0.7, 800)
 ax = main_ax
 ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=8)))
 
@@ -144,7 +147,7 @@ inset_ax = inset_axes(
     main_ax,
     width="100%", height="100%",
     loc='upper left',
-    bbox_to_anchor=(0.08, 0.47, inset_width, inset_height),
+    bbox_to_anchor=(0.08, 0.45, inset_width, inset_height),
     bbox_transform=main_ax.transAxes,
     borderpad=0
 )
@@ -167,7 +170,8 @@ inset_xticks = [25, 30, 40]
 inset_ax.set_xticks(inset_xticks)
 inset_ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: str(int(x)) if x in inset_xticks else ""))
 inset_ax.set_yticks([2e-3, 1e-2])
-inset_ax.get_yaxis().set_major_formatter(FuncFormatter(lambda y, _: f"{y:.0e}" if y in [2e-3, 1e-2] else ""))
+# inset_ax.minorticks_off()
+inset_ax.yaxis.set_minor_formatter(NullFormatter())  # <--- This line ensures no minor tick label
 inset_ax.set_xlabel("", fontsize=10)
 inset_ax.set_ylabel("", fontsize=10)
 # Rectangle on main plot to show inset region

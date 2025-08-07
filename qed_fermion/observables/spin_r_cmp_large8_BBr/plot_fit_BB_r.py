@@ -55,7 +55,7 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze (from data directory)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56]
+    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
     
     # Sampling parameters
     # start = 5000  # Skip initial equilibration steps
@@ -157,7 +157,7 @@ def plot_spin_r():
         # Plot error bars with alpha=1 (fully opaque)
         eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                           linestyle=':', marker='o', color=color, 
-                          label=f'{Lx}x{Ltau}', alpha=1.0)
+                          label=rf'${Ltau}x{Lx}^2$', alpha=1.0)
         # Set only the marker (dots) to have alpha=0.8
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
             eb.lines[0].set_alpha(0.8)

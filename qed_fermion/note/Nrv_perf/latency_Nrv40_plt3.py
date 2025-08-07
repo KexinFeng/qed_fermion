@@ -44,24 +44,31 @@ fig = plt.figure()
 
 # Plot mc_latency (blue)
 line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='Sample Generation')
-fit_line_mc, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_mc, exponent_mc), f'C{0}-',
+
+# Extend fit lines to cover a wider x-range (approximate xlimits)
+x_fit_min = 400   # just below the smallest L_cubed (1000)
+x_fit_max = 130000  # just above the largest L_cubed (125000)
+x_fit = np.logspace(np.log10(x_fit_min), np.log10(x_fit_max), 200)
+
+fit_line_mc, = plt.plot(x_fit, power_law(x_fit, coeff_mc, exponent_mc), f'C{0}-',
                        label=f'$y \sim (L^3)^{{{exponent_mc:.3f}}}$')
 
 # Plot se_latency (red)
 line3, = plt.plot(L_cubed, se_latency, f'C{1}o', label='Stochastic Estimation')
-fit_line_se, = plt.plot(L_cubed, power_law(np.array(L_cubed), coeff_se, exponent_se), f'C{1}-',
+fit_line_se, = plt.plot(x_fit, power_law(x_fit, coeff_se, exponent_se), f'C{1}-',
                        label=f'$y \sim (L^3)^{{{exponent_se:.3f}}}$')
 
 plt.xlabel(r'$L^3$')
 plt.ylabel('Latency (s / sample)')
+plt.xlim(5e2, 5e3)
 
 # Add guideline
 ref_idx = 0
 ref_x = L_cubed[ref_idx]
 ref_y = mc_latency[ref_idx] / 3
 scaling = 7/3
-guideline = ref_y * (np.array(L_cubed) / ref_x) ** scaling
-line2, = plt.plot(L_cubed, guideline, f'C{2}--', label=r'$L^{7}$ guideline')
+guideline = ref_y * (np.array(x_fit) / ref_x) ** scaling
+line2, = plt.plot(x_fit, guideline, f'C{2}--', label=r'$L^{7}$ guideline')
 
 lines = [line1, line3, fit_line_mc, fit_line_se, line2]
 labels = [line.get_label() for line in lines]
