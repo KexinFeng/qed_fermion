@@ -46,8 +46,8 @@ fig = plt.figure()
 line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='Sample Generation')
 
 # Extend fit lines to cover a wider x-range (approximate xlimits)
-x_fit_min = 400   # just below the smallest L_cubed (1000)
-x_fit_max = 130000  # just above the largest L_cubed (125000)
+x_fit_min = 600   # just below the smallest L_cubed (1000)
+x_fit_max = 4e5  # just above the largest L_cubed (125000)
 x_fit = np.logspace(np.log10(x_fit_min), np.log10(x_fit_max), 200)
 
 fit_line_mc, = plt.plot(x_fit, power_law(x_fit, coeff_mc, exponent_mc), f'C{0}-',
@@ -60,12 +60,13 @@ fit_line_se, = plt.plot(x_fit, power_law(x_fit, coeff_se, exponent_se), f'C{1}-'
 
 plt.xlabel(r'$L^3$')
 plt.ylabel('Latency (s / sample)')
-plt.xlim(5e2, 5e3)
+plt.xlim(6e2, 4e5)
 
 # Add guideline
 ref_idx = 0
 ref_x = L_cubed[ref_idx]
 ref_y = mc_latency[ref_idx] / 3
+ref_y = 0.38
 scaling = 7/3
 guideline = ref_y * (np.array(x_fit) / ref_x) ** scaling
 line2, = plt.plot(x_fit, guideline, f'C{2}--', label=r'$L^{7}$ guideline')
