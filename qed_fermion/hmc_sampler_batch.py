@@ -236,6 +236,8 @@ class HmcSampler(object):
         self.delta_t = 0.028
         # self.m = (self.delta_t / 0.025) ** 2
         self.delta_t = 0.2 * (self.m / 50)**(1/2)
+        
+        self.delta_t = 0.06
         # self.delta_t = 0.1 * (self.m / 50)**(1/2)
 
         # self.delta_t = 0.03 # TODO: Does increasing inverse-matvec_mul accuracy help with the acceptance rate / threshold? If so, the bottelneck is at the accuracyxs
@@ -257,8 +259,10 @@ class HmcSampler(object):
 
         self.threshold_queue = [collections.deque(maxlen=dt_deque_max_len) for _ in range(self.bs)]
 
-        self.lower_limit = max(1 - 0.5**(1/self.max_tau_block_idx), 0.1)  # 0.5
-        self.upper_limit = min(1 - 0.2**(1/self.max_tau_block_idx), 0.8)  # 0.8
+        # self.lower_limit = max(1 - 0.5**(1/self.max_tau_block_idx), 0.1)  # 0.5
+        # self.upper_limit = min(1 - 0.2**(1/self.max_tau_block_idx), 0.8)  # 0.8
+        self.lower_limit = 0.25
+        self.upper_limit = 0.5
         print(f"lower_limit: {self.lower_limit}, upper_limit: {self.upper_limit}")
 
         # Sigma adaptive mass
