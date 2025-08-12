@@ -185,7 +185,7 @@ class HmcSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 100)
-        self.ckp_rate = 1000
+        self.ckp_rate = 5000 # 5000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 5 if debug_mode else 1000
 
@@ -210,7 +210,7 @@ class HmcSampler(object):
         # self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.B_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        self.BB_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        # self.BB_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
 
         if self.Lx <= 10 and buffer:
             # boson_seq
@@ -2986,7 +2986,7 @@ class HmcSampler(object):
         futures = {}
 
         # Define CPU computations to run asynchronously
-        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, BB_k_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
             # Update metrics
             self.accp_list[i] = accp_cpu
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -3010,8 +3010,8 @@ class HmcSampler(object):
                 self.BB_r_list[i] = BB_r_cpu  # [bs, Ly, Lx]
             if B_r_cpu is not None:
                 self.B_r_list[i] = B_r_cpu  # [bs, Ly, Lx]
-            if BB_k_cpu is not None:
-                self.BB_k_list[i] = BB_k_cpu  # [bs, Ly, Lx] 
+            # if BB_k_cpu is not None:
+            #     self.BB_k_list[i] = BB_k_cpu  # [bs, Ly, Lx] 
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -3064,7 +3064,7 @@ class HmcSampler(object):
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
                 (BB_r.cpu() if BB_r is not None and BB_r.is_cuda else (BB_r.clone() if BB_r is not None else None)),
                 (B_r.cpu() if B_r is not None and B_r.is_cuda else (B_r.clone() if B_r is not None else None)),
-                (BB_k.cpu() if BB_k is not None and BB_k.is_cuda else (BB_k.clone() if BB_k is not None else None)),
+                # (BB_k.cpu() if BB_k is not None and BB_k.is_cuda else (BB_k.clone() if BB_k is not None else None)),
                 # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
@@ -3148,7 +3148,7 @@ class HmcSampler(object):
                         'S_tau_list': self.S_tau_list,
                         'BB_r_list': self.BB_r_list,
                         'B_r_list': self.B_r_list,
-                        'BB_k_list': self.BB_k_list,
+                        # 'BB_k_list': self.BB_k_list,
                         'cg_iter_list': self.cg_iter_list,
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
@@ -3185,7 +3185,7 @@ class HmcSampler(object):
                'S_tau_list': self.S_tau_list,
                 'BB_r_list': self.BB_r_list,
                 'B_r_list': self.B_r_list,
-                'BB_k_list': self.BB_k_list,
+                # 'BB_k_list': self.BB_k_list,
                'cg_iter_list': self.cg_iter_list,
                'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}
@@ -3256,19 +3256,19 @@ class HmcSampler(object):
         # axes[0, 2].set_title("BB_r Over Steps")
         # axes[0, 2].legend()
 
-        # BB_k
-        # .reshape(-1, vs)[:, vs//2]
-        # Convert (self.vs // 2) to (y, x) indices with (Ly, Lx) shape using qed_fermion.utils.util.unravel_index
-        vs = self.Ly * self.Lx
-        idx_flat = vs // 2
-        y, x = unravel_index(torch.tensor(idx_flat), (self.Ly, self.Lx))
+        # # BB_k
+        # # .reshape(-1, vs)[:, vs//2]
+        # # Convert (self.vs // 2) to (y, x) indices with (Ly, Lx) shape using qed_fermion.utils.util.unravel_index
+        # vs = self.Ly * self.Lx
+        # idx_flat = vs // 2
+        # y, x = unravel_index(torch.tensor(idx_flat), (self.Ly, self.Lx))
 
-        axes[1, 2].plot(self.BB_k_list[seq_idx, :, y, x].mean(axis=1).numpy(), label=f'M 0')
-        axes[1, 2].plot(self.BB_k_list[seq_idx, :, y+1, x].mean(axis=1).numpy(), label=f'M-dk, 0')
-        axes[1, 2].plot(self.BB_k_list[seq_idx, :, y+2, x].mean(axis=1).numpy(), label=f'M-2dk, 0')
-        axes[1, 2].set_ylabel("BB_k")
-        axes[1, 2].set_title("BB_k Over Steps")
-        axes[1, 2].legend()
+        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, y, x].mean(axis=1).numpy(), label=f'M 0')
+        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, y+1, x].mean(axis=1).numpy(), label=f'M-dk, 0')
+        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, y+2, x].mean(axis=1).numpy(), label=f'M-2dk, 0')
+        # axes[1, 2].set_ylabel("BB_k")
+        # axes[1, 2].set_title("BB_k Over Steps")
+        # axes[1, 2].legend()
 
         # S_plaq
         axes[0, 1].plot(self.S_plaq_list[seq_idx].cpu().numpy(), 'o', label='S_plaq')
