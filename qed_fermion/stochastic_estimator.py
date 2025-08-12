@@ -7,7 +7,7 @@ from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner, T1GraphRunner, T21GraphRunner, T2GraphRunner, T4GraphRunner
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner, T1GraphRunner, T21GraphRunner, T2GraphRunner, T4GraphRunner, TvvGraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
 import torch.nn.functional as F
 
@@ -72,6 +72,7 @@ class StochaticEstimator:
         self.T21_graph_runner = T21GraphRunner(self)
         self.T2_graph_runner = T2GraphRunner(self)
         self.T4_graph_runner = T4GraphRunner(self)
+        self.Tvv_graph_runner = TvvGraphRunner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
         self.batch_size = lambda nrv: int(nrv*0.1)
@@ -1599,6 +1600,48 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
     
+    def Tvv(self, eta, G_eta, boson):
+        # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
+        # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
+        # boson: [1, 2, Lx, Ly, Ltau]
+        boson = boson.permute(0, 1, 4, 3, 2) # [1, 2, Ltau, Ly, Lx]
+        
+        eta_conj = eta.conj().view(-1, self.Ltau, self.Ly, self.Lx)
+        G_eta = G_eta.view(-1, self.Ltau, self.Ly, self.Lx)
+
+        Nrv = eta_conj.shape[0]
+        num_samples = Nrv
+
+        # Batch processing to avoid OOM
+        batch_size = min(self.batch_size(Nrv), self.batch_size(Nrv))  # Adjust batch size based on memory constraints
+
+        G_delta_0_G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+        G_delta_0_mean = torch.zeros((self.Ly, self.Lx), dtype=eta_conj.dtype, device=eta.device)
+
+        for start_idx in range(0, num_samples, batch_size):
+            end_idx = min(start_idx + batch_size, num_samples)
+            s_batch = torch.range(start_idx, end_idx, dtype=torch.int64, device=boson.device)
+
+            v = torch.roll(G_eta[s_batch],      shifts=-1, dims=-1) * \
+                torch.roll(eta_conj[s_batch],   shifts=0 , dims=-1) * \
+                torch.exp(1j * boson[0, 0, :, :, :]) + \
+                torch.roll(G_eta[s_batch],      shifts=0, dims=-1) * \
+                torch.roll(eta_conj[s_batch],   shifts=-1, dims=-1) * \
+                torch.exp(-1j * boson[0, 0, :, :, :])
+            
+            a = v
+            b = v
+            
+            # FFT: \sum_i ai * b_{i+delta}
+            a_F_neg_k = torch.fft.ifftn(a, (self.Ly, self.Lx), norm="backward")
+            b_F = torch.fft.fftn(b, (self.Ly, self.Lx), norm="forward")
+            batch_result = torch.fft.ifftn(a_F_neg_k * b_F, (self.Ly, self.Lx), norm="forward") # [Nrv, Ltau, Ly, Lx]
+
+            G_delta_0_G_delta_0_mean += batch_result.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+            G_delta_0_mean += v.mean(dim=(0, 1)) * (end_idx - start_idx) / num_samples
+
+        return G_delta_0_G_delta_0_mean, G_delta_0_mean  # [Ly, Lx], [Ly, Lx]
+    
 
     def G_delta_delta_G_0_0_ext_batch(self, a_xi=0, a_G_xi=0, b_xi=0, b_G_xi=0):
         eta = self.eta  # [Nrv, Ltau * Ly * Lx]
@@ -2569,16 +2612,36 @@ class StochaticEstimator:
             T4 = self.T4(self.eta, self.G_eta, boson)
         # torch.testing.assert_close(T4, T4_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        BB_r = (T1 + T21 + T2 + T4) * 2
+        if self.cuda_graph_se:
+            Tvv, Tv = self.Tvv_graph_runner(self.eta, self.G_eta, boson)
+        else:
+            Tvv_ref, Tv_ref = self.Tvv(self.eta, self.G_eta, boson)
+
+        torch.testing.assert_close(Tvv, Tvv_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        torch.testing.assert_close(Tv, Tv_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+
+        BB_r = (T1 + T21 + T2 + T4) * 2 + Tvv * 4
         BB_k = torch.fft.ifft2(BB_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         BB_k = self.reorder_fft_grid2(BB_k)  # [Ly, Lx]
 
         # Output
         obsr = {}
-        obsr['BB_r'] = BB_r.real
-        obsr['BB_k'] = BB_k.real
+        obsr['BB_r'] = BB_r.real    # intensive quantity
+        obsr['B_r'] = Tv.real       # intensive quantity
+        obsr['BB_k'] = BB_k.real    # need a renormalization of 1/Vs
         return obsr
-
+    
+    def bond_corr(self, BB_r_mean, B_r_mean):
+        # BB_r_mean: [Ly, Lx], mean over configurations
+        # B_r_mean: [Ly, Lx], mean over configurations
+        vi = B_r_mean   
+        v_F_neg_k = torch.fft.ifftn(vi, (self.Ly, self.Lx), norm="backward")
+        v_F = torch.fft.fftn(vi, (self.Ly, self.Lx), norm="forward")
+        v_bg = torch.fft.ifftn(v_F_neg_k * v_F, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
+        bond_corr = BB_r_mean - 4 * v_bg 
+        return bond_corr # Delta: [Ly, Lx]
+    
     def get_spsm(self, bosons, eta):
         bs, _, Lx, Ly, Ltau = bosons.shape
         spsm_r = torch.zeros((bs, Ly, Lx), dtype=self.dtype, device=self.device)
