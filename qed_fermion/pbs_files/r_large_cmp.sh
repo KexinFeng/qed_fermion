@@ -38,7 +38,7 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=cmp_large8_BBr3
+export suffix=cmp_large10_bond_corr
 export asym=1
 export compact=1
 export K=1

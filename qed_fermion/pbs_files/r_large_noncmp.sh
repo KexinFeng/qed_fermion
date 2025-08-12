@@ -35,8 +35,6 @@ L_array=$(echo '50 46')
 L_array=$(echo '36 30 20 16 12 10 8')
 L_array=$(echo '46 40')
 L_array=$(echo '60 56 50')
-# L_array=$(echo '80 76 70 66')
-# L_array=$(echo '64 62')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
@@ -46,7 +44,7 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large4_BBr_part4
+export suffix=noncmpK0_large6_bond_corr
 export asym=1
 export compact=0
 export K=0
@@ -56,7 +54,7 @@ export precon=1
 export compute_BB=1
 export compute_spsm=0
 
-export seed=251
+export seed=252
 
 for L in $L_array; do
         #
