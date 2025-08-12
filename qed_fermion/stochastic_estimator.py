@@ -7,7 +7,7 @@ from tqdm import tqdm
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../')
 
-from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner, T1GraphRunner, T2GraphRunner, T3GraphRunner, T4GraphRunner
+from qed_fermion.fermion_obsr_graph_runner import FermionObsrGraphRunner, GEtaGraphRunner, L0GraphRunner, SpsmGraphRunner, T1GraphRunner, T21GraphRunner, T2GraphRunner, T4GraphRunner
 from qed_fermion.utils.util import ravel_multi_index, unravel_index, device_mem, tensor_memory_MB
 import torch.nn.functional as F
 
@@ -69,8 +69,8 @@ class StochaticEstimator:
         self.L0_graph_runner = L0GraphRunner(self)
         self.spsm_graph_runner = SpsmGraphRunner(self)
         self.T1_graph_runner = T1GraphRunner(self)
+        self.T21_graph_runner = T21GraphRunner(self)
         self.T2_graph_runner = T2GraphRunner(self)
-        self.T3_graph_runner = T3GraphRunner(self)
         self.T4_graph_runner = T4GraphRunner(self)
 
         self.num_samples = lambda nrv: math.comb(nrv, 2)
@@ -173,7 +173,7 @@ class StochaticEstimator:
             print("Initializing T2_graph_runner.........")
             d_mem_str, d_mem2 = device_mem()
             print(f"Before init T2_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.T2_graph_runner.capture(
+            self.graph_memory_pool = self.T21_graph_runner.capture(
                 graph_memory_pool=self.graph_memory_pool)
             print(f"T2_graph_runner initialization complete")
             print('')
@@ -182,7 +182,7 @@ class StochaticEstimator:
             print("Initializing T3_graph_runner.........")
             d_mem_str, d_mem2 = device_mem()
             print(f"Before init T3_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.T3_graph_runner.capture(
+            self.graph_memory_pool = self.T2_graph_runner.capture(
                 graph_memory_pool=self.graph_memory_pool)
             print(f"T3_graph_runner initialization complete")
             print('')
@@ -1434,7 +1434,7 @@ class StochaticEstimator:
         
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
     
-    def T2(self, eta, G_eta, boson):
+    def T21(self, eta, G_eta, boson):
         # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
         # boson: [1, 2, Lx, Ly, Ltau]
@@ -1491,7 +1491,7 @@ class StochaticEstimator:
 
         return G_delta_0_G_delta_0_mean  # [Ly, Lx]
     
-    def T3(self, eta, G_eta, boson):
+    def T2(self, eta, G_eta, boson):
         # eta = self.eta  # [Nrv, Ltau * Ly * Lx]
         # G_eta = self.G_eta  # [Nrv, Ltau * Ly * Lx]
         # boson: [1, 2, Lx, Ly, Ltau]
@@ -2552,15 +2552,15 @@ class StochaticEstimator:
         # torch.testing.assert_close(T1, T1_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         if self.cuda_graph_se:
-            T2 = self.T2_graph_runner(self.eta, self.G_eta, boson)
+            T21 = self.T21_graph_runner(self.eta, self.G_eta, boson)
         else:
-            T2 = self.T2(self.eta, self.G_eta, boson)
+            T21 = self.T21(self.eta, self.G_eta, boson)
         # torch.testing.assert_close(T2, T2_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         if self.cuda_graph_se:
-            T3 = self.T3_graph_runner(self.eta, self.G_eta, boson)
+            T2 = self.T2_graph_runner(self.eta, self.G_eta, boson)
         else:
-            T3 = self.T3(self.eta, self.G_eta, boson)
+            T2 = self.T2(self.eta, self.G_eta, boson)
         # torch.testing.assert_close(T3, T3_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         if self.cuda_graph_se:
@@ -2569,7 +2569,7 @@ class StochaticEstimator:
             T4 = self.T4(self.eta, self.G_eta, boson)
         # torch.testing.assert_close(T4, T4_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
-        BB_r = (T1 + T2 + T3 + T4) * 2
+        BB_r = (T1 + T21 + T2 + T4) * 2
         BB_k = torch.fft.ifft2(BB_r, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
         BB_k = self.reorder_fft_grid2(BB_k)  # [Ly, Lx]
 

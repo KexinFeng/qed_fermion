@@ -433,7 +433,7 @@ class T1GraphRunner:
         self.graph.replay()
         return self.output_buffers
 
-class T2GraphRunner:
+class T21GraphRunner:
     def __init__(self, se):
         self.graph = None
         self.se = se
@@ -462,7 +462,7 @@ class T2GraphRunner:
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for n in range(n_warmups):
-                static_outputs = self.se.T2(
+                static_outputs = self.se.T21(
                     input_buffers['eta'],
                     input_buffers['G_eta'],
                     input_buffers['boson']
@@ -476,7 +476,7 @@ class T2GraphRunner:
 
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.se.T2(
+            static_outputs = self.se.T21(
                 input_buffers['eta'],
                 input_buffers['G_eta'],
                 input_buffers['boson']
@@ -504,7 +504,7 @@ class T2GraphRunner:
         self.graph.replay()
         return self.output_buffers
 
-class T3GraphRunner:
+class T2GraphRunner:
     def __init__(self, se):
         self.graph = None
         self.se = se
@@ -533,7 +533,7 @@ class T3GraphRunner:
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for n in range(n_warmups):
-                static_outputs = self.se.T3(
+                static_outputs = self.se.T2(
                     input_buffers['eta'],
                     input_buffers['G_eta'],
                     input_buffers['boson']
@@ -547,7 +547,7 @@ class T3GraphRunner:
 
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.se.T3(
+            static_outputs = self.se.T2(
                 input_buffers['eta'],
                 input_buffers['G_eta'],
                 input_buffers['boson']
