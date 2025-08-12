@@ -197,6 +197,15 @@ class StochaticEstimator:
             print(f"T4_graph_runner initialization complete")
             print('')
 
+            # Tvv_graph_runner
+            print("Initializing Tvv_graph_runner.........")
+            d_mem_str, d_mem2 = device_mem()
+            print(f"Before init Tvv_graph_runner: {d_mem_str}")
+            self.graph_memory_pool = self.Tvv_graph_runner.capture(
+                graph_memory_pool=self.graph_memory_pool)
+            print(f"Tvv_graph_runner initialization complete")
+            print('')
+
 
     def random_vec_bin(self):
         """
@@ -1620,8 +1629,7 @@ class StochaticEstimator:
 
         for start_idx in range(0, num_samples, batch_size):
             end_idx = min(start_idx + batch_size, num_samples)
-            s_batch = torch.range(start_idx, end_idx, dtype=torch.int64, device=boson.device)
-
+            s_batch = torch.arange(start_idx, end_idx, dtype=torch.int64, device=boson.device)
             v = torch.roll(G_eta[s_batch],      shifts=-1, dims=-1) * \
                 torch.roll(eta_conj[s_batch],   shifts=0 , dims=-1) * \
                 torch.exp(1j * boson[0, 0, :, :, :]) + \
@@ -2615,10 +2623,9 @@ class StochaticEstimator:
         if self.cuda_graph_se:
             Tvv, Tv = self.Tvv_graph_runner(self.eta, self.G_eta, boson)
         else:
-            Tvv_ref, Tv_ref = self.Tvv(self.eta, self.G_eta, boson)
-
-        torch.testing.assert_close(Tvv, Tvv_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
-        torch.testing.assert_close(Tv, Tv_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+            Tvv, Tv = self.Tvv(self.eta, self.G_eta, boson)
+        # torch.testing.assert_close(Tvv, Tvv_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        # torch.testing.assert_close(Tv, Tv_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
 
         BB_r = (T1 + T21 + T2 + T4) * 2 + Tvv * 4

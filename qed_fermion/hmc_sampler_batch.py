@@ -3239,12 +3239,11 @@ class HmcSampler(object):
         axes[0, 0].legend()
 
         # BB_r
-        BB_r_mean_3 = self.BB_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy()
-        B_r_mean_3 = self.B_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy()
-        BB_r_mean_5 = self.BB_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy()
-        B_r_mean_5 = self.B_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy()
-        axes[0, 2].plot(self.se.bond_corr(BB_r_mean_3, B_r_mean_3), label=f'G[3]')
-        axes[0, 2].plot(self.se.bond_corr(BB_r_mean_5, B_r_mean_5), label=f'G[5]')
+        BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
+        B_r_mean = self.B_r_list[seq_idx, ...].mean(axis=1)
+        bond_corr = self.se.bond_corr(BB_r_mean, B_r_mean).numpy()
+        axes[0, 2].plot(bond_corr[0, 3], label=f'G[3]')
+        axes[0, 2].plot(bond_corr[0, 5], label=f'G[5]')
         axes[0, 2].set_ylabel("bond_corr")
         axes[0, 2].set_title("bond_corr Over Steps")
         axes[0, 2].legend()
@@ -3258,10 +3257,6 @@ class HmcSampler(object):
         # axes[0, 2].legend()
 
         # BB_k
-        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, 0, 0].mean(axis=1).numpy(), label=f'pi pi')
-        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, 1, 0].mean(axis=1).numpy(), label=f'pi-dk,pi')
-        # axes[1, 2].plot(self.BB_k_list[seq_idx, :, 2, 0].mean(axis=1).numpy(), label=f'pi-2dk,pi')
-
         # .reshape(-1, vs)[:, vs//2]
         # Convert (self.vs // 2) to (y, x) indices with (Ly, Lx) shape using qed_fermion.utils.util.unravel_index
         vs = self.Ly * self.Lx
