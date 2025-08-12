@@ -79,3 +79,15 @@ def report_tensor_memory():
         print(f"{var_name}: {str(tensor.size())} | {tensor.dtype} | {mem_MB:.2f} MB")
 
     print(f"Total memory used by tensors: {total:.2f} MB")
+
+
+def bond_corr(BB_r_mean, B_r_mean):
+    # BB_r_mean: [Ly, Lx], mean over configurations
+    # B_r_mean: [Ly, Lx], mean over configurations
+    Ly, Lx = BB_r_mean.shape[-2:]
+    vi = B_r_mean   
+    v_F_neg_k = torch.fft.ifftn(vi, (Ly, Lx), norm="backward")
+    v_F = torch.fft.fftn(vi, (Ly, Lx), norm="forward")
+    v_bg = torch.fft.ifftn(v_F_neg_k * v_F, (Ly, Lx), norm="forward")  # [Ly, Lx]
+    bond_corr = BB_r_mean - 4 * v_bg 
+    return bond_corr # Delta: [Ly, Lx]

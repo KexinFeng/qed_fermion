@@ -103,7 +103,7 @@ from qed_fermion.post_processors.load_write2file_convert import time_execution
 from qed_fermion.force_graph_runner import ForceGraphRunner
 from qed_fermion.metropolis_graph_runner import MetropolisGraphRunner
 from qed_fermion.stochastic_estimator import StochaticEstimator
-from qed_fermion.utils.util import device_mem, report_tensor_memory, tensor_memory_MB
+from qed_fermion.utils.util import bond_corr, device_mem, report_tensor_memory, tensor_memory_MB
 from qed_fermion.metropolis_graph_runner import LeapfrogCmpGraphRunner
 from qed_fermion.preconditioners_orig.precon_manual import get_precon_man
 from qed_fermion.utils.util import unravel_index
@@ -1461,16 +1461,6 @@ class HmcSampler(object):
         """       
         curl = self.curl_phi(boson)  # [bs, Lx, Ly, Ltau]
         S = self.K * torch.sum(torch.cos(curl), dim=(1, 2, 3))
-
-    def bond_corr(self, BB_r_mean, B_r_mean):
-        # BB_r_mean: [Ly, Lx], mean over configurations
-        # B_r_mean: [Ly, Lx], mean over configurations
-        vi = B_r_mean   
-        v_F_neg_k = torch.fft.ifftn(vi, (self.Ly, self.Lx), norm="backward")
-        v_F = torch.fft.fftn(vi, (self.Ly, self.Lx), norm="forward")
-        v_bg = torch.fft.ifftn(v_F_neg_k * v_F, (self.Ly, self.Lx), norm="forward")  # [Ly, Lx]
-        bond_corr = BB_r_mean - 4 * v_bg 
-        return bond_corr # Delta: [Ly, Lx]
 
     def harmonic_tau(self, x0, p0, delta_t):
         """
@@ -3251,9 +3241,9 @@ class HmcSampler(object):
         # BB_r
         BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
         B_r_mean = self.B_r_list[seq_idx, ...].mean(axis=1)
-        bond_corr = self.bond_corr(BB_r_mean, B_r_mean).numpy()
-        axes[0, 2].plot(bond_corr[0, 3], label=f'G[3]')
-        axes[0, 2].plot(bond_corr[0, 5], label=f'G[5]')
+        bond_corr_numpy = bond_corr(BB_r_mean, B_r_mean).numpy()
+        axes[0, 2].plot(bond_corr_numpy[0, 3], label=f'G[3]')
+        axes[0, 2].plot(bond_corr_numpy[0, 5], label=f'G[5]')
         axes[0, 2].set_ylabel("bond_corr")
         axes[0, 2].set_title("bond_corr Over Steps")
         axes[0, 2].legend()
