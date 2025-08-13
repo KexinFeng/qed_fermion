@@ -81,7 +81,7 @@ def report_tensor_memory():
     print(f"Total memory used by tensors: {total:.2f} MB")
 
 
-def bond_corr(BB_r_mean, B_r_mean):
+def bond_corr(BB_r_mean, B_r_mean, bb_r_std, b_r_std):
     # BB_r_mean: [Ly, Lx], mean over configurations
     # B_r_mean: [Ly, Lx], mean over configurations
     Ly, Lx = BB_r_mean.shape[-2:]
