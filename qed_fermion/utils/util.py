@@ -81,13 +81,40 @@ def report_tensor_memory():
     print(f"Total memory used by tensors: {total:.2f} MB")
 
 
-def bond_corr(BB_r_mean, B_r_mean, bb_r_std, b_r_std):
+def bond_corr(BB_r_mean, B_r_mean, bb_r_std=None, b_r_std=None):
     # BB_r_mean: [Ly, Lx], mean over configurations
     # B_r_mean: [Ly, Lx], mean over configurations
+    # bb_r_std: [Ly, Lx], standard deviation of BB_r over configurations
+    # b_r_std: [Ly, Lx], standard deviation of B_r over configurations
     Ly, Lx = BB_r_mean.shape[-2:]
     vi = B_r_mean   
     v_F_neg_k = torch.fft.ifftn(vi, (Ly, Lx), norm="backward")
     v_F = torch.fft.fftn(vi, (Ly, Lx), norm="forward")
     v_bg = torch.fft.ifftn(v_F_neg_k * v_F, (Ly, Lx), norm="forward")  # [Ly, Lx]
-    bond_corr = BB_r_mean - 4 * v_bg 
-    return bond_corr # Delta: [Ly, Lx]
+    bond_corr = BB_r_mean - 4 * v_bg.real
+    
+    if bb_r_std is None:
+        return bond_corr
+
+    # Error propagation for bond_corr
+    # The error in bond_corr comes from:
+    # 1. Error in BB_r_mean (bb_r_std)
+    # 2. Error in v_bg, which depends on error in B_r_mean (b_r_std)
+    
+    # Error in v_bg: since v_bg = IFFT(FFT(B_r_mean) * IFFT(B_r_mean))
+    # The error propagates through the FFT operations
+    # For FFT operations, errors are generally preserved in magnitude
+    # The error in v_bg is approximately the error in B_r_mean squared
+    # because we're multiplying B_r_mean with itself in Fourier space
+    
+    # Error in v_bg (approximate)
+    v_bg_error = torch.fft.ifftn(
+        torch.fft.fftn(b_r_std, (Ly, Lx), norm="forward") * 
+        torch.fft.ifftn(b_r_std, (Ly, Lx), norm="backward"), 
+        (Ly, Lx), norm="forward"
+    )
+    
+    # Error in bond_corr: sqrt(bb_r_std^2 + (4 * v_bg_error)^2)
+    bond_corr_error = torch.sqrt(bb_r_std**2 + (4 * v_bg_error)**2)
+    
+    return bond_corr, bond_corr_error # Delta: [Ly, Lx], Error: [Ly, Lx]

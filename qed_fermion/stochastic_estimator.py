@@ -2634,6 +2634,7 @@ class StochaticEstimator:
 
         # Output
         obsr = {}
+        obsr['BB0_r'] = ((T1 + T21 + T2 + T4) * 2).real
         obsr['BB_r'] = BB_r.real    # intensive quantity
         obsr['B_r'] = Tv.real       # intensive quantity
         obsr['BB_k'] = BB_k.real    # need a renormalization of 1/Vs

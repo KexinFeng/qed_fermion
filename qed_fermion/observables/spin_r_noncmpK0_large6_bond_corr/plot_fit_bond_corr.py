@@ -1,7 +1,12 @@
 import re
 import matplotlib.pyplot as plt
+import os
+import sys
 
-from qed_fermion.utils.util import bond_corr
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../../../')
+
+from qed_fermion.utils.util import bond_corr as bond_corr_func
 
 plt.ion()
 
@@ -59,6 +64,7 @@ def plot_spin_r():
     # Define lattice sizes to analyze (from data directory)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [8, 10, 12, 16, 20]
     
     # Sampling parameters
     # start = 5000  # Skip initial equilibration steps
@@ -117,13 +123,13 @@ def plot_spin_r():
         bb_r_avg_std1 = bb_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
         b_r_avg_std1 = b_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
 
-        bond_corr_numpy = bond_corr(bb_r_avg1, b_r_avg1).numpy()
+        bond_corr, bond_corr_std = bond_corr_func(bb_r_avg1, b_r_avg1, bb_r_avg_std1, b_r_avg_std1)
 
-        
         # Convert to numpy for easier manipulation
-        bb_r_np1 = bb_r_avg1.numpy()
-        bb_r_np_abs1 = bb_r_avg1.numpy()
-        bb_r_avg_std_np1 = bb_r_avg_std1.numpy()
+        bb_r_np_abs1 = bond_corr.abs().numpy()
+        bb_r_avg_std_np1 = bond_corr_std.numpy()
+        # bb_r_np_abs1 = bb_r_avg1.abs().numpy()
+        # bb_r_avg_std_np1 = bb_r_avg_std1.numpy()
 
         # Load data from second folder
         hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
@@ -249,8 +255,8 @@ def plot_spin_r():
     plt.yscale('log')
 
     # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-6, 10**-0.5)
-    plt.ylim(10**-7.1, 10**-0.9)
+    # plt.ylim(1e-6, 10**-0.5)
+    # plt.ylim(10**-7.1, 10**-0.9)
     # plt.xlim(0.4, 100)
 
     ax = plt.gca()
