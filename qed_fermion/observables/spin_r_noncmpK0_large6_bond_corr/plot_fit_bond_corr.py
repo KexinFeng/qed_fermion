@@ -188,13 +188,17 @@ def plot_spin_r():
             
             spin_corr_values.append(val)
             spin_corr_errors.append(err / np.sqrt(total_samples))
+        
+        spin_corr_values = np.array(spin_corr_values)
+        spin_corr_errors = np.array(spin_corr_errors)
+        spin_corr_values = spin_corr_values - spin_corr_values.min() + 1e-3
 
         # Store data for analysis
         all_data[Lx] = {
             'r_values': r_values,
             'spin_corr_values': spin_corr_values,
             'spin_corr_errors': spin_corr_errors,
-            'normalization': spin_corr_values[0] if spin_corr_values else 1.0  # r=0 value for normalization
+            'normalization': spin_corr_values[0] if spin_corr_values is not None else 1.0  # r=0 value for normalization
         }
         
         # Plot spin correlation vs distance for this lattice size (log-log with linear fit)
@@ -234,7 +238,7 @@ def plot_spin_r():
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min, (r_max + r_min - 6)// 2, 100)
-    coeff0 = -3.2
+    coeff0 = -3.0
     coeff1 = -3.6
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
