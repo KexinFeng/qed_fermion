@@ -210,7 +210,7 @@ class HmcSampler(object):
         # self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.B_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        # self.BB_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.BB0_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
 
         if self.Lx <= 10 and buffer:
             # boson_seq
@@ -2986,7 +2986,7 @@ class HmcSampler(object):
         futures = {}
 
         # Define CPU computations to run asynchronously
-        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, BB0_r, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
             # Update metrics
             self.accp_list[i] = accp_cpu
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -3010,8 +3010,8 @@ class HmcSampler(object):
                 self.BB_r_list[i] = BB_r_cpu  # [bs, Ly, Lx]
             if B_r_cpu is not None:
                 self.B_r_list[i] = B_r_cpu  # [bs, Ly, Lx]
-            # if BB_k_cpu is not None:
-            #     self.BB_k_list[i] = BB_k_cpu  # [bs, Ly, Lx] 
+            if BB0_r_cpu is not None:
+                self.BB0_r_list[i] = BB0_r_cpu  # [bs, Ly, Lx] 
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -3043,11 +3043,11 @@ class HmcSampler(object):
                 obsr = self.se.get_fermion_obsr_compile(boson, eta)
                 BB_r = obsr['BB_r'] if compute_BB else None
                 B_r = obsr['B_r'] if compute_BB else None
-                BB_k = obsr['BB_k'] if compute_BB else None
+                BB0_r = obsr['BB0_r'] if compute_BB else None
                 spsm_r = obsr['spsm_r'] if compute_spsm else None
                 spsm_k = obsr['spsm_k'] if compute_spsm else None
             else:
-                BB_r = B_r = BB_k = spsm_r = spsm_k = None
+                BB_r = B_r = BB0_r = spsm_r = spsm_k = None
 
             if i % 1000 == 0:  # Print timing every 100 steps
                 if torch.cuda.is_available():
@@ -3064,7 +3064,7 @@ class HmcSampler(object):
                 boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
                 (BB_r.cpu() if BB_r is not None and BB_r.is_cuda else (BB_r.clone() if BB_r is not None else None)),
                 (B_r.cpu() if B_r is not None and B_r.is_cuda else (B_r.clone() if B_r is not None else None)),
-                # (BB_k.cpu() if BB_k is not None and BB_k.is_cuda else (BB_k.clone() if BB_k is not None else None)),
+                (BB0_r.cpu() if BB0_r is not None and BB0_r.is_cuda else (BB0_r.clone() if BB0_r is not None else None)),
                 # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
@@ -3148,7 +3148,7 @@ class HmcSampler(object):
                         'S_tau_list': self.S_tau_list,
                         'BB_r_list': self.BB_r_list,
                         'B_r_list': self.B_r_list,
-                        # 'BB_k_list': self.BB_k_list,
+                        'BB0_r_list': self.BB0_r_list,
                         'cg_iter_list': self.cg_iter_list,
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
@@ -3185,7 +3185,7 @@ class HmcSampler(object):
                'S_tau_list': self.S_tau_list,
                 'BB_r_list': self.BB_r_list,
                 'B_r_list': self.B_r_list,
-                # 'BB_k_list': self.BB_k_list,
+                'BB0_r_list': self.BB0_r_list,
                'cg_iter_list': self.cg_iter_list,
                'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}
@@ -3241,20 +3241,21 @@ class HmcSampler(object):
         # BB_r
         BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
         B_r_mean = self.B_r_list[seq_idx, ...].mean(axis=1)
-        bond_corr_numpy = bond_corr(BB_r_mean, B_r_mean).numpy()
+        BB0_r_mean = self.BB0_r_list[seq_idx, ...].mean(axis=1)
+        bond_corr_numpy = bond_corr(BB_r_mean - BB0_r_mean, B_r_mean).numpy()
         axes[0, 2].plot(bond_corr_numpy[:, 0, 3], label=f'G[3]')
         axes[0, 2].plot(bond_corr_numpy[:, 0, 5], label=f'G[5]')
-        axes[0, 2].set_ylabel("bond_corr")
-        axes[0, 2].set_title("bond_corr Over Steps")
+        axes[0, 2].set_ylabel("<vivj>-<vi><vj>")
+        axes[0, 2].set_title("<vivj>-<vi><vj> Over Steps")
         axes[0, 2].legend()
 
-        # # BB_r
-        # # axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
-        # axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
-        # axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
-        # axes[0, 2].set_ylabel("BB_r")
-        # axes[0, 2].set_title("BB_r Over Steps")
-        # axes[0, 2].legend()
+        # BB_r
+        # axes[0, 2].plot(self.BB_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
+        axes[1, 2].plot(self.BB0_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
+        axes[1, 2].plot(self.BB0_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
+        axes[1, 2].set_ylabel("BB0_r")
+        axes[1, 2].set_title("BB0_r Over Steps")
+        axes[1, 2].legend()
 
         # # BB_k
         # # .reshape(-1, vs)[:, vs//2]
