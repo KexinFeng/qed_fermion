@@ -44,7 +44,7 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large6_bond_corr
+export suffix=noncmpK0_large6_bond_corr_test2
 export asym=1
 export compact=0
 export K=0
@@ -54,7 +54,7 @@ export precon=1
 export compute_BB=1
 export compute_spsm=0
 
-export seed=252
+export seed=253
 
 for L in $L_array; do
         #
