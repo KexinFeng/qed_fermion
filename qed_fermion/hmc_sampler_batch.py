@@ -3242,7 +3242,8 @@ class HmcSampler(object):
         BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
         B_r_mean = self.B_r_list[seq_idx, ...].mean(axis=1)
         BB0_r_mean = self.BB0_r_list[seq_idx, ...].mean(axis=1)
-        bond_corr_numpy = bond_corr(BB_r_mean - BB0_r_mean, B_r_mean).numpy()
+        vv_r_mean = BB_r_mean - BB0_r_mean
+        bond_corr_numpy = bond_corr(vv_r_mean, B_r_mean).numpy()
         axes[0, 2].plot(bond_corr_numpy[:, 0, 3], label=f'G[3]')
         axes[0, 2].plot(bond_corr_numpy[:, 0, 5], label=f'G[5]')
         axes[0, 2].set_ylabel("<vivj>-<vi><vj>")
