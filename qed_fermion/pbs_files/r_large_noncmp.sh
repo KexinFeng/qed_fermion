@@ -33,16 +33,16 @@ L_array=$(echo '50 46')
 
 # BB_r lattice sizes
 L_array=$(echo '36 30 20 16 12 10 8')
-L_array=$(echo '46 40')
-L_array=$(echo '60 56 50')
+# L_array=$(echo '46 40')
+# L_array=$(echo '60 56 50')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=6500
+Nstep=10000
 export debug=0
 export cuda_graph=1
-export bs=1
+export bs=2
 
 export suffix=noncmpK0_large6_bond_corr_test2
 export asym=1
@@ -65,7 +65,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=6-23:59:00 \
+                --time=2-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc_noncmp.cmd
