@@ -38,7 +38,7 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=cmp_large10_bond_corr
+export suffix=cmp_large10_bond_corr_part2
 export asym=1
 export compact=1
 export K=1
@@ -48,7 +48,7 @@ export precon=1
 export compute_BB=1
 export compute_spsm=0
 
-export seed=491
+export seed=492
 
 for L in $L_array; do
         #
