@@ -54,6 +54,8 @@ else:
 data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_test2"
 data_folder2 = ""
 
+separate = False
+
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
 set_default_plotting()  
@@ -64,7 +66,7 @@ def plot_spin_r():
     # Define lattice sizes to analyze (from data directory)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [8, 10, 12, 16, 20]
+    lattice_sizes = [8, 10, 12, 16, 20, 30]
     
     # Sampling parameters
     # start = 5000  # Skip initial equilibration steps
@@ -114,7 +116,7 @@ def plot_spin_r():
         b_r = res['B_r_list']
         
         # Extract sequence indices for equilibrated samples
-        hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+        hmc_match = re.search(r'step_(\d+)', hmc_filename)
         end = int(hmc_match.group(1))
         seq_idx = np.arange(start, end, sample_step)
 
@@ -228,22 +230,23 @@ def plot_spin_r():
         coeffs = np.polyfit(log_r, log_corr, 1)
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
-        # # Plot data and fit in log-log space
-        # # Plot error bars with alpha=1 (fully opaque)
-        # eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
-        #                   linestyle=':', marker='o', color=color, 
-        #                   label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
-        # eb2 = plt.errorbar(r_values[0:], spin_corr_values0[0:], yerr=spin_corr_errors0[0:], 
-        #                   linestyle='-', marker='^', color=color, 
-        #                   label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
-        # if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
-        #     eb2.lines[0].set_alpha(0.8)
-        
-        eb = plt.errorbar(r_values[0:], 
-                          (spin_corr_values + spin_corr_values0)[0:], 
-                          yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
-                          linestyle=':', marker='o', color=color, 
-                          label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
+        # Plot data and fit in log-log space
+        # Plot error bars with alpha=1 (fully opaque)
+        if separate:
+            eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
+                            linestyle=':', marker='o', color=color, 
+                            label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
+            eb2 = plt.errorbar(r_values[0:], spin_corr_values0[0:], yerr=spin_corr_errors0[0:], 
+                            linestyle='-', marker='^', color=color, 
+                            label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
+            if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
+                eb2.lines[0].set_alpha(0.8)
+        else:
+            eb = plt.errorbar(r_values[0:], 
+                            (spin_corr_values + spin_corr_values0)[0:], 
+                            yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
+                            linestyle=':', marker='o', color=color, 
+                            label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
         
         # Set only the marker (dots) to have alpha=0.8
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
@@ -259,7 +262,7 @@ def plot_spin_r():
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min, (r_max + r_min - 6)// 2, 100)
-    coeff0 = -3.0
+    coeff0 = -3.4
     coeff1 = -3.6
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
@@ -290,7 +293,8 @@ def plot_spin_r():
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
+    file_path = os.path.join(save_dir, 
+                             ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 
