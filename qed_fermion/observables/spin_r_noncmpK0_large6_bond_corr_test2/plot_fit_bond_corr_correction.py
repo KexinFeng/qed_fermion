@@ -6,7 +6,7 @@ import sys
 script_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_path + '/../../../')
 
-from qed_fermion.utils.util import bond_corr as bond_corr_func
+from qed_fermion.utils.util import convolution
 
 plt.ion()
 
@@ -112,7 +112,6 @@ def plot_spin_r():
         bb_r = res['BB_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
         bb0_r = res['BB0_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
         b_r = res['B_r_list']
-        vv_r = bb_r - bb0_r
         
         # Extract sequence indices for equilibrated samples
         hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
@@ -121,21 +120,20 @@ def plot_spin_r():
 
         # Average over equilibrated timesteps and batch dimension for first folder
         bb0_r_avg1 = bb0_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        vv_r_avg1 = vv_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        b_r_avg1 = b_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        v_r_seq1 = b_r[seq_idx]
+        v_r_avg1 = v_r_seq1.mean(dim=(0, 1), keepdim=True)       # Average over [timesteps, batches] -> [Ly, Lx]
         bb0_r_avg_std1 = bb0_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        vv_r_avg_std1 = vv_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        b_r_avg_std1 = b_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
 
-        bond_corr, bond_corr_std = bond_corr_func(vv_r_avg1, b_r_avg1, vv_r_avg_std1, b_r_avg_std1)
+        vv_r_seq1 = convolution(v_r_seq1)
+        vv_r_avg1 = convolution(v_r_avg1)
+        bb1_r_avg1 = (4 * (vv_r_seq1 - vv_r_avg1)).mean(dim=(0, 1))
+        bb1_r_avg_std1 = (4 * (vv_r_seq1 - vv_r_avg1)).std(dim=(0, 1))
 
         # Convert to numpy for easier manipulation
-        bb_r_np_abs1 = bond_corr.abs().numpy()
+        bb_r_np_abs1 = bb1_r_avg1.abs().numpy()
         bb0_r_np_abs1 = bb0_r_avg1.abs().numpy()
-        bb_r_avg_std_np1 = bond_corr_std.numpy()
+        bb_r_avg_std_np1 = bb1_r_avg_std1.numpy()
         bb0_r_avg_std_np1 = bb0_r_avg_std1.numpy()
-        # bb_r_np_abs1 = bb_r_avg1.abs().numpy()
-        # bb_r_avg_std_np1 = bb_r_avg_std1.numpy()
 
         # Load data from second folder
         hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
@@ -207,8 +205,8 @@ def plot_spin_r():
         spin_corr_values0 = np.array(spin_corr_values0)
         spin_corr_errors = np.array(spin_corr_errors)
         spin_corr_errors0 = np.array(spin_corr_errors0)
-        spin_corr_values = spin_corr_values - spin_corr_values.min() + 1e-15
-        # spin_corr_values = spin_corr_values
+        # spin_corr_values = spin_corr_values - spin_corr_values.min() + 1e-15
+        spin_corr_values = spin_corr_values
 
         # Store data for analysis
         all_data[Lx] = {
@@ -230,20 +228,26 @@ def plot_spin_r():
         coeffs = np.polyfit(log_r, log_corr, 1)
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
-        # Plot data and fit in log-log space
-        # Plot error bars with alpha=1 (fully opaque)
-        eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
+        # # Plot data and fit in log-log space
+        # # Plot error bars with alpha=1 (fully opaque)
+        # eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
+        #                   linestyle=':', marker='o', color=color, 
+        #                   label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
+        # eb2 = plt.errorbar(r_values[0:], spin_corr_values0[0:], yerr=spin_corr_errors0[0:], 
+        #                   linestyle='-', marker='^', color=color, 
+        #                   label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
+        # if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
+        #     eb2.lines[0].set_alpha(0.8)
+        
+        eb = plt.errorbar(r_values[0:], 
+                          (spin_corr_values + spin_corr_values0)[0:], 
+                          yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
                           linestyle=':', marker='o', color=color, 
-                          label=rf'${Ltau}x{Lx}^2$', alpha=1.0)
-        eb2 = plt.errorbar(r_values[0:], spin_corr_values0[0:], yerr=spin_corr_errors0[0:], 
-                          linestyle='-', marker='^', color=color, 
-                          alpha=1.0)
+                          label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
         
         # Set only the marker (dots) to have alpha=0.8
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
             eb.lines[0].set_alpha(0.8)
-        if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
-            eb2.lines[0].set_alpha(0.8)
 
         dbstop = 1
 
@@ -277,7 +281,7 @@ def plot_spin_r():
 
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
-    # plt.ylim(10**-7.1, 10**-0.9)
+    plt.ylim(10**-7.1, 10**-0.8)
     # plt.xlim(0.4, 100)
 
     ax = plt.gca()
