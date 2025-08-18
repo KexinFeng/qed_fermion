@@ -80,7 +80,7 @@ plt.xscale('log')
 plt.yscale('log')
 
 ax = fig.gca()
-ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
+# ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
 # Save the plot
 script_path = os.path.dirname(os.path.abspath(__file__))

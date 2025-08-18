@@ -104,7 +104,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
                     linestyle='', marker='o', lw=1.5, color=color, 
                     label=f'dqmc_{Lx}x{Ltau}', markersize=8, alpha=0.8)
     plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                label=f'dqmc L={Lx}: y~x^{coeffs[0]:.2f}')
+                label=f'dqmc L={Lx}: y~x^{coeffs[0]:.1f}')
 
     # ===== Load hmc and plot ===== #
     xs = []
@@ -162,7 +162,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
                     linestyle='', marker='o', lw=1.5, color=color, 
                     label=f'hmc_{Lx}x{Ltau}', markersize=8, alpha=0.8)
     plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                label=f'hmc L={Lx}: y~x^{coeffs[0]:.2f}')
+                label=f'hmc L={Lx}: y~x^{coeffs[0]:.1f}')
 
     # ===== Final plot settings ===== #
     plt.xscale('log')

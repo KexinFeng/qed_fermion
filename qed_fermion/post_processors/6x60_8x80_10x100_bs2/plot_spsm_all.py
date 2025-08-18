@@ -23,18 +23,7 @@ from load_write2file_convert import time_execution
 
 # Add partition parameters
 
-# Lx = int(os.getenv("Lx", '6'))
-# print(f"Lx: {Lx}")
-# Ltau = int(os.getenv("Ltau", '60'))
-# print(f"Ltau: {Ltau}")
-
-# asym = Ltau / Lx * 0.1
-
-# part_size = 500
-# start_dqmc = 5000
-# end_dqmc = 10000
-
-
+use_dqmc_post_processor = False
 
 @time_execution
 def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
@@ -51,7 +40,6 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     vs = Lx**2
     
     # plt.figure(figsize=(8, 6))
-    
     for J in Js:
         # Initialize data collection arrays for this J value
         all_data = []
@@ -112,19 +100,19 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
 
     # Plot the batch mean
     plt.errorbar(Js, spin_order_values[:, 1] / vs, yerr=spin_order_errors[:, 1] / vs,
-                 linestyle='-', marker='o', lw=2, color=f'C{i1}', label=f'hqmc_{Lx}x{Ltau}')
+                 linestyle='-', marker='o', color=f'C{i1}', label=fr'${Ltau}x{Lx}^2$ HQMC', alpha=0.6)
 
     # ---- Load dqmc and plot ----
     dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     data = np.genfromtxt(dqmc_filename)
     plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+                 fmt='o', color=f'C{i2}', linestyle='-', label=fr'${Ltau}x{Lx}^2$ DQMC', alpha=0.6)
 
 
 if __name__ == '__main__':
     batch_size = 2
 
-    plt.figure(figsize=(8, 6))
+    plt.figure()
     for idx, Lx in enumerate([6, 8, 10]):
         Ltau = Lx * 10
 
@@ -140,12 +128,23 @@ if __name__ == '__main__':
         plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1))
         dbstop = 1
 
+    # Get current axis
+    ax = plt.gca()
+    handles, labels = ax.get_legend_handles_labels()
+    # Reorder by [0, 2, 4, 1, 3, 5]
+    order = [0, 2, 4, 1, 3, 5]
+    # Only use indices that exist (in case there are fewer than 6)
+    order = [i for i in order if i < len(handles)]
+    handles = [handles[i] for i in order]
+    labels = [labels[i] for i in order]
+    ax.legend(handles, labels, ncol=2, fontsize=11.4, loc='best')
+
     # Plot setting
     plt.xlabel('J', fontsize=18)    
     plt.ylabel(r'$\chi_S(k=X)$', fontsize=18)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
-    plt.grid(True, alpha=0.3)
-    plt.legend(ncol=2)
+    # plt.grid(True, alpha=0.3)
+    # plt.legend(ncol=2)
     
     plt.show(block=False)
     # Save plot

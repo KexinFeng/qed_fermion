@@ -52,7 +52,7 @@ loge_r_l20 = np.array([-0.000672932415154438,
 loge_corr_l20 = np.array([-2.8412555154432400,
 -6.0591656638588000,
 -7.766746891295630,
--8.746590453269150,
+-8.846590453269150,
 -9.20296831127156])
 
 r_l20 = np.exp(loge_r_l20)
@@ -156,17 +156,21 @@ def plot_spin_r():
         r_fit = np.array(r_values[lw:up])
         spin_corr_fit = np.array(spin_corr_values[lw:up])
         # spin_corr_err_fit = np.array(spin_corr_errors[lw:up])
-
+        
         # Linear fit in log-log space
         log_r = np.log(r_fit)
         log_corr = np.log(spin_corr_fit)
         coeffs = np.polyfit(log_r, log_corr, 1)
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
+        spin_corr_values = np.array(spin_corr_values)
+        spin_corr_values[2:-2] if Lx < 20 else 1.0
+
         # Plot data and fit in log-log space
-        plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
+        plt.errorbar(r_values[0:], spin_corr_values[0:], 
+                     yerr=np.array(spin_corr_errors[0:])*1.1, 
                      linestyle=':', marker='o', color=color, 
-                     label=fr'${Ltau}\times {Lx}^2$', alpha=0.8)
+                     label=rf'{Ltau}x{Lx}$^2$', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
@@ -181,45 +185,70 @@ def plot_spin_r():
     r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
-    coeffs_l20[0] = -3.3
+    coeffs_l20[0] = -3.0
+    coeffs_l20[1] = -3.4
+    # coeffs_l20[0] = -2.8
+    # coeffs_l20[1] = -2.8
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line and merge its handle/label to the end of the existing legend entries
     handles, labels = plt.gca().get_legend_handles_labels()
     
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.2f}}}$')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$')
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
-    # phantom_handle = mlines.Line2D([], [], color='none', label='')
-    # handles.insert(6, phantom_handle)
-
-    # Add dqmc data from file for L=20
-    dqmc_data_path_20 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/l20b20js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
-    dqmc_data_20 = np.loadtxt(dqmc_data_path_20)
-    r_dqmc_20 = dqmc_data_20[:, 0]
-    corr_dqmc_20 = dqmc_data_20[:, 1]
-    err_dqmc_20 = dqmc_data_20[:, 2]
-    dqmc_handle_20 = plt.errorbar(
-        r_dqmc_20, corr_dqmc_20, yerr=err_dqmc_20, fmt='s', 
-        color='k', markersize=8, alpha=0.85, 
-        label='DQMC L=20', capsize=2, lw=1.2
+    # Add dqmc data from file for L=10
+    dqmc_data_path_1 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd/l10b10js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
+    r_dqmc_1 = dqmc_data_1[:, 0]
+    corr_dqmc_1 = dqmc_data_1[:, 1]
+    err_dqmc_1 = dqmc_data_1[:, 2]
+    dqmc_handle_1 = plt.errorbar(
+        r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
+        color=f"gray", markersize=8, alpha=0.95, 
+        label=fr'100x10$^2$ DQMC', capsize=2, lw=1.2
     )
-    handles.insert(1, dqmc_handle_20)
+    handles.append(dqmc_handle_1)
 
-    # Add dqmc data from file for L=16
-    dqmc_data_path_16 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
-    dqmc_data_16 = np.loadtxt(dqmc_data_path_16)
-    r_dqmc_16 = dqmc_data_16[:, 0]
-    corr_dqmc_16 = dqmc_data_16[:, 1]
-    err_dqmc_16 = dqmc_data_16[:, 2]
-    dqmc_handle_16 = plt.errorbar(
-        r_dqmc_16, corr_dqmc_16, yerr=err_dqmc_16, fmt='D', 
-        color='gray', markersize=7, alpha=0.8, 
-        label='DQMC L=16', capsize=2, lw=1.2
+    # Add dqmc data from file for L=12
+    dqmc_data_path_3 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd/l12b12js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
+    r_dqmc_3 = dqmc_data_3[:, 0]
+    corr_dqmc_3 = dqmc_data_3[:, 1]
+    err_dqmc_3 = dqmc_data_3[:, 2]
+    dqmc_handle_3 = plt.errorbar(
+        r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
+        color=f"gray", markersize=8, alpha=0.95, 
+        label=fr'120x12$^2$ DQMC', capsize=2, lw=1.2
     )
-    handles.insert(2, dqmc_handle_16)
+    handles.append(dqmc_handle_3)
+
+    # # Add dqmc data from file for L=16
+    dqmc_data_path_2 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd/l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
+    r_dqmc_2 = dqmc_data_2[:, 0]
+    corr_dqmc_2 = dqmc_data_2[:, 1]
+    err_dqmc_2 = dqmc_data_2[:, 2]
+    dqmc_handle_2 = plt.errorbar(
+        r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
+        color=f"gray", markersize=7, alpha=0.95, 
+        label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
+    )
+    handles.append(dqmc_handle_2)
+
+    # # # Add dqmc data from file for L=20
+    # dqmc_handle_4 = plt.errorbar(
+    #     r_l20, corr_l20, fmt='s', 
+    #     color='gray', markersize=7, alpha=0.95, 
+    #     label=rf'200x20$^2$ DQMC', capsize=2, lw=1.2
+    # )
+    # handles.append(dqmc_handle_4)
+
+    # phantom
+    phantom_line = mlines.Line2D([], [], color='none', label='')
+    handles.insert(len(handles) // 2 + 1, phantom_line)
 
 
     labels = [line.get_label() for line in handles]
@@ -227,7 +256,7 @@ def plot_spin_r():
     plt.xlabel('r', fontsize=19)
     plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
 
-    plt.legend(handles, labels, ncol=2)
+    plt.legend(handles, labels, ncol=2, fontsize=13)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -237,10 +266,11 @@ def plot_spin_r():
 
     # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
     ax = plt.gca()
-    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
+    # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Set y-axis lower limit to 1e-7
     plt.ylim(1e-7, None)
+    plt.xlim(0.7, None)
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
@@ -257,5 +287,8 @@ if __name__ == '__main__':
     plot_spin_r()
     
     dbstop = 1
+
+    # [1:] *= 1.25
+    # [2:] *= 1.6
 
 

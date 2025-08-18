@@ -51,7 +51,7 @@ else:
         suffix = "diag"
 
 # HMC data folder for large4_BBr
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr"
+data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_test2"
 data_folder2 = ""
 
 # Set default plotting settings for physics scientific publication (Matlab style)
@@ -78,7 +78,7 @@ def plot_spin_r():
     for i, Lx in enumerate(lattice_sizes):
         # Construct filename for this lattice size
         Ltau = int(10 * Lx)
-        start = 5000 if Lx > 30 else 1000
+        start = 1000
 
         import glob
         # Find the correct file for this Lx and Ltau
@@ -110,7 +110,9 @@ def plot_spin_r():
         
         # Extract spin-spin correlation data: BB_r_list
         bb_r = res['BB_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
+        bb0_r = res['BB0_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
         b_r = res['B_r_list']
+        vv_r = bb_r - bb0_r
         
         # Extract sequence indices for equilibrated samples
         hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
@@ -118,16 +120,20 @@ def plot_spin_r():
         seq_idx = np.arange(start, end, sample_step)
 
         # Average over equilibrated timesteps and batch dimension for first folder
-        bb_r_avg1 = bb_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        bb0_r_avg1 = bb0_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        vv_r_avg1 = vv_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
         b_r_avg1 = b_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        bb_r_avg_std1 = bb_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        bb0_r_avg_std1 = bb0_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        vv_r_avg_std1 = vv_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
         b_r_avg_std1 = b_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
 
-        bond_corr, bond_corr_std = bond_corr_func(bb_r_avg1, b_r_avg1, bb_r_avg_std1, b_r_avg_std1)
+        bond_corr, bond_corr_std = bond_corr_func(vv_r_avg1, b_r_avg1, vv_r_avg_std1, b_r_avg_std1)
 
         # Convert to numpy for easier manipulation
         bb_r_np_abs1 = bond_corr.abs().numpy()
+        bb0_r_np_abs1 = bb0_r_avg1.abs().numpy()
         bb_r_avg_std_np1 = bond_corr_std.numpy()
+        bb0_r_avg_std_np1 = bb0_r_avg_std1.numpy()
         # bb_r_np_abs1 = bb_r_avg1.abs().numpy()
         # bb_r_avg_std_np1 = bb_r_avg_std1.numpy()
 
@@ -136,7 +142,9 @@ def plot_spin_r():
         if hmc_filename2 is None:
             # If no file found in second folder, use only first folder data
             bb_r_np_abs = bb_r_np_abs1
+            bb0_r_np_abs = bb0_r_np_abs1
             bb_r_avg_std_np = bb_r_avg_std_np1
+            bb0_r_avg_std_np = bb0_r_avg_std_np1
             total_samples = len(seq_idx) * bs
         else:
             # Load checkpoint data from second folder
@@ -175,7 +183,9 @@ def plot_spin_r():
         
         r_values = []
         spin_corr_values = []
+        spin_corr_values0 = []
         spin_corr_errors = []
+        spin_corr_errors0 = []
         
         # Simplified: plot spin correlation along x-direction only (y=0)
         for r in range(start_dist, Lx, step_dist):
@@ -184,14 +194,21 @@ def plot_spin_r():
             
             r_values.append(r)
             val = 1/2 * (bb_r_np_abs[y, x] + bb_r_np_abs[y, Lx - x]) if y != x else bb_r_np_abs[y, x]  # bb_r_np_abs[Ly - y, x] will err, since y = 0.
+            val0 = 1/2 * (bb0_r_np_abs[y, x] + bb0_r_np_abs[y, Lx - x]) if y != x else bb0_r_np_abs[y, x]  # bb_r_np_abs[Ly - y, x] will err, since y = 0.
             err = 1/2 * (bb_r_avg_std_np[y, x] + bb_r_avg_std_np[y, Lx - x]) if y != x else bb_r_avg_std_np[y, x] 
-            
+            err0 = 1/2 * (bb0_r_avg_std_np[y, x] + bb0_r_avg_std_np[y, Lx - x]) if y != x else bb0_r_avg_std_np[y, x] 
+
             spin_corr_values.append(val)
+            spin_corr_values0.append(val0)
             spin_corr_errors.append(err / np.sqrt(total_samples))
-        
+            spin_corr_errors0.append(err0 / np.sqrt(total_samples))
+
         spin_corr_values = np.array(spin_corr_values)
+        spin_corr_values0 = np.array(spin_corr_values0)
         spin_corr_errors = np.array(spin_corr_errors)
-        spin_corr_values = spin_corr_values - spin_corr_values.min() + 1e-3
+        spin_corr_errors0 = np.array(spin_corr_errors0)
+        spin_corr_values = spin_corr_values - spin_corr_values.min() + 1e-15
+        # spin_corr_values = spin_corr_values
 
         # Store data for analysis
         all_data[Lx] = {
@@ -218,15 +235,15 @@ def plot_spin_r():
         eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
                           linestyle=':', marker='o', color=color, 
                           label=rf'${Ltau}x{Lx}^2$', alpha=1.0)
+        eb2 = plt.errorbar(r_values[0:], spin_corr_values0[0:], yerr=spin_corr_errors0[0:], 
+                          linestyle='-', marker='^', color=color, 
+                          alpha=1.0)
+        
         # Set only the marker (dots) to have alpha=0.8
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
             eb.lines[0].set_alpha(0.8)
-        # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-        #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
-        
-        # plt.yscale('log')
-        # plt.xscale('log')
-        # plt.ylim(1e-6, 10**-0.5)
+        if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
+            eb2.lines[0].set_alpha(0.8)
 
         dbstop = 1
 
@@ -264,7 +281,7 @@ def plot_spin_r():
     # plt.xlim(0.4, 100)
 
     ax = plt.gca()
-    ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
+    # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
