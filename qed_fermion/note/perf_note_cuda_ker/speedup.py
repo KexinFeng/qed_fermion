@@ -90,8 +90,8 @@ for L in sorted(ck1.keys()):
 fig, ax1 = plt.subplots()
 
 if Ls_speedup:
-    line1, = ax1.plot(np.array(Ls_speedup), latency_ck0, marker='o', linestyle='-', color="#2f89e4", label='Kernel off')
-    line2, = ax1.plot(np.array(Ls_speedup), latency_ck1, marker='o', linestyle='-', color="#0A5197", label='Kernel on')
+    line1, = ax1.plot(np.array(Ls_speedup), latency_ck0, marker='o', linestyle='-', color="#2f89e4", label='Baseline CUDA kernel')
+    line2, = ax1.plot(np.array(Ls_speedup), latency_ck1, marker='o', linestyle='-', color="#0A5197", label='Optimized CUDA kernel')
 # if Ls_ck1_only:
 #     line2_only, = ax1.plot(np.array(Ls_ck1_only)**3*10, latency_ck1_only, marker='x', linestyle='None', color="#0A5197", label='Kernel on (no off/OOM)')
 
@@ -110,7 +110,7 @@ if Ls_speedup:
     line3, = ax2.plot(np.array(Ls_speedup), speedup, marker='^', linestyle='--', color='r', label='Latency ratio')
     ax2.set_ylabel(r'Latency ratio')
     ax2.tick_params(axis='y')
-    ax2.set_ylim([1, max(6, np.nanmax(speedup)*1.1)])
+    ax2.set_ylim([0, max(6, np.nanmax(speedup)*1.1)])
     ax2.spines['right'].set_color('r')
     ax2.spines['right'].set_linewidth(1.2)
     ax2.spines['right'].set_visible(True)

@@ -103,7 +103,7 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
     filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_spin_order.dat"
     data = np.genfromtxt(filename)
     plt.errorbar(data[:, 0], data[:, 1] / vs, yerr=data[:, 2] / vs, 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}', alpha=0.6)
+                 fmt='o', color=f'C{i2}', linestyle='-', label=fr'${Ltau}x{Lx}^2$ DQMC', alpha=0.6)
     
     # ---- Load hmc and plot ----
     xs = []
@@ -123,13 +123,13 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=0):
         xs.append(J)
 
     plt.errorbar(np.array(xs), np.array(ys) / vs, yerr=np.array(yerrs)/ vs, 
-                 fmt='o', color=f'C{i3}', linestyle='-', label=f'hqmc_{Lx}x{Ltau}', alpha=0.6)
+                 fmt='o', color=f'C{i3}', linestyle='-', label=fr'${Ltau}x{Lx}^2$ HQMC', alpha=0.6)
 
 
 if __name__ == '__main__':
     batch_size = 2
 
-    plt.figure(figsize=(8, 6))
+    plt.figure()
     for idx, Lx in enumerate([6, 8, 10]):
         Ltau = Lx * 10
 
@@ -148,12 +148,23 @@ if __name__ == '__main__':
         plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=idx)
         dbstop = 1
 
+    # Get current axis
+    ax = plt.gca()
+    handles, labels = ax.get_legend_handles_labels()
+    # Reorder by [0, 2, 4, 1, 3, 5]
+    order = [0, 2, 4, 1, 3, 5]
+    # Only use indices that exist (in case there are fewer than 6)
+    order = [i for i in order if i < len(handles)]
+    handles = [handles[i] for i in order]
+    labels = [labels[i] for i in order]
+    ax.legend(handles, labels, ncol=2, fontsize=11)
+
     # Plot setting
     plt.xlabel('J', fontsize=18)    
     plt.ylabel(r'$\chi_S(k=X)$', fontsize=18)
     # plt.title(f'spin_order vs J LxLtau={Lx}x{Ltau}', fontsize=16)
-    plt.grid(True, alpha=0.3)
-    plt.legend(ncol=2)
+    # plt.grid(True, alpha=0.3)
+    # plt.legend(ncol=2, fontsize=12)
     
     plt.show(block=False)
     # Save plot

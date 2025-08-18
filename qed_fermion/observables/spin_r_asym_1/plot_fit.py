@@ -126,7 +126,7 @@ def plot_spin_r():
                      linestyle='', marker='o', lw=1.5, color=color, 
                      label=f'L={Lx}', markersize=8, alpha=0.99)
         plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
-                 label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
+                 label=f'Fit L={Lx}: y~x^{coeffs[0]:.1f}')
         
         dbstop = 1
     

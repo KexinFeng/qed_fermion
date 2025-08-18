@@ -45,14 +45,14 @@ def plot_spsm(Lsize=(6, 6, 10), bs=5, ipair=(0, 1)):
     dqmc_filename = dqmc_folder + f"/tuning_js_sectune_l{Lx}_sgn_single.dat"
     data = np.genfromtxt(dqmc_filename)
     plt.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], 
-                 fmt='o', color=f'C{i2}', linestyle='-', label=f'dqmc_{Lx}x{Ltau}')
+                 fmt='o', color=f'C{i2}', linestyle='-', label=fr'${Ltau}x{Lx}^2$ DQMC')
     dbstop = 1
     
 
 if __name__ == '__main__':
     batch_size = 2
 
-    plt.figure(figsize=(8, 6))
+    plt.figure()
     for idx, Lx in enumerate([6, 8, 10]):
         Ltau = Lx * 10
 
@@ -66,7 +66,7 @@ if __name__ == '__main__':
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810/piflux_B0.0K1.0_tuneJ_b{asym:.1g}l_kexin_hk_avg/"
         # dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K0.0_tuneJ_b1l_noncompact_kexin_hk/sgn_single"
         dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/L6810_nc/piflux_B0.0K0.0_tuneJ_b1l_noncompact_kexin_hk_avg/"
-        # dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/kexin_benchmark_spsm_r_v2/avg/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/"
+        dqmc_folder = f"/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/noncmp_benchmark_det_sign/piflux_B0.0K0.0_tuneJ_b1l_noncompact_kexin_hk_avg/"
 
         plot_spsm(Lsize=(Lx, Lx, Ltau), bs=batch_size, ipair=(2*idx, 2*idx + 1))
         dbstop = 1
