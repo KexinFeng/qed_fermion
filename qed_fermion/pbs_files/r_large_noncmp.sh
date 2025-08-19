@@ -33,20 +33,18 @@ L_array=$(echo '50 46')
 
 # BB_r lattice sizes
 L_array=$(echo '36 30 20 16 12 10 8')
-L_array=$(echo '36 30')
 L_array=$(echo '46 40')
-L_array=$(echo '40')
-# L_array=$(echo '60 56 50')
+L_array=$(echo '60 56 50')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=10000
+Nstep=6500
 export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large6_bond_corr_part3
+export suffix=noncmpK0_large6_bond_corr_part4
 export asym=1
 export compact=0
 export K=0
@@ -56,7 +54,7 @@ export precon=1
 export compute_BB=1
 export compute_spsm=0
 
-export seed=254
+export seed=264
 
 for L in $L_array; do
         #
