@@ -21,6 +21,12 @@ field-theoretical expectation, which provides supporting evidence for the confor
 spin liquid state in the QED3. Our technical advancements open an avenue to study the Dirac spin liquid state
 and its transition towards symmetry-breaking phases at larger system sizes and with less computational burden.
 
+
+Latency vs linear size L:
+
+<img width="506" height="372" alt="Screenshot 2025-08-29 at 12 59 49 PM" src="https://github.com/user-attachments/assets/039a7a7f-1d37-4603-bd92-1cbf8cbbfd10" />
+
+
 ## Cite
 ```
 @article{feng2025scalable,
