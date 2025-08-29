@@ -136,6 +136,8 @@ np.random.seed(seed)
 torch.manual_seed(seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(seed)
+print(f'seed = {seed}')
+print(f'test random seed: {torch.randint(10, (5,))}')
 
 executor = None
 def initialize_executor():
@@ -185,7 +187,7 @@ class HmcSampler(object):
         self.num_tau = self.Ltau
         self.polar = 0  # 0: x, 1: y
         self.plt_rate = 10 if debug_mode else max(start_total_monitor, 100)
-        self.ckp_rate = 5000 # 5000
+        self.ckp_rate = 20000 # 5000
         self.stream_write_rate = Nstep
         self.memory_check_rate = 5 if debug_mode else 1000
 
@@ -1006,6 +1008,8 @@ class HmcSampler(object):
             print(f"Boson ensemble size: {len(bosons)}, selected {idx_rand} for initialization.")
             self.boson = bosons[idx_rand]
             if delta_t_tensors:
+                idx_rand = torch.randint(len(delta_t_tensors), (1,)).item()
+                print(f"delta_t_tensor ensemble size: {len(delta_t_tensors)}, selected {idx_rand} for initialization.")
                 self.delta_t_tensor = delta_t_tensors[idx_rand]
         else:
             print("No boson ensemble files found. Falling back to initialize_boson_pi_flux_randn_matfree().")
