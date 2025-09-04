@@ -273,8 +273,8 @@ def plot_spin_r():
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min - 0.4, (r_max + r_min - 6)// 2, 100)
-    coeff0 = -3.2
-    coeff1 = -3.3
+    coeff0 = -3.7
+    coeff1 = -2.1
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)

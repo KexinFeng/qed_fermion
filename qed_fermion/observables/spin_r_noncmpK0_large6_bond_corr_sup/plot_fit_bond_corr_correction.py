@@ -54,6 +54,7 @@ else:
 data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part3"
 data_folder2 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_test2"
 data_folder3 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part4"
+data_folder4 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part5"
 
 separate = False
 
@@ -141,6 +142,7 @@ def plot_spin_r():
         # Load data from second folder
         hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
         hmc_filename3 = find_hmc_file(Lx, Ltau, data_folder3)
+        hmc_filename4 = find_hmc_file(Lx, Ltau, data_folder4)
 
         # If no file found in second folder, use only first folder data
         bb_r_np_abs = bb_r_np_abs1
@@ -149,7 +151,7 @@ def plot_spin_r():
         bb0_r_avg_std_np = bb0_r_avg_std_np1
         total_samples = len(seq_idx) * bs
 
-        for extra_filename in [hmc_filename2, hmc_filename3]:
+        for extra_filename in [hmc_filename2, hmc_filename3, hmc_filename4]:
             if extra_filename is None: continue
             # Load checkpoint data from second folder
             res2 = torch.load(extra_filename, map_location='cpu')
@@ -281,8 +283,8 @@ def plot_spin_r():
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
     r_fitline = np.linspace(r_min - 0.1, (r_max + r_min - 15)// 2, 100)
-    coeff0 = -3.3
-    coeff1 = -3.7
+    coeff0 = -4.0
+    coeff1 = -2.2
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)

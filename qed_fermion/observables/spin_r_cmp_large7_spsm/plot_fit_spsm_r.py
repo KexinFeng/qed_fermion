@@ -185,8 +185,8 @@ def plot_spin_r():
     r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
-    coeffs_l20[0] = -3.2
-    coeffs_l20[1] = -3.0
+    coeffs_l20[0] = -3.9 # 1.75 1.95-> 3.5 3.9
+    coeffs_l20[1] = -1.4
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.85) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line and merge its handle/label to the end of the existing legend entries
@@ -205,7 +205,7 @@ def plot_spin_r():
     err_dqmc_3 = dqmc_data_3[:, 2]
     dqmc_handle_3 = plt.errorbar(
         r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='s', 
-        color='gray', markersize=7, alpha=0.95, 
+        color='gray', markersize=7, alpha=0.85, 
         label=rf'100x10$^2$ DQMC', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_3)
@@ -218,7 +218,7 @@ def plot_spin_r():
     err_dqmc_4 = dqmc_data_4[:, 2]
     dqmc_handle_4 = plt.errorbar(
         r_dqmc_4, corr_dqmc_4, yerr=err_dqmc_4, fmt='^', 
-        color='gray', markersize=7, alpha=0.95, 
+        color='gray', markersize=7, alpha=0.85, 
         label=rf'120x12$^2$ DQMC', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_4)
@@ -231,7 +231,7 @@ def plot_spin_r():
     err_dqmc_2 = dqmc_data_2[:, 2]
     dqmc_handle_2 = plt.errorbar(
         r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
-        color='gray', markersize=7, alpha=0.95, 
+        color='gray', markersize=7, alpha=0.85, 
         label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_2)
@@ -239,7 +239,7 @@ def plot_spin_r():
     # # # Add dqmc data from file for L=20
     # dqmc_handle_0 = plt.errorbar(
     #     r_l20, corr_l20, fmt='s', 
-    #     color='gray', markersize=7, alpha=0.95, 
+    #     color='gray', markersize=7, alpha=0.85, 
     #     label=fr'$200\times 20^2$ DQMC', capsize=2, lw=1.2
     # )
     # handles.append(dqmc_handle_0)

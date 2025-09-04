@@ -69,9 +69,9 @@ ref_y = mc_latency[ref_idx] / 3
 ref_y = 0.38
 scaling = 7/3
 guideline = ref_y * (np.array(x_fit) / ref_x) ** scaling
-line2, = plt.plot(x_fit, guideline, f'C{2}--', label=r'$L^{7}$ guideline')
+line2, = plt.plot(x_fit, guideline, f'C{2}--', label=r'DQMC $L^{7}$ guideline')
 
-lines = [line1, line3, fit_line_mc, fit_line_se, line2]
+lines = [line1, line3, line2, fit_line_mc, fit_line_se ]
 labels = [line.get_label() for line in lines]
 plt.legend(lines, labels, loc='upper left', ncol=1)
 
