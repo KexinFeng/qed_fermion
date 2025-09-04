@@ -2489,7 +2489,7 @@ class StochaticEstimator:
         return consolidated_obsr
 
     @torch.inference_mode()
-    def get_fermion_obsr_compile(self, bosons, eta):
+    def get_fermion_obsr_compile(self, bosons, eta, compute_BB=True, compute_spsm=True):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2506,8 +2506,8 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Lx, Ly, Ltau]
             self.set_eta_G_eta(boson, eta)
 
-            # obsr.update(self.get_spsm_per_b2())
-            obsr.update(self.get_bond_bond_per_b2(boson))
+            obsr.update(self.get_bond_bond_per_b2(boson) if compute_BB else {})
+            obsr.update(self.get_spsm_per_b2() if compute_spsm else {})
             # obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)

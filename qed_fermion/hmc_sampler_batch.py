@@ -2990,7 +2990,7 @@ class HmcSampler(object):
         futures = {}
 
         # Define CPU computations to run asynchronously
-        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, BB0_r_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, BB0_r_cpu, spsm_r_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
             # Update metrics
             self.accp_list[i] = accp_cpu
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -3016,6 +3016,8 @@ class HmcSampler(object):
                 self.B_r_list[i] = B_r_cpu  # [bs, Ly, Lx]
             if BB0_r_cpu is not None:
                 self.BB0_r_list[i] = BB0_r_cpu  # [bs, Ly, Lx] 
+            if spsm_r_cpu is not None:
+                self.spsm_r_list[i] = spsm_r_cpu  # [bs, Ly, Lx]
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -3044,12 +3046,11 @@ class HmcSampler(object):
 
             if compute_BB or compute_spsm:
                 eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-                obsr = self.se.get_fermion_obsr_compile(boson, eta)
+                obsr = self.se.get_fermion_obsr_compile(boson, eta, compute_BB, compute_spsm)
                 BB_r = obsr['BB_r'] if compute_BB else None
                 B_r = obsr['B_r'] if compute_BB else None
                 BB0_r = obsr['BB0_r'] if compute_BB else None
                 spsm_r = obsr['spsm_r'] if compute_spsm else None
-                spsm_k = obsr['spsm_k'] if compute_spsm else None
             else:
                 BB_r = B_r = BB0_r = spsm_r = spsm_k = None
 
@@ -3069,6 +3070,7 @@ class HmcSampler(object):
                 (BB_r.cpu() if BB_r is not None and BB_r.is_cuda else (BB_r.clone() if BB_r is not None else None)),
                 (B_r.cpu() if B_r is not None and B_r.is_cuda else (B_r.clone() if B_r is not None else None)),
                 (BB0_r.cpu() if BB0_r is not None and BB0_r.is_cuda else (BB0_r.clone() if BB0_r is not None else None)),
+                (spsm_r.cpu() if spsm_r is not None and spsm_r.is_cuda else (spsm_r.clone() if spsm_r is not None else None)),
                 # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
@@ -3153,6 +3155,7 @@ class HmcSampler(object):
                         'BB_r_list': self.BB_r_list,
                         'B_r_list': self.B_r_list,
                         'BB0_r_list': self.BB0_r_list,
+                        'spsm_r_list': self.spsm_r_list,
                         'cg_iter_list': self.cg_iter_list,
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
@@ -3190,6 +3193,7 @@ class HmcSampler(object):
                 'BB_r_list': self.BB_r_list,
                 'B_r_list': self.B_r_list,
                 'BB0_r_list': self.BB0_r_list,
+                'spsm_r_list': self.spsm_r_list,
                'cg_iter_list': self.cg_iter_list,
                'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}
