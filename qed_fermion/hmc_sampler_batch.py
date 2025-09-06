@@ -3246,7 +3246,7 @@ class HmcSampler(object):
         axes[0, 0].set_title("Greens Function Over Steps")
         axes[0, 0].legend()
 
-        if self.compute_spsm:
+        if compute_spsm:
             # spsm_r
             # axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
             axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'spsm_r[3]')
