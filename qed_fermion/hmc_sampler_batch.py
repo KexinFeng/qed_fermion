@@ -3253,8 +3253,8 @@ class HmcSampler(object):
             axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'spsm_r[5]')
             axes[0, 2].set_ylabel("Spsm_r")
             axes[0, 2].set_title("spsm_r Over Steps")
-            axes[0, 2].legend()  
-        else:   
+            axes[0, 2].legend()
+        else:
             # BB_r
             BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
             B_r_mean = self.B_r_list[seq_idx, ...].mean(axis=1)
