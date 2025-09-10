@@ -206,7 +206,7 @@ class HmcSampler(object):
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
-        # self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         # self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
         self.B_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
@@ -3237,6 +3237,14 @@ class HmcSampler(object):
         axes[0, 0].set_ylabel("Greens Function")
         axes[0, 0].set_title("Greens Function Over Steps")
         axes[0, 0].legend()
+
+        # spsm_r
+        # axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 1].mean(axis=1).numpy(), label=f'G[0]')
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'G[3]')
+        axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'G[5]')
+        axes[0, 2].set_ylabel("Spsm_r")
+        axes[0, 2].set_title("spsm_r Over Steps")
+        axes[0, 2].legend()
 
         # BB_r
         BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
