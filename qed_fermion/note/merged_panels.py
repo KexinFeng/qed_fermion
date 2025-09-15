@@ -33,7 +33,7 @@ def main():
 
     # Preserve original per-panel aspect ratio from prep_plots defaults
     base_w, base_h = mpl.rcParams.get('figure.figsize', (10, 4.5))
-    base_w, base_h = 5, 5
+    base_w, base_h = 5, 4.7
     fig, axes = plt.subplots(1, 3, figsize=(base_w * 3, base_h), constrained_layout=True)
 
     # Panel (a)

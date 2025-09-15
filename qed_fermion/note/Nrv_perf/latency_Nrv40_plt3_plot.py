@@ -31,7 +31,7 @@ def plot(ax: plt.Axes):
     popt_se, _ = curve_fit(_power_law, L_cubed, se_latency)
     coeff_se, exponent_se = popt_se
 
-    line1, = ax.plot(L_cubed, mc_latency, f'C{0}o', label='HQMC Sample')
+    line1, = ax.plot(L_cubed, mc_latency, f'C{0}o', label='HQMC Sampling')
     fit_line_mc, = ax.plot(x_fit, _power_law(x_fit, coeff_mc, exponent_mc), f'C{0}-',
                            label=f'$y \\sim (L^3)^{{{exponent_mc:.3f}}}$')
 

@@ -43,7 +43,7 @@ alpha_se = 3 * exponent_se
 fig = plt.figure()
 
 # Plot mc_latency (blue)
-line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='Sample Generation')
+line1, = plt.plot(L_cubed, mc_latency, f'C{0}o', label='HQMC Sampling')
 
 # Extend fit lines to cover a wider x-range (approximate xlimits)
 x_fit_min = 600   # just below the smallest L_cubed (1000)
@@ -54,7 +54,7 @@ fit_line_mc, = plt.plot(x_fit, power_law(x_fit, coeff_mc, exponent_mc), f'C{0}-'
                        label=f'$y \sim (L^3)^{{{exponent_mc:.3f}}}$')
 
 # Plot se_latency (red)
-line3, = plt.plot(L_cubed, se_latency, f'C{1}o', label='Stochastic Estimation')
+line3, = plt.plot(L_cubed, se_latency, f'C{1}o', label='HQMC Measurement')
 fit_line_se, = plt.plot(x_fit, power_law(x_fit, coeff_se, exponent_se), f'C{1}-',
                        label=f'$y \sim (L^3)^{{{exponent_se:.3f}}}$')
 
@@ -69,7 +69,7 @@ ref_y = mc_latency[ref_idx] / 3
 ref_y = 0.38
 scaling = 7/3
 guideline = ref_y * (np.array(x_fit) / ref_x) ** scaling
-line2, = plt.plot(x_fit, guideline, f'C{2}--', label=r'DQMC $L^{7}$ guideline')
+line2, = plt.plot(x_fit, guideline, f'C{2}--', label=r'DQMC complexity: $L^{7}$')
 
 lines = [line1, line3, line2, fit_line_mc, fit_line_se ]
 labels = [line.get_label() for line in lines]

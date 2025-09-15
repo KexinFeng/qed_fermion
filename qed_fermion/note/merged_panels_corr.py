@@ -29,7 +29,7 @@ def main():
     from qed_fermion.observables.spin_r_noncmpK0_large6_bond_corr_sup.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
 
     base_w, base_h = mpl.rcParams.get('figure.figsize', (6, 4.5))
-    base_w, base_h = 7.5, 6.5
+    base_w, base_h = 7.5, 6.0
     fig, axes = plt.subplots(1, 2, figsize=(base_w * 2, base_h), constrained_layout=True)
 
     plot_spsm(axes[0])
