@@ -59,7 +59,8 @@ r_l20 = np.exp(loge_r_l20)
 corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
-hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
+data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/hmc_check_point_noncmpK0_large8_spsm_part1"
+data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -75,8 +76,6 @@ def plot_spin_r():
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
      
     # Sampling parameters
-    start = 5000  # Skip initial equilibration steps
-    sample_step = 1
     
     plt.figure(figsize=(8, 6))
     
@@ -84,29 +83,39 @@ def plot_spin_r():
     all_data = {}
     
     for i, Lx in enumerate(lattice_sizes):
-        # Construct filename for this lattice size
         Ltau = int(10 * Lx)
-        if Lx <= 40:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs2_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_cmp_False_step_10000.pt"
-        elif Lx == 46:
-            Nrv = 40
-            bs = 2
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs{bs}_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_{Nrv}_cmp_False_step_10000.pt"
-        elif Lx == 56:
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_10000_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_10000.pt"
-        elif Lx == 60:
-            Nstp = 6800
-            hmc_file = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_{Nstp}_bs1_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_30_cmp_False_step_{Nstp}.pt"
+        start = 3000
+        sample_step = 1
 
-        hmc_filename = os.path.join(hmc_folder, hmc_file)
-        
-        if not os.path.exists(hmc_filename):
-            raise FileNotFoundError(f"File not found: {hmc_filename}")
-            
-        # Load checkpoint data
+        import glob
+        # Find the correct file for this Lx and Ltau
+        def find_hmc_file(Lx, Ltau, folder=data_folder):
+            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
+            files = glob.glob(os.path.join(folder, pattern))
+            if not files:
+                print(f"No file found for Lx={Lx}, Ltau={Ltau} in {folder}")
+                return None
+            # Pick the file with the largest step (sort by step number)
+            def extract_step(filename):
+                m = re.search(r'step_(\d+)\\.pt', filename)
+                return int(m.group(1)) if m else 0
+            files.sort(key=extract_step, reverse=True)
+            return files[0]
+
+        # Load data from first folder
+        hmc_filename = find_hmc_file(Lx, Ltau)
+        if hmc_filename is None:
+            continue
+        # Now parse bs and Nrv from filename
+        m_bs = re.search(r'bs(\d+)', hmc_filename)
+        m_nrv = re.search(r'Nrv_(\d+)', hmc_filename)
+        bs = int(m_bs.group(1)) if m_bs else 1
+        Nrv = int(m_nrv.group(1)) if m_nrv else 30
+        # Load checkpoint data from first folder
         res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')
         
+
         # Extract spin-spin correlation data: spsm_r_list
         spsm_r = res['spsm_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
         
@@ -185,8 +194,8 @@ def plot_spin_r():
     r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
-    coeffs_l20[0] = -3.9
-    coeffs_l20[1] = -1.4
+    coeffs_l20[0] = -3.8
+    coeffs_l20[1] = -1.5
     # coeffs_l20[0] = -2.8
     # coeffs_l20[1] = -2.8
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
@@ -199,8 +208,10 @@ def plot_spin_r():
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
+    dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_real_space_K1.0J1.25_ncomp/piflux_B0.0K1.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
+
     # Add dqmc data from file for L=10
-    dqmc_data_path_1 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd/l10b10js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
     r_dqmc_1 = dqmc_data_1[:, 0]
     corr_dqmc_1 = dqmc_data_1[:, 1]
@@ -213,7 +224,7 @@ def plot_spin_r():
     handles.append(dqmc_handle_1)
 
     # Add dqmc data from file for L=12
-    dqmc_data_path_3 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd/l12b12js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
     r_dqmc_3 = dqmc_data_3[:, 0]
     corr_dqmc_3 = dqmc_data_3[:, 1]
@@ -226,7 +237,7 @@ def plot_spin_r():
     handles.append(dqmc_handle_3)
 
     # # Add dqmc data from file for L=16
-    dqmc_data_path_2 = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd/l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat"
+    dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
     r_dqmc_2 = dqmc_data_2[:, 0]
     corr_dqmc_2 = dqmc_data_2[:, 1]
@@ -237,14 +248,6 @@ def plot_spin_r():
         label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_2)
-
-    # # # Add dqmc data from file for L=20
-    # dqmc_handle_4 = plt.errorbar(
-    #     r_l20, corr_l20, fmt='s', 
-    #     color='gray', markersize=7, alpha=0.85, 
-    #     label=rf'200x20$^2$ DQMC', capsize=2, lw=1.2
-    # )
-    # handles.append(dqmc_handle_4)
 
     # phantom
     phantom_line = mlines.Line2D([], [], color='none', label='')

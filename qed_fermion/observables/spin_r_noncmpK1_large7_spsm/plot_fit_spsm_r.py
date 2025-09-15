@@ -59,7 +59,7 @@ r_l20 = np.exp(loge_r_l20)
 corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/hmc_check_point_noncmpK1_large7_spsm_part3"
+data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK1_large7_spsm_part3/hmc_check_point_noncmpK1_large7_spsm_part3"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -75,8 +75,6 @@ def plot_spin_r():
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
      
     # Sampling parameters
-    start = 6000  # Skip initial equilibration steps
-    sample_step = 1
     
     plt.figure(figsize=(8, 6))
     
@@ -85,7 +83,8 @@ def plot_spin_r():
     
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
-        start = 1000
+        start = 5000
+        sample_step = 1
 
         import glob
         # Find the correct file for this Lx and Ltau
