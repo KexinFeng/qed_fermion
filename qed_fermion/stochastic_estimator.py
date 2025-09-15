@@ -2456,39 +2456,6 @@ class StochaticEstimator:
         return 0.5 * szsz
 
     @torch.inference_mode()
-    def get_fermion_obsr(self, bosons, eta):
-        """
-        bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
-        eta: [Nrv, Ltau * Ly * Lx]
-
-        Returns:
-            spsm_r: [bs, Ly, Lx] tensor, spsm[i, j, tau] = <c^+_i c_j> * <c_i c^+_j>
-            spsm_k: [bs, Ly, Lx] tensor.
-        """
-        bs = bosons.shape[0]
-        obsrs = []
-        # self.indices = indices
-        # self.indices_r2 = indices_r2
-        for b in range(bs):
-            obsr = {}
-
-            boson = bosons[b].unsqueeze(0)  # [1, 2, Ltau, Ly, Lx]
-            self.set_eta_G_eta(boson, eta)
-
-            # obsr.update(self.get_spsm_per_b())
-            obsr.update(self.get_dimer_dimer_per_b2())
-
-            obsrs.append(obsr)
-
-        # Consolidate the obsrs according to the key of the obsrs. For each key, the tensor is of shape [Ly, Lx]. Stack them to get [bs, Ly, Lx].
-        keys = obsrs[0].keys()
-        consolidated_obsr = {}
-        for key in keys:
-            consolidated_obsr[key] = torch.stack([obsr[key] for obsr in obsrs], dim=0)
-
-        return consolidated_obsr
-
-    @torch.inference_mode()
     def get_fermion_obsr_compile(self, bosons, eta, compute_BB=True, compute_spsm=True):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
