@@ -15,8 +15,15 @@ except Exception:
 
 
 def add_panel_label(ax, label, x=0.02, y=0.98):
-    ax.text(x, y, label, transform=ax.transAxes, fontsize=12, fontweight='bold', va='top', ha='left')
-
+    # Place label above the y-axis, outside the plot area
+    ax.annotate(
+        label,
+        xy=(0, 1), xycoords='axes fraction',
+        xytext=(-47, -12), textcoords='offset points',
+        fontsize=18, fontweight='bold',
+        va='bottom', ha='left',
+        annotation_clip=False
+    )
 
 def main():
     # Import plotting helpers
