@@ -252,7 +252,7 @@ def plot_spin_r():
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
+    file_path = os.path.join(save_dir, "BB_r_vs_x_fit_log_noncmpK0_large4_BBr_old.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 
