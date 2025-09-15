@@ -32,16 +32,17 @@ def main():
     from qed_fermion.note.Nrv_perf.latency_Nrv40_plt3_plot import plot as plot_latency
 
     # Preserve original per-panel aspect ratio from prep_plots defaults
-    base_w, base_h = mpl.rcParams.get('figure.figsize', (6, 4.5))
-    fig, axes = plt.subplots(3, 1, figsize=(base_w, base_h * 3), constrained_layout=True)
+    base_w, base_h = mpl.rcParams.get('figure.figsize', (10, 4.5))
+    base_w, base_h = 5, 5
+    fig, axes = plt.subplots(1, 3, figsize=(base_w * 3, base_h), constrained_layout=True)
 
     # Panel (a)
-    plot_cudagraph(axes[1])
-    add_panel_label(axes[1], '(b)')
-
-    # Panel (b)
     plot_cudakernel(axes[0])
     add_panel_label(axes[0], '(a)')
+
+    # Panel (b)
+    plot_cudagraph(axes[1])
+    add_panel_label(axes[1], '(b)')
 
     # Panel (c)
     plot_latency(axes[2])
@@ -50,7 +51,7 @@ def main():
     # Save aggregated figure
     save_dir = os.path.join(script_path, 'figures')
     os.makedirs(save_dir, exist_ok=True)
-    out_path_pdf = os.path.join(save_dir, 'merged_panels.pdf')
+    out_path_pdf = os.path.join(save_dir, 'speedup_complexity.pdf')
     plt.savefig(out_path_pdf, bbox_inches='tight')
     print(f'Saved merged figure to: {out_path_pdf}')
 

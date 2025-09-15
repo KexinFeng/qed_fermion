@@ -31,11 +31,11 @@ def plot(ax: plt.Axes):
     popt_se, _ = curve_fit(_power_law, L_cubed, se_latency)
     coeff_se, exponent_se = popt_se
 
-    line1, = ax.plot(L_cubed, mc_latency, f'C{0}o', label='Sample Generation')
+    line1, = ax.plot(L_cubed, mc_latency, f'C{0}o', label='HQMC Sample')
     fit_line_mc, = ax.plot(x_fit, _power_law(x_fit, coeff_mc, exponent_mc), f'C{0}-',
                            label=f'$y \\sim (L^3)^{{{exponent_mc:.3f}}}$')
 
-    line3, = ax.plot(L_cubed, se_latency, f'C{1}o', label='Stochastic Estimation')
+    line3, = ax.plot(L_cubed, se_latency, f'C{1}o', label='HQMC Measurement')
     fit_line_se, = ax.plot(x_fit, _power_law(x_fit, coeff_se, exponent_se), f'C{1}-',
                            label=f'$y \\sim (L^3)^{{{exponent_se:.3f}}}$')
 
@@ -45,7 +45,7 @@ def plot(ax: plt.Axes):
     ref_y = 0.38
     scaling = 7/3
     guideline = ref_y * (np.array(x_fit_guideline) / ref_x) ** scaling
-    line2, = ax.plot(x_fit_guideline, guideline, f'C{2}--', label=r'DQMC $L^{7}$ guideline')
+    line2, = ax.plot(x_fit_guideline, guideline, f'C{2}--', label=r'DQMC complexity: $L^{7}$')
 
     lines = [line1, line3, line2, fit_line_mc, fit_line_se]
     labels = [line.get_label() for line in lines]

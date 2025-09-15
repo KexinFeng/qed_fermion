@@ -109,7 +109,7 @@ def plot(ax: plt.Axes):
 
         lines = [line1, line2, line3]
         labels = [line.get_label() for line in lines]
-        ax.legend(lines, labels, loc='upper left')
+        ax.legend(lines, labels, loc='upper left', bbox_to_anchor=(0.05, 1.0))
         return ax, ax2
     else:
         # Nothing to plot, but keep API consistent

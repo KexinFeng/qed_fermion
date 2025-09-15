@@ -109,7 +109,7 @@ def plot(ax: plt.Axes):
 
     lines = [line1, line2, line3]
     labels = [line.get_label() for line in lines]
-    ax.legend(lines, labels, loc='upper center', bbox_to_anchor=(0.65, 1.0))
+    ax.legend(lines, labels, loc='upper center', bbox_to_anchor=(0.55, 1.0))
 
     return ax, ax2
 
