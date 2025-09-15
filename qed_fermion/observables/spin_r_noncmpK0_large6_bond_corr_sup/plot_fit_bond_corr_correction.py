@@ -296,7 +296,7 @@ def plot_spin_r():
 
     # Ensure the fit line is appended at the end
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=2, fontsize=12 if not separate else 8)
+    plt.legend(handles, labels, ncol=2, fontsize=12 if not separate else 8, loc='lower left')
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()

@@ -256,7 +256,7 @@ def plot_spin_r():
     plt.xlabel('r', fontsize=19)
     plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
 
-    plt.legend(handles, labels, ncol=2, fontsize=13)
+    plt.legend(handles, labels, ncol=2, fontsize=13, loc='lower left')
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -269,7 +269,7 @@ def plot_spin_r():
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-7, None)
+    plt.ylim(1e-7, 10**-1.0)
     plt.xlim(0.7, None)
 
     # Save the plot (log-log axes)
