@@ -168,7 +168,7 @@ main_ax.add_patch(rect)
 
 save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
 os.makedirs(save_dir, exist_ok=True)
-file_path = os.path.join(save_dir, "greens_loglog_vs_tau_noncomp.pdf")
+file_path = os.path.join(save_dir, f"greens_loglog_vs_tau_noncomp_old.pdf")
 plt.savefig(file_path, format="pdf", bbox_inches="tight")
 print(f"Log-log G vs tau figure saved at: {file_path}")
 
