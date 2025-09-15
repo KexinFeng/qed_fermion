@@ -1,4 +1,5 @@
 from matplotlib.ticker import FuncFormatter
+import matplotlib.ticker as mtick
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -55,6 +56,18 @@ def plot(ax: plt.Axes):
     ax.set_xlim(6e2, 4e5)
     ax.set_xscale('log')
     ax.set_yscale('log')
+
+    # Enforce sparse, publication-style log y-ticks even when saving to PDF
+    try:
+        # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
+        ax.yaxis.set_minor_locator(mtick.NullLocator())
+        ticks = [1e-1, 1e1, 1e3, 1e5]
+        ax.set_yscale('log')
+        ax.yaxis.set_major_locator(mtick.FixedLocator(ticks))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda y, _: f"$10^{{{int(np.log10(y))}}}$"))
+        ax.yaxis.set_minor_locator(mtick.NullLocator())
+    except Exception:
+        pass
 
     # Keep original behavior: do not set ylim, let autoscale decide
 

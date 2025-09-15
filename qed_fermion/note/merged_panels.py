@@ -19,7 +19,7 @@ def add_panel_label(ax, label, x=0.02, y=0.98):
     ax.annotate(
         label,
         xy=(0, 1), xycoords='axes fraction',
-        xytext=(-47, -12), textcoords='offset points',
+        xytext=(-49, -12), textcoords='offset points',
         fontsize=18, fontweight='bold',
         va='bottom', ha='left',
         annotation_clip=False
