@@ -114,7 +114,7 @@ x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(
     x_fit, fit_line, 'k-', lw=1, alpha=0.8, 
-    label=fr'$y \sim \tau^{{{man_slope:.2f}}}$', 
+    label=fr'$y \sim \tau^{{{man_slope:.1f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
 
@@ -125,7 +125,7 @@ x_fit3 = np.arange(10, 101, dtype=float)
 fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
 fit_handle3, = main_ax.plot(
     x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, 
-    label=fr'$y \sim \tau^{{{man_slope:.2f}}}$', 
+    label=fr'$y \sim \tau^{{{man_slope:.1f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
 

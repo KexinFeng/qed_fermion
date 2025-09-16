@@ -27,16 +27,20 @@ def add_panel_label(ax, label, x=0.02, y=0.98):
 def main():
     from qed_fermion.observables.spin_r_noncmpK0_large1_spsm_sup.plot_fit_spsm_r_plot import plot as plot_spsm
     from qed_fermion.observables.spin_r_noncmpK0_large6_bond_corr_sup.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
+    from qed_fermion.observables.spin_r_noncmpK0_large4_BBr.plot_flux_plot import plot as plot_flux
 
     base_w, base_h = mpl.rcParams.get('figure.figsize', (6, 4.5))
-    base_w, base_h = 7.5, 6.0
-    fig, axes = plt.subplots(1, 2, figsize=(base_w * 2, base_h), constrained_layout=True)
+    base_w, base_h = 7.3, 6.7
+    fig, axes = plt.subplots(1, 3, figsize=(base_w * 3, base_h), constrained_layout=True)
 
     plot_spsm(axes[0])
     add_panel_label(axes[0], '(a)')
 
     plot_bondcorr(axes[1])
     add_panel_label(axes[1], '(b)')
+
+    plot_flux(axes[2])
+    add_panel_label(axes[2], '(c)')
 
     save_dir = os.path.join(script_path, 'figures')
     os.makedirs(save_dir, exist_ok=True)
