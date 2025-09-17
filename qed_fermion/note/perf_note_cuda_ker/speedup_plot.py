@@ -95,7 +95,8 @@ def plot(ax: plt.Axes):
 
         ax2 = ax.twinx()
         line3, = ax2.plot(np.array(Ls_speedup), speedup, marker='^', linestyle='--', color='r', label='Latency ratio')
-        ax2.set_ylabel(r'Latency ratio')
+        ax2.set_ylabel(r'Latency ratio', rotation=270, labelpad=15, va='bottom')
+        ax2.yaxis.set_label_position("right")
         ax2.tick_params(axis='y')
         if np.all(np.isnan(speedup)):
             ax2.set_ylim([0, 6])
