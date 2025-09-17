@@ -276,8 +276,16 @@ def plot_spin_r():
         dbstop = 1
 
     # Linear axes
-    plt.xlabel('r', fontsize=19)
-    plt.ylabel('$C_B(r, 0)$', fontsize=19)
+    plt.xlabel('r', fontsize=23)
+    plt.ylabel('$C_B(r, 0)$', fontsize=23)
+
+    # set tick label size
+    ax = plt.gca()
+    ax.xaxis.set_tick_params(labelsize=22)
+    ax.yaxis.set_tick_params(labelsize=22)
+
+    # Turn off minor ticks on both axes
+    ax.yaxis.set_minor_locator(plt.NullLocator())
 
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
@@ -295,11 +303,11 @@ def plot_spin_r():
     handles.insert(len(handles) // 2 + 1, phantom_line)
 
     # Ensure the fit line is appended at the end
-    labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=2, fontsize=12 if not separate else 8, loc='lower left')
+    labels = [line.get_label() for line in handles[0:1]]
+    plt.legend(handles, labels, ncol=1, fontsize=18 if not separate else 8, loc='lower left')
 
-    # plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    # # plt.grid(True, alpha=0.3)
+    # plt.tight_layout()
     
     # Set log scales
     plt.xscale('log')
@@ -308,7 +316,7 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
-        plt.ylim(10**-6.0, 10**-0.8)
+        plt.ylim(10**-7.0, 10**-0.8)
         plt.xlim(0.75, None)
     else:
         plt.ylim(10**-10, 10**-0.5)

@@ -1,0 +1,321 @@
+\documentclass[aps,prl,twocolumn,superscriptaddress,showpacs,longbibliography]{revtex4-2}
+
+\usepackage{amsmath, amssymb,wasysym,graphicx}
+\usepackage{appendix}
+\usepackage[ruled]{algorithm2e}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{xcolor}
+
+\usepackage{diagbox}
+\usepackage{tabularx}
+\usepackage{gensymb}
+\usepackage{siunitx}
+\usepackage{ulem}
+
+\IfFileExists{newtxtext.sty}
+{\usepackage{newtxtext,newtxmath}}
+{\IfFileExists{stix.sty}
+	{\usepackage{stix}}
+	{\IfFileExists{mathptmx.sty}
+		{\usepackage{mathptmx}}{} } }
+
+\usepackage{textcomp}
+\newcommand\bmmax{2}
+\usepackage{bm}
+\usepackage{booktabs,siunitx}
+\usepackage{dsfont}
+%\pdfoutput=1
+\usepackage{color}
+\definecolor{LinkColor}{rgb}{0.256,0.439,0.588}
+\usepackage{hyperref}
+\hypersetup{
+	pdfauthor={good guys},
+	pdftitle={good title},
+	colorlinks=true,
+	citecolor=LinkColor,
+	linkcolor=LinkColor,
+	urlcolor=LinkColor
+}
+
+% Kexin's notation begin
+\DeclareMathOperator{\sgn}{sgn}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\newcommand{\bra}[1]{\langle#1\rvert}
+\newcommand{\ket}[1]{\lvert#1\rangle}
+\newcommand{\overlap}[2]{\langle#1\vert#2\rangle}
+\newcommand{\expectation}[1]{\langle#1\rangle}
+\newcommand{\qed}{QED$_3$}
+\newcommand{\hatx}{\hat{x}}
+
+\newcommand{\tx}[1]{\textmd{#1}}
+\newcommand{\onefrac}[1]{\frac{1}{#1}}
+\newcommand{\refeq}[1]{\textmd{Eq.\ }(\ref{#1})}
+\newcommand{\reffg}[1]{\textmd{Fig.\ }\ref{#1}}
+\newcommand{\refapp}[1]{\textmd{Appendix\ }\ref{#1}}
+\newcommand{\e}[1]{e^{#1}}
+
+\newcommand{\leftc}{\left\{ }
+\newcommand{\rightc}{\right\} }
+\newcommand{\lefta}{\left\langle}
+\newcommand{\righta}{\right\rangle}
+\newcommand{\leftr}{\left[}
+\newcommand{\rightr}{\right]}
+\newcommand{\nn}{\nonumber}
+\newcommand{\one}{\mathbb{1}}
+\newcommand{\T}{{\mkern-1.5mu\mathsf{T}}}
+% \newcommand{\det}{\operatorname{det}}
+
+\def\cred{\color{red}}
+\def\cbl{\color{blue}}
+% Kexin's notation end
+
+\usepackage{multirow}
+
+\begin{document}
+\title{Scalable hybrid quantum Monte Carlo simulation of U(1) gauge field coupled to fermions on GPU}
+
+\author{Kexin Feng}
+\affiliation{Department of Physics and HK Institute of Quantum Science \& Technology, The University of Hong Kong, Pokfulam Road, Hong Kong, China}
+% \affiliation{School of Physics and Astronomy, University of Minnesota, Minneapolis, MN 55455, USA}
+
+
+\author{Chuang Chen}
+\affiliation{Department of Physics and HK Institute of Quantum Science \& Technology, The University of Hong Kong, Pokfulam Road, Hong Kong, China}
+
+\author{Zi Yang Meng}
+\email{zymeng@hku.hk}
+\affiliation{Department of Physics and HK Institute of Quantum Science \& Technology, The University of Hong Kong, Pokfulam Road, Hong Kong, China}
+
+
+\begin{abstract}
+The problem of a $U(1)$ gauge field coupled to fermions in (2+1) dimensions is of fundamental importance, as it is believed to give rise to $U(1)$ Dirac spin liquid (DSL) state in quantum magnets and the strongly coupled conformal field theory in quantum electrodynamics. However, numerical progress has long been hampered by the steep computational cost of traditional determinant quantum Monte Carlo (QMC). Here, we develop a GPU-accelerated hybrid QMC algorithm assisted with several novel technical improvements, which significantly reduces the complexity to be linear with respect to space-time volume, and scales the simulation up to an unprecedented size.
+At this scale, we observe asymptotic convergence of fermion bilinear correlator and conserved current correlator, which was unclear previously, and find their scaling dimensions in good agreement with field theory, which supports the conformal nature of the Dirac spin liquid. Our advances establish a scalable framework to study DSL physics and its transitions at larger scales.
+\end{abstract}
+
+
+
+\date{\today}
+
+
+
+\setcounter{equation}{0}
+\setcounter{figure}{0}
+\setcounter{table}{0}
+%\setcounter{page}{1}
+\setcounter{section}{0}
+
+\makeatletter
+\renewcommand{\theequation}{S\arabic{equation}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\setcounter{secnumdepth}{3}
+
+\newpage
+
+\begin{widetext}
+\section*{Supplemental Material}
+
+\centerline{\bf Scalable Hybrid quantum Monte Carlo simulation of QED$_3$ coupled to fermions on GPU}
+	\vskip3mm
+
+	\centerline{}
+
+	\vskip6mm
+
+In this supplemental material, we provide the technical details concerning the QMC measurements of conserved currents (Sec.~SII) and the finite size scaling of the order parameters at the easy-plane DQCP (Sec.~SIII).
+
+
+\subsection*{SI. Calculation of Fermionic Force for QED$_3$}
+\label{sec:SI}
+The fermionic force in the Hamiltonian dynamics can be derived in the following way,
+\begin{align}
+F_{i, \tau} = & \frac{\partial}{\partial \phi_{i,\tau}}\eta^{\dagger}\left(M^{\dagger}(\phi)M(\phi)\right)^{-1}\eta \\
+=& -\eta^{\dagger}\left(M^{\dagger}(\phi)M(\phi)\right)^{-1}
+\left[M^{\dagger}(\phi)\frac{\partial}{\partial \phi_{i,\tau}}M(\phi)
++
+\left(\frac{\partial}{\partial \phi_{i,\tau}}M^{\dagger}(\phi)\right)
+M(\phi)\right]
+\left(M^{\dagger}(\phi)M(\phi)\right)^{-1}\eta,
+\label{eq:force&CG}
+\end{align}
+where $i$ is spacial lattice site position. Here, the $\left[M^{\dagger}M\right]^{-1} \eta$ can be computed by the pCG algorithm as introduced in the main text, with complexity of $O(N_\tau V_s)$. This can be expressed as a vector
+$X = \left[ X_1^\intercal, X_2^\intercal, \ldots, X_{N_\tau}^\intercal \right]^{\intercal} := \left[M^{\dagger}M\right]^{-1} \eta$. Then, given the definition of the $M$ matrix in the main text, the fermionic force can be straightforwardly computed as
+\begin{align}
+F_{i, \tau} &= X^{\dagger}\left[M^{\dagger}(\phi)\left(\frac{\partial}{\partial \phi_{i, \tau}} M(\phi)\right)
++\left(\frac{\partial}{\partial \phi_{i, \tau}} M^{\dagger}(\phi)\right) M(\phi)\right]X \\
+&= \sum_{\tau'=1}^{N_\tau - 1} \left[ X_{\tau'}^{\dagger}\left(B_{{\tau'}}^{\dagger} \frac{\partial B_{{\tau'}}}{\partial \phi_{i, \tau}}\right)^{\dagger} X_{\tau'} 
++
+X_{\tau'}^{\dagger}\left(B_{{\tau'}}^{\dagger} \frac{\partial B_{{\tau'}}}{\partial \phi_{i, \tau}}\right) X_{\tau'} 
++
+X _{ {\tau'} + 1 }^{\dagger}\left(-\frac{ \partial B _{ {\tau'}  }}{ \partial \phi _{ i , \tau }}\right) X _{ {\tau'} }
++
+X _{ {\tau'} }^{\dagger}\left(-\frac{ \partial B _{ {\tau'}  }}{ \partial \phi _{ i , \tau }}\right)^{\dagger} X _{ {\tau'} + 1 } \right]
+\nn \\
+&  + 
+X_{N_\tau}^{\dagger}\left(B_{{N_\tau}}^{\dagger} \frac{\partial B_{{N_\tau}}}{\partial \phi_{i, \tau}}\right)^{\dagger} X_{N_\tau}
++
+X_{N_\tau}^{\dagger}\left(B_{{N_\tau}}^{\dagger} \frac{\partial B_{{N_\tau}}}{\partial \phi_{i, \tau}}\right) X_{N_\tau} 
++
+X _{ 1 }^{\dagger}\left(\frac{ \partial B _{ 1  }}{ \partial \phi _{ i , {N_\tau} }}\right) X _{ {N_\tau} }
++
+X _{ {N_\tau} }^{\dagger}\left(\frac{ \partial B _{ 1  }}{ \partial \phi _{ i , {N_\tau} }}\right)^{\dagger} X _{ 1 }. \label{eq:fermion_force}
+\end{align}
+The remaining step is to evaluate $\frac{\partial B_{\tau'}}{\partial \phi_{i, \tau}}$. For symmetric checkerboard decomposition of the form $B_\tau = \prod_n e^{V_{\tau, n} / 2}$ as shown in the main text, its derivative with respect to $\phi_i$ is
+\begin{align}
+\frac{\partial B_{\tau'}}{\partial \phi_{i, \tau}}&= 
+\delta_{\tau\tau'} \sum_m \prod_{l < m}e^{V_{\tau, l}/2} \frac{\partial e^{V_{\tau, m} / 2}}{\partial \phi_{i, \tau}} \prod_{n > m} e^{V_{\tau, n} / 2}. 
+\end{align}
+Thus, each term in \refeq{eq:fermion_force} can be expressed as a series of matrix-vector multiplications, where the matrix is of the form $e^{V_{\tau, n}}$. Each matrix-vector multiplication has a time complexity of $O(N_\tau V_s)$. So, the total time complexity of computing the fermionic force is $O(N_\tau V_s)$. 
+\end{widetext}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/sign_noncmp.pdf}
+    \caption{The average sign of $\det M$ as a function of $J$ for various lattice sizes shown as $N_\tau \times L^2$ computed for the  non-compact \qed with $K=0$, by DQMC method. For $J\lesssim 2.0$, the $\det M$ are almost all positive. Thus, the ergodicity issue of HQMC is not severe in this regime of $J$.}
+    \label{fig:sign_noncmp}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/spin_order_noncmp.pdf}
+    \caption{The spin  structure factor, which is Fourier transformation of spin-spin correlation function, evaluated at $X=(\pi, \pi)$ point, as a function of $J$, for various lattice sizes $N_\tau \times L^2$, computed for the  non-compact \qed\ with $K=0$. The plot compares the results between HQMC and DQMC. For $J\lesssim 2.0$, the spin  structure factor from HQMC agrees well with that from DQMC; they only deviate from each other at large $J$, which is attributed to the ergodicity issue of the HQMC algorithm. This shows that in the compact \qed\ coupled with fermions, the ergodicity issue of HQMC is negligible for small $J$ deep in the putative $U(1)$ DSL phase.}
+    \label{fig:chi_S_noncmp}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/sign_cmp.pdf}
+    \caption{The average sign of $\det M$ as a function of $J$ for various lattice sizes shown as $N_\tau \times L^2$ computed for the  compact \qed with $K=1$, by DQMC method. For $J\lesssim 2.2$, the $\det M$ are almost all positive. Thus, the ergodicity issue of HQMC is not severe in this regime of $J$.}
+    \label{fig:sign_cmp}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/spin_order_cmp.pdf}
+    \caption{The spin  structure factor, which is Fourier transformation of spin-spin correlation function, evaluated at $X=(\pi, \pi)$ point, as a function of $J$, for various lattice sizes $N_\tau \times L^2$, computed for the compact theory with $K=1$. The plot compares the results between HQMC and DQMC. For $J\lesssim 2.2$, the spin  structure factor from HQMC agrees well with that from DQMC; they only deviate from each other at large $J$, which is attributed to the ergodicity issue of the HQMC algorithm. This shows that in the compact \qed\ coupled with fermions, the ergodicity issue of HQMC is negligible for small $J$ deep in the putative $U(1)$ DSL phase. }
+    \label{fig:chi_S_cmp}
+\end{figure}
+
+\subsection*{SII. Benchmark data}
+\label{sec:SII}
+As mentioned in the main text, the HQMC algorithms applied to the  \qed\ has an ergodicity issue, in the sense that the negative $\det M$ region cannot be reached going from positive $\det M$ region if only HQMC updates are proposed. However, we find that if $J$ is small enough, the negative $\det M$ region will have a negligible possibility of being sampled, thus the HQMC method is valid for such values of $J$. In this section, we use the DQMC algorithm, which is ergodic, to benchmark HQMC and find the region of $J$ where the HQMC result aegrees with the DQMC result. We will show that the $J=1.25$ we chose throughout the paper is inside such valid region.
+
+\reffg{fig:sign_noncmp} shows the averaged sign of $\det M$ as a function of $J$ computed by DQMC for the non-compact \qed. It shows that, at large $J$ where the gauge field is highly dynamic (great fluctuation along $\tau$ direction), the negative $\det M$ samples are important and lower the average sign to be $< 1.0$. But as $J$ decreases to below $2.0$ where the gauge field becomes more static, the sign is almost $1.0$. Thus, the negative $\det M$ samples are negligible. 
+
+Next, we compare the HQMC result with the DQMC result for various $J$. \reffg{fig:chi_S_noncmp} shows the spin  structure factor, a Fourier transformation of the spin-spin correlation function, evaluated at $X=(\pi, \pi)$ point. This observable serves as a detect of the antiferromagnetic (AFM) order. In this figure, in the large $J$ region, HQMC result deviates from the DQMC result as expected since the negative $\det M$ gauge configurations are important and not accessible to HQMC updates. But for $J\lesssim 2.0$, they agree with each other, indicating the ergodicity issue is negligible for these $J$. 
+
+Benchmarking HQMC with DQMC on compact \qed\ is similar to that on non-compact \qed\, which are shown in \reffg{fig:sign_cmp} and \reffg{fig:chi_S_cmp}. Again, in the small $J$ region of around $J\lesssim 2.2$, the signs of the $\det M$ are almost always positive, the AFM order parameters between HQMC and DQMC agree with each other, and thus the ergodicity issue of HQMC is negligible. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/spin_r_vs_x_fit_log_cmp.pdf}
+    \caption{The log plot of the spin-spin correlation as a function of distance $r$ for compact \qed with $K=1$, at $J=1.25$, for various lattice sizes shown as $N_\tau \times L^2$ in the legend. To avoid the even-odd oscillation in the finite-size data, we only plot the data of the distance $r = \tx{odd}$ points. The gray square, triangular and diamond dots show the results computed from the DQMC to benchmark the HQMC result of the corresponding lattice sizes. At the large distance and the large system sizes, the data are manually fitted by the black line, which displays a power law decay with scaling dimension of around $3.9$.}
+    \label{fig:spsm_cmp}
+\end{figure}
+
+\begin{figure}[htp!]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/BB_r_vs_x_fit_log_cmp_large8_BBr.pdf}
+    \caption{The log plot of the bond-bond correlation (along $\hat{x}$  direction) as a function of distance $r$ for compact \qed with $K=1$, at $J=1.25$, for various lattice sizes shown as $N_\tau \times L^2$ in the legend. Notice that $C_S^{\uparrow\downarrow} = C_S^{\downarrow\uparrow}$, so we only need to measure $C_S^{\uparrow\downarrow}$ here. To avoid the even-odd oscillation in the finite-size data, we only plot the data of the distance $r = \tx{odd}$ points. At the large distance and the large system sizes, the data are manually fitted by the black line, which displays a power law decay with scaling dimension of around $3.7$.  }
+    \label{fig:BBr_cmp}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/greens_loglog_vs_tau_cmp.pdf}
+    \caption{The log plot of the flux-flux correlation as a function of imaginary time $\tau$ for compact \qed\, with $K=1$ and  $J=1.25$, for various lattice sizes, shown as $N_\tau \times L^2$ in the legend. At the large distance and the large system sizes, the data are manually fitted by the black line, which displays a power law decay with scaling dimension of around $4.1$. As lattice sizes increases, the slope still shows finite-size oscillation behavior up to size $N_\tau \times L^2 =660\times66^2$.}
+    \label{fig:flux_cmp}
+\end{figure}
+
+\subsection*{SIII. Data for the compact QED$_3$ model}
+\label{sec:SIII}
+In this section, we present the results of the spin, bond and flux correlation for the compact \qed\ model, which is parallel to the results of noncompact \qed\ in the main text. We will again analyze the scaling behavior of these observables and demonstrate how they reveal the conformal field information in the $U(1)$ DSL critical phase.
+
+
+\reffg{fig:spsm_cmp} shows the log plot of the spin-spin correlation as a function of lattice distance $r$ for compact \qed\ at $J=1.25$, for various lattice sizes. The noise level is at around $7\times10^{-6}$. As lattice size increases, the log plot of the spin-spin correlation function consistently displays a linear decay behavior at large distance $r$, until it reaches the noise level. This agrees with the power law decay behavior of the fermionic observable, which manifests the property of the $U(1)$ DSL critical phase. The linear decay is manually fitted by the black solid line which gives a power of around $3.9$. This agrees with the scaling dimension of fermion bilinear operators $2\Delta_{\rm adj} \in (3.5,3.9)$ predicted by the CFT, where the fermion bilinear operators serve as the adjoint representation of the emergent $SU(4)$ symmetry, as introduced in the main text and Refs.~\cite{Hermele2005,di2017scaling}. In \reffg{fig:spsm_cmp}, we also plot the DQMC results for several small lattice sizes to benchmark the HQMC results, and they agree well with each other. 
+
+Similarly, in \reffg{fig:BBr_cmp} which shows the log plot of the bond-bond correlation as a function of distance $r$, the data points for various lattice sizes also consistently converge to a straight line, until they reach a noise level of $2\times10^{-5}$. The points are large distance $r$ are manually fitted with the black solid line, which gives the power of around $3.7$. This again agrees with the scaling dimension of fermion bilinear operators $2\Delta_{\rm adj} \in (3.5, 3.9)$ predicted by the CFT.
+
+\reffg{fig:flux_cmp} shows the log plot of the flux-flux correlation as a function of the imaginary time $\tau$ for compact \qed\ model with $K=1$ and $J=1.25$. As lattice size increases, the flux-flux correlation at large $\tau$ consistently converge to a clear linear behavior before they reach a noise level of around $2\times10^{-3}$. Such limit behavior is again manually fitted by the black solid line, which gives a power of around $4.1$, and is distinct from the dashed line with the power of $3.0$. This verifies the fact that the scaling dimension of the conserved current in $U(1)$ DSL phase is $\Delta_J = 2$.
+
+In a nutshell, the results of spin, bond and magnetic flux correlation function of compact \qed\ does not have an essential difference from the results of noncompact \qed\ shown in the main text. This shows that, even though in theory the  monopole operator in compact \qed\ may create relevant perturbation, gap out the gauge field and destroy the $U(1)$ DSL phase at any $J$, in actual numerical simulation, such signature is not seen at a finite lattice size of up to $N_\tau \times L^2 = 660\times66^2$ at $J=1.25$.
+
+\subsection*{SIV. Derivation of fermionic correlation functions}
+\label{sec:SIV}
+In this section we give a detailed derivation of the fermionic correlation functions measured in HQMC, which includes the spin correlation function and bond correlation function.
+
+As introduced in the main text, the spin operator for $N_f = 2$ is defined as
+\begin{align}
+    S^{\alpha\beta}(i)&=\psi_{i\alpha}^{\dagger}\psi_{i\beta}-\frac{1}{2}\delta_{\alpha\beta}\sum_{\gamma}\psi_{i\gamma}^{\dagger}\psi_{i\gamma}.
+\end{align}
+The bond operator  along the nearest-neighbor bond in $\hat{x}$ direction is defined as 
+\begin{align}
+    B_{i}&=\sum_{\alpha}(\psi^{\dagger}_{i,\alpha}e^{i \phi_{ij}} \psi_{i+\hat{x},\alpha}+\text{h.c.}),
+\end{align}
+and $\alpha, \beta \in \leftc\uparrow, \downarrow\rightc$ are spin flavor indices. Then, the spin correlation function is
+\begin{align}
+    C_\tx{S}^{\uparrow\downarrow}(i, j) &=\langle
+    S^{\uparrow\downarrow}(i)S^{\downarrow\uparrow}(j)\rangle_{\psi \phi} \\
+    &= \langle \psi^\dagger_{i\uparrow}\psi_{i\downarrow}\psi^\dagger_{j\downarrow}\psi_{j\uparrow}\rangle_{\psi \phi} \\
+    & = \langle\bar{G}_{\uparrow}(i, j)G_\downarrow(i, j)\rangle_{\phi},
+\end{align}
+where the last row utilizes Wick's theorem, and the subscripts $\psi$ and $\phi$ mean the average over the fermionic field and the bosonic gauge field, respectively.
+The equal-time Green's functions are defined as 
+\begin{align}
+    G_\alpha (i, j) &= \langle \psi_{i\alpha}\psi^\dagger_{j\alpha} \rangle_\psi, \\
+    \bar{G}_\alpha (i, j) &= \langle \psi^\dagger_{i\alpha}\psi_{j\alpha} \rangle_\psi \\
+    &= \delta_{ij} - G_\alpha (j, i).
+\end{align}
+In this problem, the Green's function of the two fermion flavors are equal $G_\uparrow = G_\downarrow$. So we will omit the flavor index in the Green's functions below.  
+Similarly, the bond correlation function is 
+\begin{align}
+    C_\tx{B}(i, j) &= \langle B_i B_j \rangle_{\psi \phi} - \langle B_i\rangle_{\psi \phi} \langle B_j\rangle_{\psi \phi}.
+\end{align}
+Here, 
+\begin{align}
+    \langle B_i B_j \rangle_{\psi \phi} = 2
+    &\langle 
+        \bar{G}(i, j+\hatx) G(i+\hatx, j)e^{i(\phi_{i, i+\hatx} + \phi_{j,j+\hatx})}  \nn \\
+        + &
+        \bar{G}(i, j)G(i+\hatx, j+\hatx) e^{i(\phi_{i, i+\hatx} - \phi_{j, j+\hatx})} \nn \\
+        + &
+        \bar{G}(i+\hatx, j+\hatx)G(i,j) e^{i(-\phi_{i, i+\hatx} + \phi_{j, j+\hatx})} \nn \\
+        + &
+        \bar{G}(i+\hatx, j)G(i, j+\hatx) e^{-i(\phi_{i, i+\hatx} + \phi_{j, j+\hatx})}
+    \rangle_\phi \nn \\
+    + 4\langle  & \left[ \bar{G}(i, i+\hatx) e^{i \phi_{i, i+\hatx}} + \bar{G} (i+\hatx, i)e^{-i\phi_{i,i+\hatx}} \right] \nn \\
+    & \left[ \bar{G}(j, j+\hatx) e^{i \phi_{j, j+\hatx}} + \bar{G} (j+\hatx, j)e^{-i\phi_{j,j+\hatx}} \right] \rangle_\phi, 
+\end{align}
+where the coefficients come from the summation of the fermionic flavors. 
+\begin{align}
+ \langle B_i\rangle_{\psi \phi} \langle B_j\rangle_{\psi \phi} = 
+ 4\langle  &  \bar{G}(i, i+\hatx) e^{i \phi_{i, i+\hatx}} + \bar{G} (i+\hatx, i)e^{-i\phi_{i,i+\hatx}} \rangle_\phi \nn \\
+    & \langle\bar{G}(j, j+\hatx) e^{i \phi_{j, j+\hatx}} + \bar{G} (j+\hatx, j)e^{-i\phi_{j,j+\hatx}} \rangle_\phi, 
+\end{align}
+We denote the vector $b_i = \bar{G}(i, i+\hatx) e^{i \phi_{i, i+\hatx}} + \bar{G} (i+\hatx, i)e^{-i\phi_{i,i+\hatx}}$, then
+\begin{align}
+    C_\tx{B}(i, j)  =  2
+    &\langle 
+        \bar{G}(i, j+\hatx) G(i+\hatx, j)e^{i(\phi_{i, i+\hatx} + \phi_{j,j+\hatx})}  \nn \\
+        + &
+        \bar{G}(i, j)G(i+\hatx, j+\hatx) e^{i(\phi_{i, i+\hatx} - \phi_{j, j+\hatx})} \nn \\
+        + &
+        \bar{G}(i+\hatx, j+\hatx)G(i,j) e^{i(-\phi_{i, i+\hatx} + \phi_{j, j+\hatx})} \nn \\
+        + &
+        \bar{G}(i+\hatx, j)G(i, j+\hatx) e^{-i(\phi_{i, i+\hatx} + \phi_{j, j+\hatx})}
+    \rangle_\phi \nn \\
+    + & 4 \left( \langle b_i b_j\rangle_\phi - \langle b_i\rangle_\phi \langle b_j \rangle_\phi\right),
+\end{align}
+where the first term is the intrinsic fermionic correlation while the second term is the correlation from the gauge field fluctuation. 
+
+
+
+
+
+
+
+
+
+\end{document}

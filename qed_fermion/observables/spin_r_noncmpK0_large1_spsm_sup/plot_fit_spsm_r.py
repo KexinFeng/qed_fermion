@@ -78,7 +78,7 @@ def plot_spin_r():
     start = 5000  # Skip initial equilibration steps
     sample_step = 1
     
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(8, 8))
     
     # Store data for normalization analysis
     all_data = {}
@@ -208,7 +208,7 @@ def plot_spin_r():
     dqmc_handle_1 = plt.errorbar(
         r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
         color=f"gray", markersize=8, alpha=0.85, 
-        label=fr'100x10$^2$ DQMC', capsize=2, lw=1.2
+        label=fr'100x10$^2$', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_1)
 
@@ -221,7 +221,7 @@ def plot_spin_r():
     dqmc_handle_3 = plt.errorbar(
         r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
         color=f"gray", markersize=8, alpha=0.85, 
-        label=fr'120x12$^2$ DQMC', capsize=2, lw=1.2
+        label=fr'120x12$^2$', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_3)
 
@@ -234,29 +234,23 @@ def plot_spin_r():
     dqmc_handle_2 = plt.errorbar(
         r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
         color=f"gray", markersize=7, alpha=0.85, 
-        label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
+        label=rf'160x16$^2$', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_2)
 
-    # # # Add dqmc data from file for L=20
-    # dqmc_handle_4 = plt.errorbar(
-    #     r_l20, corr_l20, fmt='s', 
-    #     color='gray', markersize=7, alpha=0.85, 
-    #     label=rf'200x20$^2$ DQMC', capsize=2, lw=1.2
-    # )
-    # handles.append(dqmc_handle_4)
-
+    handles = handles[1:] + handles[0:1]
     # phantom
-    phantom_line = mlines.Line2D([], [], color='none', label='')
-    handles.insert(len(handles) // 2 + 1, phantom_line)
-
+    # phantom_line = mlines.Line2D([], [], color='none', label='')
+    # handles.insert(len(handles) // 2 + 1, phantom_line)
+    handles.extend([mlines.Line2D([], [], color='none', label='') for _ in range(6)])
+    handles = handles[:10] + handles[14:] + handles[10:14]
 
     labels = [line.get_label() for line in handles]
     # Linear axes
-    plt.xlabel('r', fontsize=19)
-    plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
+    plt.xlabel('r', fontsize=23)
+    plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
 
-    plt.legend(handles, labels, ncol=2, fontsize=13, loc='lower left')
+    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left')
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -264,13 +258,21 @@ def plot_spin_r():
     plt.xscale('log')
     plt.yscale('log')
 
+    # set tick label size
+    ax = plt.gca()
+    ax.xaxis.set_tick_params(labelsize=22)
+    ax.yaxis.set_tick_params(labelsize=22)
+
+    # Turn off minor ticks on both axes
+    ax.yaxis.set_minor_locator(plt.NullLocator())
+
     # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
     ax = plt.gca()
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Set y-axis lower limit to 1e-7
-    plt.ylim(1e-7, 10**-1.0)
-    plt.xlim(0.7, None)
+    plt.ylim(10**(-8.5), 10**-1.0)
+    plt.xlim(0.4, None)
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")

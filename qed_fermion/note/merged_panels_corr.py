@@ -17,8 +17,8 @@ def add_panel_label(ax, label, x=0.02, y=0.98):
     ax.annotate(
         label,
         xy=(0, 1), xycoords='axes fraction',
-        xytext=(-66, -12), textcoords='offset points',
-        fontsize=18, fontweight='bold',
+        xytext=(-70, -12), textcoords='offset points',
+        fontsize=22, fontweight='bold',
         va='bottom', ha='left',
         annotation_clip=False
     )
@@ -35,12 +35,15 @@ def main():
 
     plot_spsm(axes[0])
     add_panel_label(axes[0], '(a)')
+    axes[0].yaxis.set_minor_locator(plt.NullLocator())
 
     plot_bondcorr(axes[1])
     add_panel_label(axes[1], '(b)')
+    axes[1].yaxis.set_minor_locator(plt.NullLocator())
 
     plot_flux(axes[2])
     add_panel_label(axes[2], '(c)')
+    axes[2].yaxis.set_minor_locator(plt.NullLocator())
 
     save_dir = os.path.join(script_path, 'figures')
     os.makedirs(save_dir, exist_ok=True)

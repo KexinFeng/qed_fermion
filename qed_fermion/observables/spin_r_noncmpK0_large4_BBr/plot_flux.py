@@ -100,11 +100,16 @@ for i, Lx in enumerate(lattice_sizes):
     # Plot on main axis
     main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=rf'${Ltau}x{Lx}^2$', color=color, lw=2, alpha=0.8)
 
-main_ax.set_xlabel(r"$\tau$", fontsize=17)
-main_ax.set_ylabel(r"$C_{flux}(\tau)$", fontsize=17)
+main_ax.set_xlabel(r"$\tau$", fontsize=23)
+main_ax.set_ylabel(r"$C_{flux}(\tau)$", fontsize=23)
 plt.tight_layout()
 main_ax.set_xscale('log')
 main_ax.set_yscale('log')
+
+# set tick label size
+ax = plt.gca()
+ax.xaxis.set_tick_params(labelsize=20)
+ax.yaxis.set_tick_params(labelsize=20)
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
 man_slope = -4.2
@@ -175,13 +180,19 @@ inset_ax.set_xscale('log')
 inset_ax.set_yscale('log')
 inset_ax.tick_params(axis='both', which='major', labelsize=10)
 # Set x-ticks and formatter for inset
-inset_xticks = [20, 30, 40, 50, 60, 70]
+inset_xticks = [20, 30, 40, 50, 70]
 inset_ax.set_xticks(inset_xticks)
+inset_ax.set_xticks([], minor=True)  # Remove any minor ticks
+# Remove any automatic tick locator by setting the locator to a FixedLocator
+from matplotlib.ticker import FixedLocator
+inset_ax.xaxis.set_major_locator(FixedLocator(inset_xticks))
 inset_ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: str(int(x)) if x in inset_xticks else ""))
 inset_ax.set_yticks([2e-3, 1e-2])
 # inset_ax.set_yticks([])
-inset_ax.set_xlabel("", fontsize=10)
-inset_ax.set_ylabel("", fontsize=10)
+inset_ax.set_xlabel("", fontsize=15)
+inset_ax.set_ylabel("", fontsize=15)
+inset_ax.xaxis.set_tick_params(labelsize=15)
+inset_ax.yaxis.set_tick_params(labelsize=15)
 
 # Rectangle on main plot to show inset region
 # Rectangle parameters updated to match new inset limits
