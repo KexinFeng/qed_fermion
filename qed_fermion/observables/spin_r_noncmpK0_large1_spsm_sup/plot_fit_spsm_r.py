@@ -170,6 +170,7 @@ def plot_spin_r():
         plt.errorbar(r_values[0:], spin_corr_values[0:], 
                      yerr=np.array(spin_corr_errors[0:])*1.1, 
                      linestyle=':', marker='o', color=color, 
+                     markersize=12,
                      label=rf'{Ltau}x{Lx}$^2$', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
@@ -182,7 +183,10 @@ def plot_spin_r():
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
-    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19, 25, 30]])
+    # r_min = min(r_l20)
+    # r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
+    # r_l20_aug = np.linspace(r_min - 0.1, (r_max + r_min - 20)// 2, 100)
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
     coeffs_l20[0] = -3.9
@@ -195,7 +199,7 @@ def plot_spin_r():
     handles, labels = plt.gca().get_legend_handles_labels()
     
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$', zorder=100)
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
@@ -207,7 +211,7 @@ def plot_spin_r():
     err_dqmc_1 = dqmc_data_1[:, 2]
     dqmc_handle_1 = plt.errorbar(
         r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
-        color=f"gray", markersize=8, alpha=0.85, 
+        color=f"gray", markersize=12, alpha=0.85, 
         label=fr'100x10$^2$', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_1)
@@ -220,7 +224,7 @@ def plot_spin_r():
     err_dqmc_3 = dqmc_data_3[:, 2]
     dqmc_handle_3 = plt.errorbar(
         r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
-        color=f"gray", markersize=8, alpha=0.85, 
+        color=f"gray", markersize=12, alpha=0.85, 
         label=fr'120x12$^2$', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_3)
@@ -233,7 +237,7 @@ def plot_spin_r():
     err_dqmc_2 = dqmc_data_2[:, 2]
     dqmc_handle_2 = plt.errorbar(
         r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
-        color=f"gray", markersize=7, alpha=0.85, 
+        color=f"gray", markersize=11, alpha=0.85, 
         label=rf'160x16$^2$', capsize=2, lw=1.2
     )
     handles.append(dqmc_handle_2)

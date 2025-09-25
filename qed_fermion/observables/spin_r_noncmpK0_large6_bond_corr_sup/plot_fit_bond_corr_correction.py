@@ -255,10 +255,12 @@ def plot_spin_r():
         # Plot error bars with alpha=1 (fully opaque)
         if separate:
             eb = plt.errorbar(r_values[0:], np.abs(spin_corr_values[0:]), yerr=spin_corr_errors[0:], 
-                            linestyle=':', marker='o', color=color, 
+                            linestyle=':', marker='o', color=color,
+                            markersize=12,
                             label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
             eb2 = plt.errorbar(r_values[0:], np.abs(spin_corr_values0[0:]), yerr=spin_corr_errors0[0:], 
                             linestyle='-', marker='^', color=color, 
+                            markersize=12,
                             label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
             if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
                 eb2.lines[0].set_alpha(0.8)
@@ -266,7 +268,8 @@ def plot_spin_r():
             eb = plt.errorbar(r_values[0:], 
                             (np.abs(spin_corr_values) + np.abs(spin_corr_values0)[0:]), 
                             yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
-                            linestyle=':', marker='o', color=color, 
+                            linestyle=':', marker='o', color=color,
+                            markersize=12, 
                             label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
         
         # Set only the marker (dots) to have alpha=0.8
@@ -290,12 +293,12 @@ def plot_spin_r():
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
-    r_fitline = np.linspace(r_min - 0.1, (r_max + r_min - 15)// 2, 100)
+    r_fitline = np.linspace(r_min - 0.1, (r_max + r_min - 20)// 2, 100)
     coeff0 = -3.94
     coeff1 = -2.2
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
-    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
     # phantom

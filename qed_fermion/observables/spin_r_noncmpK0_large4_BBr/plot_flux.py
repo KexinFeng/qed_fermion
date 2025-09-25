@@ -98,7 +98,7 @@ for i, Lx in enumerate(lattice_sizes):
         'color': color
     })
     # Plot on main axis
-    main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=7, label=rf'${Ltau}x{Lx}^2$', color=color, lw=2, alpha=0.8)
+    main_ax.errorbar(tau[idx_plot], G_mean[idx_plot], yerr=G_std[idx_plot], linestyle='', marker='o', markersize=8, label=rf'${Ltau}x{Lx}^2$', color=color, lw=2, alpha=0.8)
 
 main_ax.set_xlabel(r"$\tau$", fontsize=23)
 main_ax.set_ylabel(r"$C_{flux}(\tau)$", fontsize=23)
@@ -118,7 +118,7 @@ man_intercept = 9.7  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(
-    x_fit, fit_line, 'k-', lw=1, alpha=0.8, 
+    x_fit, fit_line, 'k-', lw=1.5, alpha=0.8, 
     label=fr'$y \sim \tau^{{{man_slope:.1f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
@@ -129,7 +129,7 @@ man_intercept = 7.7  # Increase this to move the fit line up
 x_fit3 = np.arange(10, 101, dtype=float)
 fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
 fit_handle3, = main_ax.plot(
-    x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, 
+    x_fit3, fit_line3, 'k--', lw=1.5, alpha=0.8, 
     label=fr'$y \sim \tau^{{{man_slope:.1f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
@@ -165,11 +165,11 @@ inset_ax = inset_axes(
 
 # Plot the stored data in the inset
 for entry in plot_data:
-    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=1, alpha=0.8)
+    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=15, alpha=0.8)
 
 # Fit line in inset
-inset_ax.plot(x_fit, fit_line, 'k-', lw=1, alpha=0.8, zorder=100)
-inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, zorder=100)
+inset_ax.plot(x_fit, fit_line, 'k-', lw=1.5, alpha=0.8, zorder=100)
+inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1.5, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
 inset_xlim = (20, 90)
