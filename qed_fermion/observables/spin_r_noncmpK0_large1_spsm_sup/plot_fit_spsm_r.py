@@ -168,7 +168,7 @@ def plot_spin_r():
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], 
-                     yerr=np.array(spin_corr_errors[0:])*1.1, 
+                     yerr=np.array(spin_corr_errors[0:]), 
                      linestyle=':', marker='o', color=color, 
                      markersize=12,
                      label=rf'{Ltau}x{Lx}$^2$', alpha=0.8)
