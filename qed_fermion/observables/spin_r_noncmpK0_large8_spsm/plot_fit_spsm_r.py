@@ -60,7 +60,7 @@ corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
 data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/hmc_check_point_noncmpK0_large8_spsm_part1"
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
+# data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -208,10 +208,10 @@ def plot_spin_r():
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
-    dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_real_space_K1.0J1.25_ncomp/piflux_B0.0K1.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
+    dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
 
     # Add dqmc data from file for L=10
-    dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
+    dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.0jpi0.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
     r_dqmc_1 = dqmc_data_1[:, 0]
     corr_dqmc_1 = dqmc_data_1[:, 1]
@@ -224,7 +224,7 @@ def plot_spin_r():
     handles.append(dqmc_handle_1)
 
     # Add dqmc data from file for L=12
-    dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
+    dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.0jpi0.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
     r_dqmc_3 = dqmc_data_3[:, 0]
     corr_dqmc_3 = dqmc_data_3[:, 1]
@@ -237,7 +237,7 @@ def plot_spin_r():
     handles.append(dqmc_handle_3)
 
     # # Add dqmc data from file for L=16
-    dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
+    dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
     r_dqmc_2 = dqmc_data_2[:, 0]
     corr_dqmc_2 = dqmc_data_2[:, 1]

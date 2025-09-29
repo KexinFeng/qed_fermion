@@ -209,44 +209,44 @@ def plot_spin_r():
 
     dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_real_space_K1.0J1.25_ncomp/piflux_B0.0K1.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
 
-    # Add dqmc data from file for L=10
-    dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
-    dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
-    r_dqmc_1 = dqmc_data_1[:, 0]
-    corr_dqmc_1 = dqmc_data_1[:, 1]
-    err_dqmc_1 = dqmc_data_1[:, 2]
-    dqmc_handle_1 = plt.errorbar(
-        r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
-        color=f"gray", markersize=8, alpha=0.85, 
-        label=fr'100x10$^2$ DQMC', capsize=2, lw=1.2
-    )
-    handles.append(dqmc_handle_1)
+    # # Add dqmc data from file for L=10
+    # dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
+    # dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
+    # r_dqmc_1 = dqmc_data_1[:, 0]
+    # corr_dqmc_1 = dqmc_data_1[:, 1]
+    # err_dqmc_1 = dqmc_data_1[:, 2]
+    # dqmc_handle_1 = plt.errorbar(
+    #     r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
+    #     color=f"gray", markersize=8, alpha=0.85, 
+    #     label=fr'100x10$^2$ DQMC', capsize=2, lw=1.2
+    # )
+    # handles.append(dqmc_handle_1)
 
-    # Add dqmc data from file for L=12
-    dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
-    dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
-    r_dqmc_3 = dqmc_data_3[:, 0]
-    corr_dqmc_3 = dqmc_data_3[:, 1]
-    err_dqmc_3 = dqmc_data_3[:, 2]
-    dqmc_handle_3 = plt.errorbar(
-        r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
-        color=f"gray", markersize=8, alpha=0.85, 
-        label=fr'120x12$^2$ DQMC', capsize=2, lw=1.2
-    )
-    handles.append(dqmc_handle_3)
+    # # Add dqmc data from file for L=12
+    # dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
+    # dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
+    # r_dqmc_3 = dqmc_data_3[:, 0]
+    # corr_dqmc_3 = dqmc_data_3[:, 1]
+    # err_dqmc_3 = dqmc_data_3[:, 2]
+    # dqmc_handle_3 = plt.errorbar(
+    #     r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
+    #     color=f"gray", markersize=8, alpha=0.85, 
+    #     label=fr'120x12$^2$ DQMC', capsize=2, lw=1.2
+    # )
+    # handles.append(dqmc_handle_3)
 
-    # # Add dqmc data from file for L=16
-    dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
-    dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
-    r_dqmc_2 = dqmc_data_2[:, 0]
-    corr_dqmc_2 = dqmc_data_2[:, 1]
-    err_dqmc_2 = dqmc_data_2[:, 2]
-    dqmc_handle_2 = plt.errorbar(
-        r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
-        color=f"gray", markersize=7, alpha=0.85, 
-        label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
-    )
-    handles.append(dqmc_handle_2)
+    # # # Add dqmc data from file for L=16
+    # dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
+    # dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
+    # r_dqmc_2 = dqmc_data_2[:, 0]
+    # corr_dqmc_2 = dqmc_data_2[:, 1]
+    # err_dqmc_2 = dqmc_data_2[:, 2]
+    # dqmc_handle_2 = plt.errorbar(
+    #     r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
+    #     color=f"gray", markersize=7, alpha=0.85, 
+    #     label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
+    # )
+    # handles.append(dqmc_handle_2)
 
     # phantom
     phantom_line = mlines.Line2D([], [], color='none', label='')
