@@ -25,7 +25,7 @@ L_array=$(echo '50') # 60 56 cuda kernel launch failure
 L_array=$(echo '56') 
 # L_array=$(echo '60 66') 
 
-# L_array=$(echo '24 20 16 12 10 8 6')
+L_array=$(echo '30 20 16 12 10 8')
 
 
 # J_array=$(echo '1.0')
@@ -36,10 +36,10 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large1_spsm_sup
+export suffix=noncmpK1_large1_spsm_sup_repr
 export asym=1
 export compact=0
-export K=0
+export K=1
 export dtau=0.1
 export precon=1
 
@@ -54,7 +54,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=6-23:59:00 \
+                --time=1-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc_noncmp.cmd

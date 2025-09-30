@@ -19,6 +19,10 @@ export LD_LIBRARY_PATH=/share1/cuda/12.4/lib64:$LD_LIBRARY_PATH
 ## export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
 export CUDA_HOME=/share1/cuda/12.4
 
+# export PATH=/share/apps/nvhpc/2025/Linux_x86_64/25.7/cuda/12.9/bin/:$PATH
+#export LD_LIBRARY_PATH=/share/apps/nvhpc/2025/Linux_x86_64/25.7/cuda/12.9/lib64/:$LD_LIBRARY_PATH
+#export CUDA_HOME=/share/apps/nvhpc/2025/Linux_x86_64/25.7/cuda/12.9/
+
 nvcc --version
 nvidia-smi
 
