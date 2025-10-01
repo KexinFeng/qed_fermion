@@ -1,4 +1,4 @@
-# Scalable hybrid Monte Carlo of U(1) Dirac spin liquids with low-latency CUDA kernels
+# HMC simulation of U(1) Dirac spin liquids with low-latency CUDA kernels
 
 We develop a GPU-accelerated hybrid quantum Monte Carlo (QMC) algorithm to solve the fundamental yet
 difficult problem of 𝑈(1) gauge field coupled to fermions, which gives rise to a 𝑈(1) Dirac spin liquid state
