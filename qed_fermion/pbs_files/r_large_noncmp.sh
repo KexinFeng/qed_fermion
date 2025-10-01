@@ -18,9 +18,11 @@ cd "$(dirname "$0")"
 # J_array=$(echo '1.0 1.5 2.0 2.3 2.5 3.0')
 J_array=$(echo '1.25')
 # L_array=$(echo '36 30 20')  # 10 h (-2)
-L_array=$(echo '30 20 16 12 10 8')  # 10 h (-2)
+L_array=$(echo '20 16 12 10 8')  # 10 h (-2)
 # L_array=$(echo '40 36 30 20 16 12 10 8 6')
-# L_array=$(echo '46 40') 
+L_array=$(echo '46 40 36 30') 
+L_array=$(echo '60 56 50')
+
 # L_array=$(echo '50') # 60 56 cuda kernel launch failure
 
 # L_array=$(echo '24 20 16 12 10 8 6')
@@ -29,15 +31,15 @@ L_array=$(echo '30 20 16 12 10 8')  # 10 h (-2)
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
 
-Nstep=5000
+Nstep=6500
 export debug=0
 export cuda_graph=1
-export bs=2
+export bs=1
 
-export suffix=noncmpK0_large1_spsm_sup_repr2
+export suffix=noncmpK1_large1_spsm_sup_repr2
 export asym=1
 export compact=0
-export K=0
+export K=1
 export dtau=0.1
 export precon=1
 
@@ -52,7 +54,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=1-00:59:00 \
+                --time=6-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc_noncmp.cmd
