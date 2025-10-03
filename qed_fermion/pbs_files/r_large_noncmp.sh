@@ -27,13 +27,13 @@ J_array=$(echo '1.25')
 L_array=$(echo '36 30 20 16 12 10 8 6')
 L_array=$(echo '46 40')
 L_array=$(echo '50')
-L_array=$(echo '30 20 16 12 10 8 6')
-L_array=$(echo '40 36')
-L_array=$(echo '50 46')
+# L_array=$(echo '30 20 16 12 10 8 6')
+# L_array=$(echo '40 36')
+# L_array=$(echo '50 46')
 
 # BB_r lattice sizes
-L_array=$(echo '12 10 8')
-L_array=$(echo '36 30 20 16 12 10 8')
+L_array=$(echo '30 20 16 12 10')
+# L_array=$(echo '36 30 20 16 12 10 8')
 # L_array=$(echo '46 40')
 # L_array=$(echo '60 56 50')
 
@@ -45,17 +45,17 @@ export debug=0
 export cuda_graph=1
 export bs=2
 
-export suffix=noncmpK1_large7_bond_corr_part2
+export suffix=noncmpK1_large8_spsm_pi_flux
 export asym=1
 export compact=0
 export K=1
 export dtau=0.1
 export precon=1
 
-export compute_BB=1
-export compute_spsm=0
+export compute_BB=0
+export compute_spsm=1
 
-export seed=324
+export seed=325
 
 for L in $L_array; do
         #
@@ -66,7 +66,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=2-23:59:00 \
+                --time=1-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc_noncmp.cmd
