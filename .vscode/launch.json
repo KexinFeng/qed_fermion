@@ -11,6 +11,7 @@
             "request": "launch",
             "program": "${file}",
             "env": {
+                "L": "16",
                 "debug": "0",
                 "cuda_graph": "1",
                 "Nrv": "40",
