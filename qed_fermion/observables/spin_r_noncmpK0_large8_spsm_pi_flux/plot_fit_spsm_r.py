@@ -59,7 +59,8 @@ r_l20 = np.exp(loge_r_l20)
 corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK1_large7_spsm_part3/hmc_check_point_noncmpK1_large7_spsm_part3"
+data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/hmc_check_point_noncmpK0_large8_spsm_pi_flux"
+# data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -83,13 +84,13 @@ def plot_spin_r():
     
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
-        start = 5000
+        start = 3000
         sample_step = 1
 
         import glob
         # Find the correct file for this Lx and Ltau
         def find_hmc_file(Lx, Ltau, folder=data_folder):
-            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
+            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
             files = glob.glob(os.path.join(folder, pattern))
             if not files:
                 print(f"No file found for Lx={Lx}, Ltau={Ltau} in {folder}")
@@ -207,46 +208,46 @@ def plot_spin_r():
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
-    dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_real_space_K1.0J1.25_ncomp/piflux_B0.0K1.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
+    dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_spsm_r_v2/piflux_B0.0K0.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
 
-    # # Add dqmc data from file for L=10
-    # dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
-    # dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
-    # r_dqmc_1 = dqmc_data_1[:, 0]
-    # corr_dqmc_1 = dqmc_data_1[:, 1]
-    # err_dqmc_1 = dqmc_data_1[:, 2]
-    # dqmc_handle_1 = plt.errorbar(
-    #     r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
-    #     color=f"gray", markersize=8, alpha=0.85, 
-    #     label=fr'100x10$^2$ DQMC', capsize=2, lw=1.2
-    # )
-    # handles.append(dqmc_handle_1)
+    # Add dqmc data from file for L=10
+    dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.0jpi0.0mu0.0nf2_dqmc_bin.dat")
+    dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
+    r_dqmc_1 = dqmc_data_1[:, 0]
+    corr_dqmc_1 = dqmc_data_1[:, 1]
+    err_dqmc_1 = dqmc_data_1[:, 2]
+    dqmc_handle_1 = plt.errorbar(
+        r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
+        color=f"gray", markersize=8, alpha=0.85, 
+        label=fr'100x10$^2$ DQMC', capsize=2, lw=1.2
+    )
+    handles.append(dqmc_handle_1)
 
-    # # Add dqmc data from file for L=12
-    # dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
-    # dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
-    # r_dqmc_3 = dqmc_data_3[:, 0]
-    # corr_dqmc_3 = dqmc_data_3[:, 1]
-    # err_dqmc_3 = dqmc_data_3[:, 2]
-    # dqmc_handle_3 = plt.errorbar(
-    #     r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
-    #     color=f"gray", markersize=8, alpha=0.85, 
-    #     label=fr'120x12$^2$ DQMC', capsize=2, lw=1.2
-    # )
-    # handles.append(dqmc_handle_3)
+    # Add dqmc data from file for L=12
+    dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.0jpi0.0mu0.0nf2_dqmc_bin.dat")
+    dqmc_data_3 = np.loadtxt(dqmc_data_path_3)
+    r_dqmc_3 = dqmc_data_3[:, 0]
+    corr_dqmc_3 = dqmc_data_3[:, 1]
+    err_dqmc_3 = dqmc_data_3[:, 2]
+    dqmc_handle_3 = plt.errorbar(
+        r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
+        color=f"gray", markersize=8, alpha=0.85, 
+        label=fr'120x12$^2$ DQMC', capsize=2, lw=1.2
+    )
+    handles.append(dqmc_handle_3)
 
-    # # # Add dqmc data from file for L=16
-    # dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
-    # dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
-    # r_dqmc_2 = dqmc_data_2[:, 0]
-    # corr_dqmc_2 = dqmc_data_2[:, 1]
-    # err_dqmc_2 = dqmc_data_2[:, 2]
-    # dqmc_handle_2 = plt.errorbar(
-    #     r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
-    #     color=f"gray", markersize=7, alpha=0.85, 
-    #     label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
-    # )
-    # handles.append(dqmc_handle_2)
+    # # Add dqmc data from file for L=16
+    dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.0jpi0.0mu0.0nf2_dqmc_bin.dat")
+    dqmc_data_2 = np.loadtxt(dqmc_data_path_2)
+    r_dqmc_2 = dqmc_data_2[:, 0]
+    corr_dqmc_2 = dqmc_data_2[:, 1]
+    err_dqmc_2 = dqmc_data_2[:, 2]
+    dqmc_handle_2 = plt.errorbar(
+        r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
+        color=f"gray", markersize=7, alpha=0.85, 
+        label=rf'160x16$^2$ DQMC', capsize=2, lw=1.2
+    )
+    handles.append(dqmc_handle_2)
 
     # phantom
     phantom_line = mlines.Line2D([], [], color='none', label='')
@@ -277,7 +278,7 @@ def plot_spin_r():
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK1.pdf")
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK0_8.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 

@@ -1,6 +1,4 @@
-# Scalable Hybrid quantum Monte Carlo simulation of U(1) gauge field coupled to fermions on GPU
-
-https://arxiv.org/pdf/2508.16298
+# HMC simulation of U(1) Dirac spin liquids with low-latency CUDA kernels
 
 We develop a GPU-accelerated hybrid quantum Monte Carlo (QMC) algorithm to solve the fundamental yet
 difficult problem of 𝑈(1) gauge field coupled to fermions, which gives rise to a 𝑈(1) Dirac spin liquid state
@@ -27,12 +25,3 @@ Latency vs linear size L:
 <img width="506" height="372" alt="Screenshot 2025-08-29 at 12 59 49 PM" src="https://github.com/user-attachments/assets/039a7a7f-1d37-4603-bd92-1cbf8cbbfd10" />
 
 
-## Cite
-```
-@article{feng2025scalable,
-  title={Scalable Hybrid quantum Monte Carlo simulation of U (1) gauge field coupled to fermions on GPU},
-  author={Feng, Kexin and Chen, Chuang and Meng, Zi Yang},
-  journal={arXiv preprint arXiv:2508.16298},
-  year={2025}
-}
-```
