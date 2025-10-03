@@ -21,7 +21,7 @@ J_array=$(echo '1.25')
 L_array=$(echo '20 16 12 10 8')  # 10 h (-2)
 # L_array=$(echo '40 36 30 20 16 12 10 8 6')
 L_array=$(echo '46 40 36 30') 
-L_array=$(echo '60 56 50')
+L_array=$(echo '60 56 50 46 40 36')
 
 # L_array=$(echo '50') # 60 56 cuda kernel launch failure
 
