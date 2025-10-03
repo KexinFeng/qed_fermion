@@ -3164,7 +3164,7 @@ class HmcSampler(object):
                 file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
                 self.save_to_file(res, data_folder, file_name)  
 
-            if i % 500 == 0 and i >= 4000 or i == 10:
+            if i % 20000 == 0 and i >= 4000:
                 # Save the boson sequence to file every 500 steps
                 data_folder = script_path + f"/check_points/boson_ensemble/"
                 file_name = f"boson_{self.specifics}_{self.step-1}"
