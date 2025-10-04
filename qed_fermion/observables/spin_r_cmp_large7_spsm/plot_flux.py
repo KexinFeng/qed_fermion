@@ -142,7 +142,7 @@ handles.insert(6, handle3)
 labels = [h.get_label() for h in handles]
 main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
-main_ax.set_ylim(10**-5, 1)
+main_ax.set_ylim(10**-5, 8*10**-1)
 main_ax.set_xlim(0.4, 1000)  # Set x-axis limits (example values)
 ax = main_ax
 ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=8)))
@@ -182,13 +182,20 @@ inset_ax.tick_params(axis='both', which='major', labelsize=10)
 # Set x-ticks and formatter for inset
 inset_xticks = [25, 30, 40]
 inset_ax.set_xticks(inset_xticks)
+inset_ax.set_xticks([], minor=True)  # Remove any minor ticks
+# Remove any automatic tick locator by setting the locator to a FixedLocator
+from matplotlib.ticker import FixedLocator
+inset_ax.xaxis.set_major_locator(FixedLocator(inset_xticks))
 inset_ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: str(int(x)) if x in inset_xticks else ""))
 inset_ax.set_yticks([2e-3, 1e-2])
-# inset_ax.minorticks_off()
-from matplotlib.ticker import NullFormatter
-inset_ax.yaxis.set_minor_formatter(NullFormatter())  # <--- This line ensures no minor tick label
-inset_ax.set_xlabel("", fontsize=10)
-inset_ax.set_ylabel("", fontsize=10)
+# Format y-axis to only show labels for explicitly set ticks
+inset_yticks = [1e-2]  # Only show label for 10^-2
+inset_ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:.0e}" if x in inset_yticks else ""))
+# inset_ax.set_yticks([])
+inset_ax.set_xlabel("", fontsize=15)
+inset_ax.set_ylabel("", fontsize=15)
+inset_ax.xaxis.set_tick_params(labelsize=15)
+inset_ax.yaxis.set_tick_params(labelsize=15)
 
 # Rectangle on main plot to show inset region
 # Rectangle parameters updated to match new inset limits
