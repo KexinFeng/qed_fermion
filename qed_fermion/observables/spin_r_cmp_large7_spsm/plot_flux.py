@@ -143,6 +143,7 @@ labels = [h.get_label() for h in handles]
 main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
 main_ax.set_ylim(10**-5, 1)
+main_ax.set_xlim(0.4, 1000)  # Set x-axis limits (example values)
 ax = main_ax
 ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=8)))
 
