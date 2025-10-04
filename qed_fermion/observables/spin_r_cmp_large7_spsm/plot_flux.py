@@ -31,7 +31,7 @@ lattice_sizes = [20, 30, 36, 40, 46, 56, 60, 62, 64, 66]
 lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
 
 # Data folder (same as in plot_fit_spsm_r.py)
-hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr/hmc_check_point_noncmpK0_large4_BBr"
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large4_Nrv40/hmc_check_point_cmp_large4_Nrv40"
 
 plt.figure(figsize=(8, 6))
 main_ax = plt.gca()
@@ -45,7 +45,7 @@ for i, Lx in enumerate(lattice_sizes):
     
     # Use glob to find the correct file for this Lx and Ltau
     def find_hmc_file(Lx, Ltau):
-        pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5*_cmp_False_step_*.pt"
+        pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5*_cmp_True_step_*.pt"
         files = glob.glob(os.path.join(hmc_folder, pattern))
         if not files:
             print(f"No file found for Lx={Lx}, Ltau={Ltau}")
@@ -112,9 +112,8 @@ ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
-man_slope = -4.2
-man_slope = -4.0
-man_intercept = 9.7  # Increase this to move the fit line up
+man_slope = -4.1
+man_intercept = 8.8  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(
@@ -124,8 +123,8 @@ fit_handle, = main_ax.plot(
 )
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
-man_slope = -3.0
-man_intercept = 7.7  # Increase this to move the fit line up
+man_slope = -3
+man_intercept = 5.7  # Increase this to move the fit line up
 x_fit3 = np.arange(10, 101, dtype=float)
 fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
 fit_handle3, = main_ax.plot(
@@ -199,10 +198,10 @@ inset_ax.yaxis.set_tick_params(labelsize=15)
 rect = mpatches.Rectangle((inset_xlim[0], inset_ylim[0]), inset_xlim[1]-inset_xlim[0], inset_ylim[1]-inset_ylim[0], linewidth=1.5, edgecolor='k', linestyle='--', facecolor='none', zorder=200)
 main_ax.add_patch(rect)
 
-save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
-os.makedirs(save_dir, exist_ok=True)
-file_path = os.path.join(save_dir, "greens_loglog_vs_tau_noncomp.pdf")
-plt.savefig(file_path, format="pdf", bbox_inches="tight")
-print(f"Log-log G vs tau figure saved at: {file_path}")
+# save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
+# os.makedirs(save_dir, exist_ok=True)
+# file_path = os.path.join(save_dir, "greens_loglog_vs_tau_noncomp.pdf")
+# plt.savefig(file_path, format="pdf", bbox_inches="tight")
+# print(f"Log-log G vs tau figure saved at: {file_path}")
 
 plt.show() 
