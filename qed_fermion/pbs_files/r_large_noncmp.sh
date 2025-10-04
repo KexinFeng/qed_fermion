@@ -34,7 +34,7 @@ L_array=$(echo '50')
 # BB_r lattice sizes
 L_array=$(echo '36 30 20 16 12 10')
 L_array=$(echo '46 40')
-L_array=$(echo '60 56 50')
+L_array=$(echo '60 56 50 46')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
@@ -44,10 +44,10 @@ export debug=0
 export cuda_graph=1
 export bs=1
 
-export suffix=noncmpK0_large8_bond_pi_flux
+export suffix=noncmpK1_large8_bond_pi_flux
 export asym=1
 export compact=0
-export K=0
+export K=1
 export dtau=0.1
 export precon=1
 
@@ -65,7 +65,7 @@ for L in $L_array; do
                 export J Nstep L
                 #
                 sbatch --job-name=${config} \
-                --time=2-23:59:00 \
+                --time=6-23:59:00 \
                 --qos=gpu \
                 --mem-per-cpu=8G \
                 s_hmc_noncmp.cmd
@@ -75,15 +75,15 @@ done
 
 # srun --pty --partition=interactive --qos=ood --mem=1G --cpus-per-task=1 --time=01:00:00 bash -i
 
-"""
-[fengx463@hpc2021-io2 ~]$ /home/fengx463/hmc/qed_fermion/qed_fermion/pbs_files/r_large_noncmp.sh
-n60J1.25K0
-Submitted batch job 2575259
-n56J1.25K0
-Submitted batch job 2575260
-n50J1.25K0
-sbatch: error: QOSMaxSubmitJobPerUserLimit
-sbatch: error: Batch job submission failed: Job violates accounting/QOS policy (job submit limit, user's size and/or time limits)
+# """
+# [fengx463@hpc2021-io2 ~]$ /home/fengx463/hmc/qed_fermion/qed_fermion/pbs_files/r_large_noncmp.sh
+# n60J1.25K0
+# Submitted batch job 2575259
+# n56J1.25K0
+# Submitted batch job 2575260
+# n50J1.25K0
+# sbatch: error: QOSMaxSubmitJobPerUserLimit
+# sbatch: error: Batch job submission failed: Job violates accounting/QOS policy (job submit limit, user's size and/or time limits)
 
-K1 60 56 50 haven't been submitted
-"""
+# K1 60 56 50 haven't been submitted
+# """
