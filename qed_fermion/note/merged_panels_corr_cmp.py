@@ -26,20 +26,20 @@ def add_panel_label(ax, label, x=0.02, y=0.98):
 
 def main():
     from qed_fermion.observables.spin_r_cmp_large7_spsm.plot_fit_spsm_r_plot import plot as plot_spsm
-    from qed_fermion.observables.spin_r_noncmpK0_large6_bond_corr_sup.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
+    from qed_fermion.observables.spin_r_cmp_large9_bond_corr.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
     # from qed_fermion.observables.spin_r_noncmpK0_large4_BBr.plot_flux_plot import plot as plot_flux
 
     base_w, base_h = mpl.rcParams.get('figure.figsize', (6, 4.5))
     base_w, base_h = 7.3, 6.7
     fig, axes = plt.subplots(1, 3, figsize=(base_w * 3, base_h), constrained_layout=True)
 
-    plot_spsm(axes[0])
-    add_panel_label(axes[0], '(a)')
-    axes[0].yaxis.set_minor_locator(plt.NullLocator())
+    # plot_spsm(axes[0])
+    # add_panel_label(axes[0], '(a)')
+    # axes[0].yaxis.set_minor_locator(plt.NullLocator())
 
-    plot_bondcorr(axes[1])
-    add_panel_label(axes[1], '(b)')
-    axes[1].yaxis.set_minor_locator(plt.NullLocator())
+    # plot_bondcorr(axes[1])
+    # add_panel_label(axes[1], '(b)')
+    # axes[1].yaxis.set_minor_locator(plt.NullLocator())
 
     plot_flux(axes[2])
     add_panel_label(axes[2], '(c)')

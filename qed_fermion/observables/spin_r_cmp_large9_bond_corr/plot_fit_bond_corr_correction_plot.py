@@ -47,7 +47,7 @@ def plot(ax: plt.Axes):
     """Render plot_fit_bond_corr_correction.plot_spin_r() into provided axis without saving/showing."""
     saved = _inject_ax_context(ax)
     try:
-        mod = importlib.import_module('qed_fermion.observables.spin_r_noncmpK0_large6_bond_corr_sup.plot_fit_bond_corr_correction')
+        mod = importlib.import_module('qed_fermion.observables.spin_r_cmp_large9_bond_corr.plot_fit_bond_corr_correction')
         if hasattr(mod, 'plot_spin_r'):
             mod.plot_spin_r()
         else:
