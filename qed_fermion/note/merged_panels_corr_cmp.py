@@ -33,13 +33,13 @@ def main():
     base_w, base_h = 7.3, 6.7
     fig, axes = plt.subplots(1, 3, figsize=(base_w * 3, base_h), constrained_layout=True)
 
-    # plot_spsm(axes[0])
-    # add_panel_label(axes[0], '(a)')
-    # axes[0].yaxis.set_minor_locator(plt.NullLocator())
+    plot_spsm(axes[0])
+    add_panel_label(axes[0], '(a)')
+    axes[0].yaxis.set_minor_locator(plt.NullLocator())
 
-    # plot_bondcorr(axes[1])
-    # add_panel_label(axes[1], '(b)')
-    # axes[1].yaxis.set_minor_locator(plt.NullLocator())
+    plot_bondcorr(axes[1])
+    add_panel_label(axes[1], '(b)')
+    axes[1].yaxis.set_minor_locator(plt.NullLocator())
 
     plot_flux(axes[2])
     add_panel_label(axes[2], '(c)')
