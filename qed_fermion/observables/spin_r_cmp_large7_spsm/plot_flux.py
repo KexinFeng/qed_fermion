@@ -157,41 +157,37 @@ inset_ax = inset_axes(
     main_ax,
     width="100%", height="100%",
     loc='upper left',
-    bbox_to_anchor=(0.08, 0.47, inset_width, inset_height),  # x0, y0, width, height (moved right)
+    bbox_to_anchor=(0.08, 0.45, inset_width, inset_height),
     bbox_transform=main_ax.transAxes,
     borderpad=0
 )
 
 # Plot the stored data in the inset
 for entry in plot_data:
-    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=15, alpha=0.8)
+    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=1, alpha=0.8)
 
 # Fit line in inset
-inset_ax.plot(x_fit, fit_line, 'k-', lw=1.5, alpha=0.8, zorder=100)
-inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1.5, alpha=0.8, zorder=100)
+inset_ax.plot(x_fit, fit_line, 'k-', lw=1, alpha=0.8, zorder=100)
+inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
-inset_xlim = (20, 90)
-inset_ylim = (2e-3, 9e-2)
+inset_xlim = (22, 40)
+inset_ylim = (2e-3, 2e-2)
 inset_ax.set_xlim(*inset_xlim)
 inset_ax.set_ylim(*inset_ylim)
 inset_ax.set_xscale('log')
 inset_ax.set_yscale('log')
 inset_ax.tick_params(axis='both', which='major', labelsize=10)
 # Set x-ticks and formatter for inset
-inset_xticks = [20, 30, 40, 50, 70]
+inset_xticks = [25, 30, 40]
 inset_ax.set_xticks(inset_xticks)
-inset_ax.set_xticks([], minor=True)  # Remove any minor ticks
-# Remove any automatic tick locator by setting the locator to a FixedLocator
-from matplotlib.ticker import FixedLocator
-inset_ax.xaxis.set_major_locator(FixedLocator(inset_xticks))
 inset_ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: str(int(x)) if x in inset_xticks else ""))
 inset_ax.set_yticks([2e-3, 1e-2])
-# inset_ax.set_yticks([])
-inset_ax.set_xlabel("", fontsize=15)
-inset_ax.set_ylabel("", fontsize=15)
-inset_ax.xaxis.set_tick_params(labelsize=15)
-inset_ax.yaxis.set_tick_params(labelsize=15)
+# inset_ax.minorticks_off()
+from matplotlib.ticker import NullFormatter
+inset_ax.yaxis.set_minor_formatter(NullFormatter())  # <--- This line ensures no minor tick label
+inset_ax.set_xlabel("", fontsize=10)
+inset_ax.set_ylabel("", fontsize=10)
 
 # Rectangle on main plot to show inset region
 # Rectangle parameters updated to match new inset limits

@@ -191,7 +191,7 @@ def plot_spin_r():
     handles, labels = plt.gca().get_legend_handles_labels()
 
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim x^{{{coeffs_l20[0]:.1f}}}$')
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$', zorder=100)
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
@@ -268,7 +268,7 @@ def plot_spin_r():
 
     # Set y-axis lower limit to 1e-7
     plt.ylim(10**(-8.5), 10**-1.0)
-    plt.xlim(0.4, None)
+    plt.xlim(0.2, None)
 
     # # Save the plot (log-log axes)
     # save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
