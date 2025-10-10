@@ -51,10 +51,10 @@ else:
         suffix = "diag"
 
 # HMC data folder for large4_BBr
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_cmp_large10_bond_corr_part2"
+data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmpK1_large8_bond_pi_flux"
 data_folder2 = ""
-# data_folder3 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part4"
-# data_folder4 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part5"
+data_folder3 = ""
+data_folder4 = ""
 
 separate = False
 
@@ -87,7 +87,7 @@ def plot_spin_r():
         import glob
         # Find the correct file for this Lx and Ltau
         def find_hmc_file(Lx, Ltau, folder=data_folder):
-            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_iter_400_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_True_step_*.pt"
+            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
             files = glob.glob(os.path.join(folder, pattern))
             if not files:
                 print(f"No file found for Lx={Lx}, Ltau={Ltau} in {folder}")
@@ -141,8 +141,8 @@ def plot_spin_r():
 
         # Load data from second folder
         hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
-        # hmc_filename3 = find_hmc_file(Lx, Ltau, data_folder3)
-        # hmc_filename4 = find_hmc_file(Lx, Ltau, data_folder4)
+        hmc_filename3 = find_hmc_file(Lx, Ltau, data_folder3)
+        hmc_filename4 = find_hmc_file(Lx, Ltau, data_folder4)
 
         # If no file found in second folder, use only first folder data
         bb_r_np_abs = bb_r_np_abs1
@@ -151,7 +151,7 @@ def plot_spin_r():
         bb0_r_avg_std_np = bb0_r_avg_std_np1
         total_samples = len(seq_idx) * bs
 
-        for extra_filename in [hmc_filename2]:
+        for extra_filename in [hmc_filename2, hmc_filename3, hmc_filename4]:
             if extra_filename is None: continue
             # Load checkpoint data from second folder
             res2 = torch.load(extra_filename, map_location='cpu')
@@ -255,12 +255,10 @@ def plot_spin_r():
         # Plot error bars with alpha=1 (fully opaque)
         if separate:
             eb = plt.errorbar(r_values[0:], np.abs(spin_corr_values[0:]), yerr=spin_corr_errors[0:], 
-                            linestyle=':', marker='o', color=color,
-                            markersize=12,
+                            linestyle=':', marker='o', color=color, 
                             label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
             eb2 = plt.errorbar(r_values[0:], np.abs(spin_corr_values0[0:]), yerr=spin_corr_errors0[0:], 
                             linestyle='-', marker='^', color=color, 
-                            markersize=12,
                             label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
             if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
                 eb2.lines[0].set_alpha(0.8)
@@ -268,8 +266,7 @@ def plot_spin_r():
             eb = plt.errorbar(r_values[0:], 
                             (np.abs(spin_corr_values) + np.abs(spin_corr_values0)[0:]), 
                             yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
-                            linestyle=':', marker='o', color=color,
-                            markersize=12, 
+                            linestyle=':', marker='o', color=color, 
                             label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
         
         # Set only the marker (dots) to have alpha=0.8
@@ -279,28 +276,18 @@ def plot_spin_r():
         dbstop = 1
 
     # Linear axes
-    plt.xlabel('r', fontsize=23)
-    plt.ylabel('$C_B(r, 0)$', fontsize=23)
-
-    # set tick label size
-    ax = plt.gca()
-    ax.xaxis.set_tick_params(labelsize=22)
-    ax.yaxis.set_tick_params(labelsize=22)
-
-    # Turn off minor ticks on both axes
-    ax.yaxis.set_minor_locator(plt.NullLocator())
+    plt.xlabel('r', fontsize=19)
+    plt.ylabel('$C_B(r, 0)$', fontsize=19)
 
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
-    # r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
-    # r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
-    r_min = 1
-    r_max = 55
-    r_fitline = np.linspace(r_min - 0.1, (r_max + r_min - 20)// 2, 100)
-    coeff0 = -3.7
-    coeff1 = -2.1
+    r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
+    r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
+    r_fitline = np.linspace(r_min - 0.1, (r_max + r_min - 15)// 2, 100)
+    coeff0 = -4.14
+    coeff1 = -1.5
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
-    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
     # phantom
@@ -308,11 +295,11 @@ def plot_spin_r():
     handles.insert(len(handles) // 2 + 1, phantom_line)
 
     # Ensure the fit line is appended at the end
-    labels = [line.get_label() for line in handles[0:1]]
-    plt.legend(handles, labels, ncol=1, fontsize=18 if not separate else 8, loc='lower left')
+    labels = [line.get_label() for line in handles]
+    plt.legend(handles, labels, ncol=2, fontsize=12 if not separate else 8)
 
-    # # plt.grid(True, alpha=0.3)
-    # plt.tight_layout()
+    # plt.grid(True, alpha=0.3)
+    plt.tight_layout()
     
     # Set log scales
     plt.xscale('log')
@@ -321,7 +308,7 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
-        plt.ylim(10**-7.0, 10**-0.8)
+        plt.ylim(10**-6.0, 10**-0.8)
         plt.xlim(0.75, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
@@ -330,13 +317,13 @@ def plot_spin_r():
     ax = plt.gca()
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
-    # # Save the plot (log-log axes)
-    # save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
-    # os.makedirs(save_dir, exist_ok=True)
-    # file_path = os.path.join(save_dir, 
-    #                          ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Log-log figure saved at: {file_path}")
+    # Save the plot (log-log axes)
+    save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, 
+                             ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK1_large7_BBr.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Log-log figure saved at: {file_path}")
 
     plt.show()
 

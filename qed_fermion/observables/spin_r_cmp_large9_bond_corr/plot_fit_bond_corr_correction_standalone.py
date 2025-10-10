@@ -53,8 +53,6 @@ else:
 # HMC data folder for large4_BBr
 data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_cmp_large10_bond_corr_part2"
 data_folder2 = ""
-# data_folder3 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part4"
-# data_folder4 = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/bond_corr/hmc_check_point_noncmpK0_large6_bond_corr_part5"
 
 separate = False
 
@@ -82,7 +80,7 @@ def plot_spin_r():
     for i, Lx in enumerate(lattice_sizes):
         # Construct filename for this lattice size
         Ltau = int(10 * Lx)
-        start = 1000
+        start = 2000
 
         import glob
         # Find the correct file for this Lx and Ltau
@@ -105,9 +103,8 @@ def plot_spin_r():
             continue
         # Now parse bs and Nrv from filename
         m_bs = re.search(r'bs(\d+)', hmc_filename)
-        m_nrv = re.search(r'Nrv_(\d+)', hmc_filename)
         bs = int(m_bs.group(1)) if m_bs else 1
-        Nrv = int(m_nrv.group(1)) if m_nrv else 30
+
         # Load checkpoint data from first folder
         res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')
@@ -141,30 +138,27 @@ def plot_spin_r():
 
         # Load data from second folder
         hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
-        # hmc_filename3 = find_hmc_file(Lx, Ltau, data_folder3)
-        # hmc_filename4 = find_hmc_file(Lx, Ltau, data_folder4)
-
-        # If no file found in second folder, use only first folder data
-        bb_r_np_abs = bb_r_np_abs1
-        bb0_r_np_abs = bb0_r_np_abs1
-        bb_r_avg_std_np = bb_r_avg_std_np1
-        bb0_r_avg_std_np = bb0_r_avg_std_np1
-        total_samples = len(seq_idx) * bs
-
-        for extra_filename in [hmc_filename2]:
-            if extra_filename is None: continue
+        if hmc_filename2 is None:
+            # If no file found in second folder, use only first folder data
+            bb_r_np_abs = bb_r_np_abs1
+            bb0_r_np_abs = bb0_r_np_abs1
+            bb_r_avg_std_np = bb_r_avg_std_np1
+            bb0_r_avg_std_np = bb0_r_avg_std_np1
+            total_samples = len(seq_idx) * bs
+        else:
             # Load checkpoint data from second folder
-            res2 = torch.load(extra_filename, map_location='cpu')
-            print(f'Loaded: {extra_filename}')
+            res2 = torch.load(hmc_filename2, map_location='cpu')
+            print(f'Loaded: {hmc_filename2}')
             
             # Extract required lists from second folder
             bb0_r2 = res2['BB0_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
             b_r2 = res2['B_r_list']
             
             # Extract sequence indices for equilibrated samples
-            hmc_match2 = re.search(r'step_(\d+)', extra_filename)
-            end2 = int(hmc_match2.group(1))
-            start2 = 1000
+            # hmc_match2 = re.search(r'Nstp_(\d+)', hmc_filename2)
+            # end2 = int(hmc_match2.group(1))
+            start2 = 0
+            end2 = 4000
             seq_idx2 = np.arange(start2, end2, sample_step)
 
             # Average over equilibrated timesteps and batch dimension for second folder (newest calc)
@@ -185,17 +179,17 @@ def plot_spin_r():
             bb0_r_avg_std_np2 = bb0_r_avg_std2.numpy()
 
             # Combine data from both folders (average)
-            n1 = total_samples
+            n1 = len(seq_idx) * bs
             n2 = len(seq_idx2) * bs
             total_samples = n1 + n2
-            bb_r_np_abs = (bb_r_np_abs * n1 + bb_r_np_abs2 * n2) / total_samples
-            bb0_r_np_abs = (bb0_r_np_abs * n1 + bb0_r_np_abs2 * n2) / total_samples
+            bb_r_np_abs = (bb_r_np_abs1 * n1 + bb_r_np_abs2 * n2) / total_samples
+            bb0_r_np_abs = (bb0_r_np_abs1 * n1 + bb0_r_np_abs2 * n2) / total_samples
             # For the standard deviation, combine variances weighted by sample size, then take sqrt
             bb_r_avg_std_np = np.sqrt(
-                (bb_r_avg_std_np**2 * n1 + bb_r_avg_std_np2**2 * n2) / total_samples
+                (bb_r_avg_std_np1**2 * n1 + bb_r_avg_std_np2**2 * n2) / total_samples
             )
             bb0_r_avg_std_np = np.sqrt(
-                (bb0_r_avg_std_np**2 * n1 + bb0_r_avg_std_np2**2 * n2) / total_samples
+                (bb0_r_avg_std_np1**2 * n1 + bb0_r_avg_std_np2**2 * n2) / total_samples
             )
         
         r_values = []
@@ -222,10 +216,6 @@ def plot_spin_r():
 
         spin_corr_values = np.array(spin_corr_values)
         spin_corr_values0 = np.array(spin_corr_values0)
-        if not np.all(spin_corr_values <= 0):
-            dbstop = 1
-        if not np.all(spin_corr_values0 <= 0):
-            dbstop = 1
         spin_corr_errors = np.array(spin_corr_errors)
         spin_corr_errors0 = np.array(spin_corr_errors0)
         # spin_corr_values = spin_corr_values - spin_corr_values.min() + 1e-15
@@ -254,22 +244,19 @@ def plot_spin_r():
         # Plot data and fit in log-log space
         # Plot error bars with alpha=1 (fully opaque)
         if separate:
-            eb = plt.errorbar(r_values[0:], np.abs(spin_corr_values[0:]), yerr=spin_corr_errors[0:], 
-                            linestyle=':', marker='o', color=color,
-                            markersize=12,
+            eb = plt.errorbar(r_values[0:], spin_corr_values[0:], yerr=spin_corr_errors[0:], 
+                            linestyle=':', marker='o', color=color, 
                             label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
-            eb2 = plt.errorbar(r_values[0:], np.abs(spin_corr_values0[0:]), yerr=spin_corr_errors0[0:], 
+            eb2 = plt.errorbar(r_values[0:], spin_corr_values0[0:], yerr=spin_corr_errors0[0:], 
                             linestyle='-', marker='^', color=color, 
-                            markersize=12,
                             label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
             if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
                 eb2.lines[0].set_alpha(0.8)
         else:
             eb = plt.errorbar(r_values[0:], 
-                            (np.abs(spin_corr_values) + np.abs(spin_corr_values0)[0:]), 
+                            (spin_corr_values + spin_corr_values0)[0:], 
                             yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
-                            linestyle=':', marker='o', color=color,
-                            markersize=12, 
+                            linestyle=':', marker='o', color=color, 
                             label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
         
         # Set only the marker (dots) to have alpha=0.8
@@ -279,28 +266,18 @@ def plot_spin_r():
         dbstop = 1
 
     # Linear axes
-    plt.xlabel('r', fontsize=23)
-    plt.ylabel('$C_B(r, 0)$', fontsize=23)
-
-    # set tick label size
-    ax = plt.gca()
-    ax.xaxis.set_tick_params(labelsize=22)
-    ax.yaxis.set_tick_params(labelsize=22)
-
-    # Turn off minor ticks on both axes
-    ax.yaxis.set_minor_locator(plt.NullLocator())
+    plt.xlabel('r', fontsize=19)
+    plt.ylabel('$C_B(r, 0)$', fontsize=19)
 
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
-    # r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
-    # r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
-    r_min = 1
-    r_max = 55
-    r_fitline = np.linspace(r_min - 0.1, (r_max + r_min - 20)// 2, 100)
+    r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
+    r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
+    r_fitline = np.linspace(r_min - 0.4, (r_max + r_min - 6)// 2, 100)
     coeff0 = -3.7
     coeff1 = -2.1
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
-    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
     # phantom
@@ -308,11 +285,13 @@ def plot_spin_r():
     handles.insert(len(handles) // 2 + 1, phantom_line)
 
     # Ensure the fit line is appended at the end
-    labels = [line.get_label() for line in handles[0:1]]
-    plt.legend(handles, labels, ncol=1, fontsize=18 if not separate else 8, loc='lower left')
+    # place_holder_handle = mlines.Line2D([], [], color='none', label='')
+    # handles.insert(5, place_holder_handle)
+    labels = [line.get_label() for line in handles]
+    plt.legend(handles, labels, ncol=2, fontsize=13 if not separate else 8)
 
-    # # plt.grid(True, alpha=0.3)
-    # plt.tight_layout()
+    # plt.grid(True, alpha=0.3)
+    plt.tight_layout()
     
     # Set log scales
     plt.xscale('log')
@@ -321,22 +300,22 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
-        plt.ylim(10**-7.0, 10**-0.8)
-        plt.xlim(0.75, None)
+        plt.ylim(10**-6.5, 10**-0.8)
+        plt.xlim(0.85, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
-        plt.xlim(0.5, None)   
+        plt.xlim(0.5, None)     
 
     ax = plt.gca()
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
-    # # Save the plot (log-log axes)
-    # save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
-    # os.makedirs(save_dir, exist_ok=True)
-    # file_path = os.path.join(save_dir, 
-    #                          ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Log-log figure saved at: {file_path}")
+    # Save the plot (log-log axes)
+    save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, 
+                             ("sep_" if separate else "") + "BB_r_vs_x_fit_log_cmp_large8_BBr.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Log-log figure saved at: {file_path}")
 
     plt.show()
 

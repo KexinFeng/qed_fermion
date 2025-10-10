@@ -59,7 +59,7 @@ r_l20 = np.exp(loge_r_l20)
 corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/hmc_check_point_noncmpK0_large8_spsm_pi_flux"
+data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmpK0_large8_spsm_pi_flux"
 # data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
@@ -72,8 +72,9 @@ def plot_spin_r():
     # Define lattice sizes to analyze
     lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     lattice_sizes = [8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [10, 12, 16, 20]
     # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
-    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    # lattice_sizes = [8, 10, 12, 16, 20, 30]
      
     # Sampling parameters
     
@@ -90,7 +91,7 @@ def plot_spin_r():
         import glob
         # Find the correct file for this Lx and Ltau
         def find_hmc_file(Lx, Ltau, folder=data_folder):
-            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
+            pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_1e-09_max_iter_400_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5_Nrv_*_cmp_False_step_*.pt"
             files = glob.glob(os.path.join(folder, pattern))
             if not files:
                 print(f"No file found for Lx={Lx}, Ltau={Ltau} in {folder}")
@@ -191,11 +192,11 @@ def plot_spin_r():
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
-    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19, 30]])
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
     coeffs_l20[0] = -3.8
-    coeffs_l20[1] = -1.5
+    coeffs_l20[1] = -1.8
     # coeffs_l20[0] = -2.8
     # coeffs_l20[1] = -2.8
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]

@@ -71,9 +71,9 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze
     lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
-    lattice_sizes = [8, 10, 12, 16, 20, 30]
+    # lattice_sizes = [8, 10, 12, 16, 20, 30]
      
     # Sampling parameters
     
@@ -191,11 +191,11 @@ def plot_spin_r():
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
-    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19, 20, 30]])
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
     coeffs_l20[0] = -3.8
-    coeffs_l20[1] = -1.5
+    coeffs_l20[1] = -1.99
     # coeffs_l20[0] = -2.8
     # coeffs_l20[1] = -2.8
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
