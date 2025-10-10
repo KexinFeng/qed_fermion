@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --output=./report_noncmpK1_large8_bond_pi_flux/%x_%j.out            # 8. Standard output log as $job_name_$job_id.out
-#SBATCH --error=./report_noncmpK1_large8_bond_pi_flux/%x_%j.err             #    Standard error log as $job_name_$job_id.errs
+#SBATCH --output=./report_noncmpK1_large8_spsm_pi_flux_sup/%x_%j.out            # 8. Standard output log as $job_name_$job_id.out
+#SBATCH --error=./report_noncmpK1_large8_spsm_pi_flux_sup/%x_%j.err             #    Standard error log as $job_name_$job_id.errs
 
 cd ${SLURM_SUBMIT_DIR}
 module load python/3.9.7
