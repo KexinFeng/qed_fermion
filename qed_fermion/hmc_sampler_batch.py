@@ -33,6 +33,8 @@ compute_BB = int(os.getenv("compute_BB", '0')) != 0
 print(f"compute_BB: {compute_BB}")
 compute_spsm = int(os.getenv("compute_spsm", '0')) != 0
 print(f"compute_spsm: {compute_spsm}")
+compute_spsm_tau = int(os.getenv("compute_spsm_tau", '0')) != 0
+print(f"compute_spsm_tau: {compute_spsm_tau}")
 K = float(os.getenv("K", '1'))
 print(f"K: {K}")
 max_tau_block_idx = int(os.getenv("max_tau_block_idx", '1'))
@@ -208,11 +210,11 @@ class HmcSampler(object):
         self.cg_r_err_list = torch.zeros(self.N_step, self.bs)
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
-        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        # self.spsm_k_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        self.B_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
-        self.BB0_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype)
+        self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_spsm else None
+        self.spsm_r_tau_list = torch.zeros(self.N_step, self.bs, self.Ltau, self.Ly, self.Lx, dtype=dtype) if compute_spsm_tau else None
+        self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_BB else None
+        self.B_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_BB else None
+        self.BB0_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_BB else None
 
         if self.Lx <= 10 and buffer:
             # boson_seq
@@ -442,7 +444,10 @@ class HmcSampler(object):
     @time_execution
     def init_stochastic_estimator(self):
         self.se = StochaticEstimator(self, cuda_graph_se=True)
-        self.se.initialize()
+        self.se.initialize(
+            compute_spsm=compute_spsm, 
+            compute_spsm_tau=compute_spsm_tau, 
+            compute_BB=compute_BB)
         self.se.init_cuda_graph()
 
         # # Randomly select num_samples from indices without replacement
@@ -2976,7 +2981,7 @@ class HmcSampler(object):
             # d_mem_str, d_mem2 = device_mem()
             # print(f"After init metropolis_graph: {d_mem_str}, incr.by: {d_mem2 - d_mem1:.2f} MB\n")
 
-            if compute_BB or compute_spsm:
+            if compute_BB or compute_spsm or compute_spsm_tau:
                 self.init_stochastic_estimator()  
                 d_mem_str, d_mem3 = device_mem()
                 print(f"After init se_graph: {d_mem_str}, incr.by: {d_mem3 - d_mem2:.2f} MB\n") 
@@ -2990,7 +2995,7 @@ class HmcSampler(object):
         futures = {}
 
         # Define CPU computations to run asynchronously
-        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, BB0_r_cpu, spsm_r_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
+        def async_cpu_computations(i, boson_cpu, BB_r_cpu, B_r_cpu, BB0_r_cpu, spsm_r_cpu, spsm_r_tau_cpu, accp_cpu, cg_converge_iter_cpu, cg_r_err_cpu, delta_t_cpu, cnt_stream_write):
             # Update metrics
             self.accp_list[i] = accp_cpu
             self.accp_rate[i] = torch.mean(self.accp_list[:i+1].to(torch.float), axis=0)
@@ -3018,6 +3023,8 @@ class HmcSampler(object):
                 self.BB0_r_list[i] = BB0_r_cpu  # [bs, Ly, Lx] 
             if spsm_r_cpu is not None:
                 self.spsm_r_list[i] = spsm_r_cpu  # [bs, Ly, Lx]
+            if spsm_r_tau_cpu is not None:
+                self.spsm_r_tau_list[i] = spsm_r_tau_cpu  # [bs, Ltau, Ly, Lx]
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -3044,15 +3051,17 @@ class HmcSampler(object):
                 print(f"Step {i}: metropolis update took {(start_time - start_time0)*1:.2f} sec")
                 sys.stdout.flush()
 
-            if compute_BB or compute_spsm:
+            if compute_BB or compute_spsm or compute_spsm_tau:
                 eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-                obsr = self.se.get_fermion_obsr_compile(boson, eta, compute_BB, compute_spsm)
+                obsr = self.se.get_fermion_obsr_compile(boson, eta)
                 BB_r = obsr['BB_r'] if compute_BB else None
                 B_r = obsr['B_r'] if compute_BB else None
                 BB0_r = obsr['BB0_r'] if compute_BB else None
                 spsm_r = obsr['spsm_r'] if compute_spsm else None
+                spsm_r_tau = obsr['spsm_r_tau'] if compute_spsm_tau else None
             else:
-                BB_r = B_r = BB0_r = spsm_r = spsm_k = None
+                BB_r = B_r = BB0_r = spsm_r = None
+                spsm_r_tau = None
 
             if i % 1000 == 0:  # Print timing every 100 steps
                 if torch.cuda.is_available():
@@ -3071,6 +3080,7 @@ class HmcSampler(object):
                 (B_r.cpu() if B_r is not None and B_r.is_cuda else (B_r.clone() if B_r is not None else None)),
                 (BB0_r.cpu() if BB0_r is not None and BB0_r.is_cuda else (BB0_r.clone() if BB0_r is not None else None)),
                 (spsm_r.cpu() if spsm_r is not None and spsm_r.is_cuda else (spsm_r.clone() if spsm_r is not None else None)),
+                (spsm_r_tau.cpu() if spsm_r_tau is not None and spsm_r_tau.is_cuda else (spsm_r_tau.clone() if spsm_r_tau is not None else None)),
                 # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
                 accp.cpu() if accp.is_cuda else accp.clone(), 
                 (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
@@ -3156,6 +3166,7 @@ class HmcSampler(object):
                         'B_r_list': self.B_r_list,
                         'BB0_r_list': self.BB0_r_list,
                         'spsm_r_list': self.spsm_r_list,
+                        'spsm_r_tau_list': self.spsm_r_tau_list,
                         'cg_iter_list': self.cg_iter_list,
                         'cg_r_err_list': self.cg_r_err_list,
                         'delta_t_list': self.delta_t_list}
@@ -3194,6 +3205,7 @@ class HmcSampler(object):
                 'B_r_list': self.B_r_list,
                 'BB0_r_list': self.BB0_r_list,
                 'spsm_r_list': self.spsm_r_list,
+                'spsm_r_tau_list': self.spsm_r_tau_list,
                'cg_iter_list': self.cg_iter_list,
                'cg_r_err_list': self.cg_r_err_list,
                'delta_t_list': self.delta_t_list}
@@ -3252,6 +3264,13 @@ class HmcSampler(object):
             axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 3].abs().mean(axis=1).numpy(), label=f'spsm_r[3]')
             axes[0, 2].plot(self.spsm_r_list[seq_idx, :, 0, 5].abs().mean(axis=1).numpy(), label=f'spsm_r[5]')
             axes[0, 2].set_ylabel("Spsm_r")
+            axes[0, 2].set_title("spsm_r Over Steps")
+            axes[0, 2].legend()
+        elif compute_spsm_tau:
+            # spsm_r_tau
+            axes[0, 2].plot(self.spsm_r_tau_list[seq_idx, :, 0, 0, 3].abs().mean(axis=1).numpy(), label=f'spsm_r_tau[0, 3]')
+            axes[0, 2].plot(self.spsm_r_tau_list[seq_idx, :, 0, 0, 5].abs().mean(axis=1).numpy(), label=f'spsm_r_tau[0, 5]')
+            axes[0, 2].set_ylabel("Spsm_r_tau")
             axes[0, 2].set_title("spsm_r Over Steps")
             axes[0, 2].legend()
         else:

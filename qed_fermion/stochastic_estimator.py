@@ -1,3 +1,4 @@
+from collections import defaultdict
 import math
 import torch
 import os 
@@ -89,13 +90,24 @@ class StochaticEstimator:
         # self.GD0_G0D = None
         # self.GD0 = None
 
-    def initialize(self):
+        # Functors
+        self.func = defaultdict(lambda : self.spsm_r_util)
+        self.func.update(
+            {'spsm_r': self.spsm_r_util,
+             'spsm_r_tau': self.spsm_r_tau_util}
+        )
+
+    def initialize(self, compute_spsm=False, compute_spsm_tau=False, compute_BB=False):
         # Tunable parameters
         # Batch processing to avoid OOM
         batch_size = self.batch_size(self.Nrv)
         inner_batch_size = batch_size  # int(0.1*Nrv)
         num_inner_loops = self.num_inner_loops # 200
         outer_stride = inner_batch_size * num_inner_loops
+
+        self.compute_spsm = compute_spsm
+        self.compute_spsm_tau = compute_spsm_tau
+        self.compute_BB = compute_BB
 
         params = Params()
         params.num_inner_loops = num_inner_loops
@@ -142,69 +154,62 @@ class StochaticEstimator:
             print(f"G_eta_graph_runner initialization complete")
             print('')
 
-            # # L0_graph_runner
-            # print("Initializing L0_graph_runner.........")
-            # d_mem_str, d_mem2 = device_mem()
-            # print(f"Before init L0_graph_runner: {d_mem_str}")
-            # self.graph_memory_pool = self.L0_graph_runner.capture(
-            #     params=self.params,
-            #     graph_memory_pool=self.graph_memory_pool)
-            # print(f"L0_graph_runner initialization complete")
-            # print('')
+            if self.compute_spsm or self.compute_spsm_tau:
+                # spsm_graph_runner
+                print("Initializing spsm_graph_runner.........")
+                d_mem_str, d_mem2 = device_mem()
+                print(f"Before init spsm_graph_runner: {d_mem_str}")
+                self.graph_memory_pool = self.spsm_graph_runner.capture(
+                    graph_memory_pool=self.graph_memory_pool,
+                    func_key="spsm_r" if self.compute_spsm else "spsm_r_tau")
+                print(f"spsm_graph_runner initialization complete")
+                print('')
 
-            # spsm_graph_runner
-            print("Initializing spsm_graph_runner.........")
-            d_mem_str, d_mem2 = device_mem()
-            print(f"Before init spsm_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.spsm_graph_runner.capture(
-                graph_memory_pool=self.graph_memory_pool)
-            print(f"spsm_graph_runner initialization complete")
-            print('')
+            if self.compute_BB:
+                # T1_graph_runner
+                print("Initializing T1_graph_runner.........")
+                d_mem_str, d_mem2 = device_mem()
+                print(f"Before init T1_graph_runner: {d_mem_str}")
+                self.graph_memory_pool = self.T1_graph_runner.capture(
+                    graph_memory_pool=self.graph_memory_pool)
+                print(f"T1_graph_runner initialization complete")
+                print('')
 
-            # T1_graph_runner
-            print("Initializing T1_graph_runner.........")
-            d_mem_str, d_mem2 = device_mem()
-            print(f"Before init T1_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.T1_graph_runner.capture(
-                graph_memory_pool=self.graph_memory_pool)
-            print(f"T1_graph_runner initialization complete")
-            print('')
+                # T2_graph_runner
+                print("Initializing T2_graph_runner.........")
+                d_mem_str, d_mem2 = device_mem()
+                print(f"Before init T2_graph_runner: {d_mem_str}")
+                self.graph_memory_pool = self.T21_graph_runner.capture(
+                    graph_memory_pool=self.graph_memory_pool)
+                print(f"T2_graph_runner initialization complete")
+                print('')
 
-            # T2_graph_runner
-            print("Initializing T2_graph_runner.........")
-            d_mem_str, d_mem2 = device_mem()
-            print(f"Before init T2_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.T21_graph_runner.capture(
-                graph_memory_pool=self.graph_memory_pool)
-            print(f"T2_graph_runner initialization complete")
-            print('')
+                # T3_graph_runner
+                print("Initializing T3_graph_runner.........")
+                d_mem_str, d_mem2 = device_mem()
+                print(f"Before init T3_graph_runner: {d_mem_str}")
+                self.graph_memory_pool = self.T2_graph_runner.capture(
+                    graph_memory_pool=self.graph_memory_pool)
+                print(f"T3_graph_runner initialization complete")
+                print('')
 
-            # T3_graph_runner
-            print("Initializing T3_graph_runner.........")
-            d_mem_str, d_mem2 = device_mem()
-            print(f"Before init T3_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.T2_graph_runner.capture(
-                graph_memory_pool=self.graph_memory_pool)
-            print(f"T3_graph_runner initialization complete")
-            print('')
+                # T4_graph_runner
+                print("Initializing T4_graph_runner.........")
+                d_mem_str, d_mem2 = device_mem()
+                print(f"Before init T4_graph_runner: {d_mem_str}")
+                self.graph_memory_pool = self.T4_graph_runner.capture(
+                    graph_memory_pool=self.graph_memory_pool)
+                print(f"T4_graph_runner initialization complete")
+                print('')
 
-            # T4_graph_runner
-            print("Initializing T4_graph_runner.........")
-            d_mem_str, d_mem2 = device_mem()
-            print(f"Before init T4_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.T4_graph_runner.capture(
-                graph_memory_pool=self.graph_memory_pool)
-            print(f"T4_graph_runner initialization complete")
-            print('')
-
-            # Tvv_graph_runner
-            print("Initializing Tvv_graph_runner.........")
-            d_mem_str, d_mem2 = device_mem()
-            print(f"Before init Tvv_graph_runner: {d_mem_str}")
-            self.graph_memory_pool = self.Tvv_graph_runner.capture(
-                graph_memory_pool=self.graph_memory_pool)
-            print(f"Tvv_graph_runner initialization complete")
-            print('')
+                # Tvv_graph_runner
+                print("Initializing Tvv_graph_runner.........")
+                d_mem_str, d_mem2 = device_mem()
+                print(f"Before init Tvv_graph_runner: {d_mem_str}")
+                self.graph_memory_pool = self.Tvv_graph_runner.capture(
+                    graph_memory_pool=self.graph_memory_pool)
+                print(f"Tvv_graph_runner initialization complete")
+                print('')
 
 
     def random_vec_bin(self):
@@ -2456,7 +2461,7 @@ class StochaticEstimator:
         return 0.5 * szsz
 
     @torch.inference_mode()
-    def get_fermion_obsr_compile(self, bosons, eta, compute_BB=True, compute_spsm=True):
+    def get_fermion_obsr_compile(self, bosons, eta):
         """
         bosons: [bs, 2, Lx, Ly, Ltau] tensor of boson fields
         eta: [Nrv, Ltau * Ly * Lx]
@@ -2473,8 +2478,9 @@ class StochaticEstimator:
             boson = bosons[b].unsqueeze(0)  # [1, 2, Lx, Ly, Ltau]
             self.set_eta_G_eta(boson, eta)
 
-            obsr.update(self.get_bond_bond_per_b2(boson) if compute_BB else {})
-            obsr.update(self.get_spsm_per_b2() if compute_spsm else {})
+            obsr.update(self.get_bond_bond_per_b2(boson) if self.compute_BB else {})
+            obsr.update(self.get_spsm_per_b2() if self.compute_spsm else {})
+            obsr.update(self.get_spsm_tau_per_b2() if self.compute_spsm_tau else {})
             # obsr.update(self.get_dimer_dimer_per_b2())
 
             obsrs.append(obsr)
@@ -2535,7 +2541,7 @@ class StochaticEstimator:
         if self.cuda_graph_se:
             spsm_r = self.spsm_graph_runner(self.eta, self.G_eta)
         else:
-            spsm_r = self.spsm_r_util(self.eta, self.G_eta)
+            spsm_r = self.func['spsm_r'](self.eta, self.G_eta)
 
         # torch.testing.assert_close(spsm_r, spsm_r_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
@@ -2548,6 +2554,19 @@ class StochaticEstimator:
         obsr['spsm_k'] = spsm_k.real
         return obsr
 
+    def get_spsm_tau_per_b2(self):
+        # if self.cuda_graph_se:
+        spsm_r_tau = self.spsm_tau_graph_runner(self.eta, self.G_eta)
+        # else:
+        spsm_r_tau_ref = self.func['spsm_r_tau'](self.eta, self.G_eta)
+
+        torch.testing.assert_close(spsm_r_tau, spsm_r_tau_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+
+        # Output
+        obsr = {}
+        obsr['spsm_r_tau'] = spsm_r_tau.real
+        return obsr
+
     def spsm_r_util(self, eta, G_eta):
         # eta: [Nrv, Ltau * Ly * Lx]
         # G_eta: [Nrv, Ltau, Ly, Lx]
@@ -2557,6 +2576,15 @@ class StochaticEstimator:
         spsm[0, 0, 0] += GD0[0, 0, 0]
         spsm_r = spsm[0]  # Return only tau=0 slice: [Ly, Lx]
         return spsm_r
+
+    def spsm_r_tau_util(self, eta, G_eta):
+        # eta: [Nrv, Ltau * Ly * Lx]
+        # G_eta: [Nrv, Ltau, Ly, Lx]
+        GD0_G0D = self.GD0_G0D_func(eta, G_eta) # [Ltau, Ly, Lx]
+        GD0 = self.GD0_func(eta, G_eta) # [Ltau, Ly, Lx]
+        spsm = -GD0_G0D  # [Ltau, Ly, Lx]
+        spsm[0, 0, 0] += GD0[0, 0, 0]
+        return spsm # [Ltau, Ly, Lx]
 
     def get_bond_bond_per_b2(self, boson):
         # eta: [Nrv, Ltau * Ly * Lx]

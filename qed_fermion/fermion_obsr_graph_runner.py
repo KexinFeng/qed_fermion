@@ -302,6 +302,7 @@ class SpsmGraphRunner:
 
     def capture(
         self,
+        func_key='spsm_r',
         graph_memory_pool=None,
         n_warmups=3
     ):
@@ -322,7 +323,7 @@ class SpsmGraphRunner:
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for n in range(n_warmups):
-                static_outputs = self.se.spsm_r_util(
+                static_outputs = self.se.func[func_key](
                     input_buffers['eta'],
                     input_buffers['G_eta']
                 )
@@ -335,7 +336,7 @@ class SpsmGraphRunner:
 
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.se.spsm_r_util(
+            static_outputs = self.se.func[func_key](
                 input_buffers['eta'],
                 input_buffers['G_eta']
             )
