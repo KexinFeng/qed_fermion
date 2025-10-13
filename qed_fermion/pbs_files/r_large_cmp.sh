@@ -37,6 +37,7 @@ L_array=$(echo '46 40')
 Nstep=10000
 export debug=0
 export cuda_graph=1
+export cuda_graph_se=1
 export bs=1
 
 export suffix=cmp_large10_bond_corr_part4
@@ -48,6 +49,7 @@ export precon=1
 
 export compute_BB=1
 export compute_spsm=0
+export compute_spsm_tau=0
 
 export seed=422
 

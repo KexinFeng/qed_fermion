@@ -42,6 +42,7 @@ L_array=$(echo '46 40 36 30')
 Nstep=10000
 export debug=0
 export cuda_graph=1
+export cuda_graph_se=1
 export bs=1
 
 export suffix=noncmpK1_large8_spsm_pi_flux_sup
@@ -52,7 +53,8 @@ export dtau=0.1
 export precon=1
 
 export compute_BB=0
-export compute_spsm=1
+export compute_spsm=0
+export compute_spsm_tau=1
 
 export seed=326
 
