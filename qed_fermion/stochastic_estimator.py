@@ -46,7 +46,7 @@ class StochaticEstimator:
     # One method to estimate the four-point green's function: four_point_green
     # One method to compute the obs like spsm szsz, etc.
 
-    def __init__(self, hmc, cuda_graph_se=False):
+    def __init__(self, hmc, cuda_graph_se=True):
         self.hmc_sampler = hmc
         self.Nrv = int(Nrv)
         self.max_iter_se = max_iter_se

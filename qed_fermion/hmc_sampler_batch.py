@@ -23,6 +23,8 @@ print(f"debug_mode: {debug_mode}")
 
 cuda_graph = int(os.getenv("cuda_graph", '1')) != 0
 print(f"cuda_graph: {cuda_graph}")
+cuda_graph_se = int(os.getenv("cuda_graph_se", '1')) != 0
+print(f"cuda_graph_se: {cuda_graph_se}")
 use_cuda_kernel = int(os.getenv("use_cuda_kernel", '1')) != 0
 print(f"use_cuda_kernel: {use_cuda_kernel}")
 mass_mode = int(os.getenv("mass_mode", '0')) # 1: mass ~ inverse sigma; -1: mass ~ sigma
@@ -443,7 +445,7 @@ class HmcSampler(object):
 
     @time_execution
     def init_stochastic_estimator(self):
-        self.se = StochaticEstimator(self, cuda_graph_se=True)
+        self.se = StochaticEstimator(self, cuda_graph_se=cuda_graph_se)
         self.se.initialize(
             compute_spsm=compute_spsm, 
             compute_spsm_tau=compute_spsm_tau, 
