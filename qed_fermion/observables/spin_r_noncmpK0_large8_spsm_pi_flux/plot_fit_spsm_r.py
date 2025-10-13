@@ -72,7 +72,7 @@ def plot_spin_r():
     # Define lattice sizes to analyze
     lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     lattice_sizes = [8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [10, 12, 16, 20]
+    # lattice_sizes = [10, 12, 16, 20]
     # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
     # lattice_sizes = [8, 10, 12, 16, 20, 30]
      
