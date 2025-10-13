@@ -2555,12 +2555,12 @@ class StochaticEstimator:
         return obsr
 
     def get_spsm_tau_per_b2(self):
-        # if self.cuda_graph_se:
-        spsm_r_tau = self.spsm_tau_graph_runner(self.eta, self.G_eta)
-        # else:
-        spsm_r_tau_ref = self.func['spsm_r_tau'](self.eta, self.G_eta)
+        if self.cuda_graph_se:
+            spsm_r_tau = self.spsm_graph_runner(self.eta, self.G_eta)
+        else:
+            spsm_r_tau = self.func['spsm_r_tau'](self.eta, self.G_eta)
 
-        torch.testing.assert_close(spsm_r_tau, spsm_r_tau_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
+        # torch.testing.assert_close(spsm_r_tau, spsm_r_tau_ref, rtol=1e-5, atol=1e-5, equal_nan=True, check_dtype=False)
 
         # Output
         obsr = {}

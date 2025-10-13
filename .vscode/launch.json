@@ -11,13 +11,13 @@
             "request": "launch",
             "program": "${file}",
             "env": {
-                "debug": "1",
+                "debug": "0",
                 "cuda_graph": "1",
                 "Nrv": "40",
                 // "CUDA_LAUNCH_BLOCKING": "1",
                 // "TORCH_COMPILE_DEBUG": "1",
                 // "TORCH_LOGS": "+inductor",
-                "compute_BB": "1",
+                "compute_spsm_tau": "1",
             }
         }
     ]
