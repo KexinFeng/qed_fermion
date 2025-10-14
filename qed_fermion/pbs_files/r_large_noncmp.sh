@@ -32,10 +32,9 @@ L_array=$(echo '50')
 # L_array=$(echo '50 46')
 
 # BB_r lattice sizes
-L_array=$(echo '16 12 10')
-L_array=$(echo '46 40 36 30 26 20')
-# L_array=$(echo '60 56 50')
-# L_array=$(echo '66')
+L_array=$(echo '30 26 20 16 12 10')
+L_array=$(echo '46 40 36')
+L_array=$(echo '60 56 50')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
@@ -43,10 +42,10 @@ L_array=$(echo '46 40 36 30 26 20')
 Nstep=6500
 export debug=0
 export cuda_graph=1
-export cuda_graph_se=0
+export cuda_graph_se=1
 export bs=1
 
-export suffix=ncmpK1_spsm_tau
+export suffix=ncmpK1_spsm_tau2
 export asym=1
 export compact=0
 export K=1
