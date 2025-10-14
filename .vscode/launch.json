@@ -11,8 +11,10 @@
             "request": "launch",
             "program": "${file}",
             "env": {
+                "L": "40",
                 "debug": "0",
                 "cuda_graph": "1",
+                "cuda_graph_se": "1",
                 "Nrv": "40",
                 // "CUDA_LAUNCH_BLOCKING": "1",
                 // "TORCH_COMPILE_DEBUG": "1",

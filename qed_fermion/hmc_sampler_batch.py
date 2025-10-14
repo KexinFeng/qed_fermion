@@ -213,7 +213,7 @@ class HmcSampler(object):
         self.delta_t_list = torch.zeros(self.N_step, self.bs)
         
         self.spsm_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_spsm else None
-        self.spsm_r_tau_list = torch.zeros(self.N_step, self.bs, self.Ltau, self.Ly, self.Lx, dtype=dtype) if compute_spsm_tau else None
+        self.spsm_r_tau_list = torch.zeros(1, self.bs, self.Ltau, self.Ly, self.Lx, dtype=dtype) if compute_spsm_tau else None
         self.BB_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_BB else None
         self.B_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_BB else None
         self.BB0_r_list = torch.zeros(self.N_step, self.bs, self.Ly, self.Lx, dtype=dtype) if compute_BB else None
@@ -3025,8 +3025,8 @@ class HmcSampler(object):
                 self.BB0_r_list[i] = BB0_r_cpu  # [bs, Ly, Lx] 
             if spsm_r_cpu is not None:
                 self.spsm_r_list[i] = spsm_r_cpu  # [bs, Ly, Lx]
-            if spsm_r_tau_cpu is not None:
-                self.spsm_r_tau_list[i] = spsm_r_tau_cpu  # [bs, Ltau, Ly, Lx]
+            if spsm_r_tau_cpu is not None and i >= 3000:
+                self.spsm_r_tau_list = 1/(i-3000+1) * spsm_r_tau_cpu + (i-3000)/(i-3000+1) * self.spsm_r_tau_list  # [bs, Ltau, Ly, Lx]
             if mass_mode != 0:
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
@@ -3268,13 +3268,13 @@ class HmcSampler(object):
             axes[0, 2].set_ylabel("Spsm_r")
             axes[0, 2].set_title("spsm_r Over Steps")
             axes[0, 2].legend()
-        elif compute_spsm_tau:
-            # spsm_r_tau
-            axes[0, 2].plot(self.spsm_r_tau_list[seq_idx, :, 0, 0, 3].abs().mean(axis=1).numpy(), label=f'spsm_r_tau[0, 3]')
-            axes[0, 2].plot(self.spsm_r_tau_list[seq_idx, :, 0, 0, 5].abs().mean(axis=1).numpy(), label=f'spsm_r_tau[0, 5]')
-            axes[0, 2].set_ylabel("Spsm_r_tau")
-            axes[0, 2].set_title("spsm_r Over Steps")
-            axes[0, 2].legend()
+        # elif compute_spsm_tau:
+        #     # spsm_r_tau
+        #     axes[0, 2].plot(self.spsm_r_tau_list[seq_idx, :, 0, 0, 3].abs().mean(axis=1).numpy(), label=f'spsm_r_tau[0, 3]')
+        #     axes[0, 2].plot(self.spsm_r_tau_list[seq_idx, :, 0, 0, 5].abs().mean(axis=1).numpy(), label=f'spsm_r_tau[0, 5]')
+        #     axes[0, 2].set_ylabel("Spsm_r_tau")
+        #     axes[0, 2].set_title("spsm_r Over Steps")
+        #     axes[0, 2].legend()
         else:
             # BB_r
             BB_r_mean = self.BB_r_list[seq_idx, ...].mean(axis=1)
