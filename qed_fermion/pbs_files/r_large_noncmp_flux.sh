@@ -35,6 +35,7 @@ L_array=$(echo '50')
 L_array=$(echo '30 26 20 16 12 10')
 L_array=$(echo '46 40 36')
 L_array=$(echo '60 56 50')
+L_array=$(echo '66')
 
 # J_array=$(echo '1.0')
 # L_array=$(echo '6 8 10')  # 10 h (-2)
@@ -45,7 +46,7 @@ export cuda_graph=1
 export cuda_graph_se=1
 export bs=1
 
-export suffix=ncmpK1_spsm_tau3
+export suffix=report_ncmpK1_spsm_L66_2
 export asym=1
 export compact=0
 export K=1
@@ -54,7 +55,7 @@ export precon=1
 
 export compute_BB=0
 export compute_spsm=0
-export compute_spsm_tau=1
+export compute_spsm_tau=0
 
 export seed=326
 
