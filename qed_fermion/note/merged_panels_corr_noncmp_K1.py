@@ -25,8 +25,8 @@ def add_panel_label(ax, label, x=0.02, y=0.98):
 
 
 def main():
-    from qed_fermion.observables.spin_r_noncmpK0_large1_spsm_sup.plot_fit_spsm_r_plot import plot as plot_spsm
-    from qed_fermion.observables.spin_r_noncmpK0_large6_bond_corr_sup.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
+    from qed_fermion.observables.spin_r_noncmpK1_large1_spsm_sup_repr2.plot_fit_spsm_r_plot import plot as plot_spsm
+    from qed_fermion.observables.spin_r_noncmpK1_large8_bond_pi_flux.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
     from qed_fermion.observables.spin_r_noncmpK0_large4_BBr.plot_flux_plot import plot as plot_flux
 
     base_w, base_h = mpl.rcParams.get('figure.figsize', (6, 4.5))
@@ -47,7 +47,7 @@ def main():
 
     save_dir = os.path.join(script_path, 'figures')
     os.makedirs(save_dir, exist_ok=True)
-    out_path_pdf = os.path.join(save_dir, 'fermion_corr.pdf')
+    out_path_pdf = os.path.join(save_dir, 'fermion_corr_noncmp_K1.pdf')
     plt.savefig(out_path_pdf, bbox_inches='tight')
     print(f'Saved merged figure to: {out_path_pdf}')
 

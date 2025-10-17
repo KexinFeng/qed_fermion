@@ -15,7 +15,7 @@ import torch
 import sys
 sys.path.insert(0, script_path + '/../../../')
 
-from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n
+from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n, init_convex_seq_estimator
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from matplotlib.ticker import LogLocator
 
@@ -60,6 +60,7 @@ corr_l20 = np.exp(loge_corr_l20)
 
 # HMC data folder
 data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmpK1_large1_spsm_sup_repr2"
+# data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large1_spsm/hmc_check_point_noncmpK0_large1_spsm"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -70,15 +71,13 @@ def plot_spin_r():
     
     # Define lattice sizes to analyze
     lattice_sizes = [6, 8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [8, 10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
+    # lattice_sizes = [8, 10, 12, 16, 20, 30]
      
     # Sampling parameters
-    start = 5000  # Skip initial equilibration steps
-    sample_step = 1
     
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 6))
     
     # Store data for normalization analysis
     all_data = {}
@@ -180,7 +179,6 @@ def plot_spin_r():
         plt.errorbar(r_values[0:], spin_corr_values[0:], 
                      yerr=np.array(spin_corr_errors[0:]), 
                      linestyle=':', marker='o', color=color, 
-                     markersize=12,
                      label=rf'{Ltau}x{Lx}$^2$', alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
@@ -193,18 +191,20 @@ def plot_spin_r():
     log_r_l20 = np.log(r_l20)
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
-    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
+    r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19, 20, 30]])
     # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
     coeffs_l20[0] = -3.8
     coeffs_l20[1] = -1.99
+    # coeffs_l20[0] = -2.8
+    # coeffs_l20[1] = -2.8
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
     # Plot the fit line and merge its handle/label to the end of the existing legend entries
     handles, labels = plt.gca().get_legend_handles_labels()
     
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$', zorder=100)
+    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$')
     # Ensure the fit line is appended at the end
     handles.insert(0, line_fit)
 
@@ -249,20 +249,17 @@ def plot_spin_r():
     # )
     # handles.append(dqmc_handle_2)
 
-    handles = handles[1:] + handles[0:1]
     # phantom
-    # phantom_line = mlines.Line2D([], [], color='none', label='')
-    # handles.insert(len(handles) // 2 + 1, phantom_line)
-    handles.extend([mlines.Line2D([], [], color='none', label='') for _ in range(6)])
-    handles = handles[:10] + handles[14:] + handles[10:14]
+    phantom_line = mlines.Line2D([], [], color='none', label='')
+    handles.insert(len(handles) // 2 + 1, phantom_line)
 
 
     labels = [line.get_label() for line in handles]
     # Linear axes
-    plt.xlabel('r', fontsize=23)
-    plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
+    plt.xlabel('r', fontsize=19)
+    plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=19)
 
-    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left')
+    plt.legend(handles, labels, ncol=2, fontsize=13)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -272,21 +269,11 @@ def plot_spin_r():
 
     # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
     ax = plt.gca()
-    # set tick label size
-    ax = plt.gca()
-    ax.xaxis.set_tick_params(labelsize=22)
-    ax.yaxis.set_tick_params(labelsize=22)
-
-    # Turn off minor ticks on both axes
-    ax.yaxis.set_minor_locator(plt.NullLocator())
-
-    # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
-    ax = plt.gca()
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Set y-axis lower limit to 1e-7
-    plt.ylim(10**(-8.5), 10**-1.0)
-    plt.xlim(0.2, None)
+    plt.ylim(1e-7, None)
+    plt.xlim(0.7, None)
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
@@ -298,56 +285,6 @@ def plot_spin_r():
     plt.show()
 
  
-
-def plot(ax):
-    """Wrapper function to be imported by merged_panels_corr_noncmp_K1.py"""
-    import matplotlib.pyplot as plt
-    from matplotlib import rcParams
-    
-    # Save current state
-    old_figure = plt.figure
-    old_subplots = plt.subplots
-    old_gca = plt.gca
-    old_savefig = plt.savefig
-    old_show = plt.show
-    old_sca = plt.sca
-    
-    # Inject axis context
-    def fake_figure(*args, **kwargs):
-        return ax.figure
-
-    def fake_subplots(*args, **kwargs):
-        return ax.figure, ax
-
-    def fake_gca():
-        return ax
-
-    def fake_savefig(*args, **kwargs):
-        return None
-
-    def fake_show(*args, **kwargs):
-        return None
-
-    plt.figure = fake_figure
-    plt.subplots = fake_subplots
-    plt.gca = fake_gca
-    plt.savefig = fake_savefig
-    plt.show = fake_show
-    plt.sca(ax)
-    
-    try:
-        plot_spin_r()
-    finally:
-        # Restore original functions
-        plt.figure = old_figure
-        plt.subplots = old_subplots
-        plt.gca = old_gca
-        plt.savefig = old_savefig
-        plt.show = old_show
-        plt.sca = old_sca
-    
-    return ax
-
 
 if __name__ == '__main__':
     plot_spin_r()
