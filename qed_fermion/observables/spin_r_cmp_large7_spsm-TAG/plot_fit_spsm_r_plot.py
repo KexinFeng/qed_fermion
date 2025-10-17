@@ -49,7 +49,7 @@ def plot(ax: plt.Axes):
     """Render plot_fit_spsm_r.plot_spin_r() into provided axis without saving/showing."""
     saved = _inject_ax_context(ax)
     try:
-        mod = importlib.import_module('qed_fermion.observables.spin_r_cmp_large7_spsm.plot_fit_spsm_r')
+        mod = importlib.import_module('qed_fermion.observables.spin_r_cmp_large7_spsm-TAG.plot_fit_spsm_r')
         # Execute plotting logic
         if hasattr(mod, 'plot_spin_r'):
             mod.plot_spin_r()

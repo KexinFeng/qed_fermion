@@ -23,9 +23,11 @@ def _inject_ax_context(ax):
         return ax
 
     def fake_savefig(*args, **kwargs):
+        # no-op in aggregated plot
         return None
 
     def fake_show(*args, **kwargs):
+        # no-op in aggregated plot
         return None
 
     _plt.figure = fake_figure
@@ -44,14 +46,15 @@ def _restore_context(saved):
 
 
 def plot(ax: plt.Axes):
-    """Render plot_fit_bond_corr_correction.plot_spin_r() into provided axis without saving/showing."""
+    """Render plot_fit_spsm_r.plot_spin_r() into provided axis without saving/showing."""
     saved = _inject_ax_context(ax)
     try:
-        mod = importlib.import_module('qed_fermion.observables.spin_r_noncmpK0_large6_bond_corr_sup.plot_fit_bond_corr_correction')
+        mod = importlib.import_module('qed_fermion.observables.spin_r_noncmpK0_large1_spsm_sup-TAG.plot_fit_spsm_r')
+        # Execute plotting logic
         if hasattr(mod, 'plot_spin_r'):
             mod.plot_spin_r()
         else:
-            raise AttributeError('plot_spin_r not found in plot_fit_bond_corr_correction')
+            raise AttributeError('plot_spin_r not found in plot_fit_spsm_r')
     finally:
         _restore_context(saved)
     return ax

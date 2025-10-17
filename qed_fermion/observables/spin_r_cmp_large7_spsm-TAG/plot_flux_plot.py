@@ -44,14 +44,13 @@ def _restore_context(saved):
 
 
 def plot(ax: plt.Axes):
-    """Render plot_fit_bond_corr_correction.plot_spin_r() into provided axis without saving/showing."""
+    """Render plot_flux.py main plot into provided axis without saving/showing."""
     saved = _inject_ax_context(ax)
     try:
-        mod = importlib.import_module('qed_fermion.observables.spin_r_cmp_large9_bond_corr.plot_fit_bond_corr_correction')
-        if hasattr(mod, 'plot_spin_r'):
-            mod.plot_spin_r()
-        else:
-            raise AttributeError('plot_spin_r not found in plot_fit_bond_corr_correction')
+        mod = importlib.import_module('qed_fermion.observables.spin_r_cmp_large7_spsm-TAG.plot_flux')
+        # This module executes plotting at import time; ensure context is applied
+        if hasattr(mod, 'main_ax') or hasattr(mod, 'plot_data'):
+            pass
     finally:
         _restore_context(saved)
     return ax
