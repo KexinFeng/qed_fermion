@@ -276,8 +276,8 @@ def plot_spin_r():
         dbstop = 1
 
     # Linear axes
-    plt.xlabel('r', fontsize=19)
-    plt.ylabel('$C_B(r, 0)$', fontsize=19)
+    plt.xlabel('r', fontsize=23)
+    plt.ylabel('$C_B(r, 0)$', fontsize=23)
 
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
@@ -287,6 +287,7 @@ def plot_spin_r():
     coeff1 = -2.2
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
+    handles, labels = [], []
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
@@ -296,7 +297,7 @@ def plot_spin_r():
 
     # Ensure the fit line is appended at the end
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=2, fontsize=12 if not separate else 8)
+    plt.legend(handles, labels, ncol=1, fontsize=18 if not separate else 8, loc='lower left')
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -308,20 +309,22 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
-        plt.ylim(10**-6.0, 10**-0.8)
+        plt.ylim(10**-7.5, 10**-0.8)
         plt.xlim(0.75, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
         plt.xlim(0.5, None)   
 
     ax = plt.gca()
+    ax.xaxis.set_tick_params(labelsize=22)
+    ax.yaxis.set_tick_params(labelsize=22)
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, 
-                             ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK1_large7_BBr.pdf")
+                             ("sep_" if separate else "") + f"BB_r_vs_x_fit_log_noncmpK1_large7_BBr_tmp.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 

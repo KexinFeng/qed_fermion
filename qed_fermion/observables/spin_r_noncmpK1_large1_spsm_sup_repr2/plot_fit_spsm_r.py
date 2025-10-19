@@ -251,8 +251,6 @@ def plot_spin_r():
 
     handles = handles[1:] + handles[0:1]
     # phantom
-    # phantom_line = mlines.Line2D([], [], color='none', label='')
-    # handles.insert(len(handles) // 2 + 1, phantom_line)
     handles.extend([mlines.Line2D([], [], color='none', label='') for _ in range(6)])
     handles = handles[:10] + handles[14:] + handles[10:14]
 
@@ -291,7 +289,7 @@ def plot_spin_r():
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK1.pdf")
+    file_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK1_tmp.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Log-log figure saved at: {file_path}")
 
