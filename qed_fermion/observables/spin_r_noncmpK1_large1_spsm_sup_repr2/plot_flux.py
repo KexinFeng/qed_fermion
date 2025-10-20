@@ -31,7 +31,7 @@ lattice_sizes = [20, 30, 36, 40, 46, 56, 60, 62, 64, 66]
 lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
 
 # Data folder (same as in plot_fit_spsm_r.py)
-hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/noncmpK0_large4_BBr/hmc_check_point_noncmpK0_large4_BBr"
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmpK1_large1_spsm_sup_repr2"
 
 plt.figure(figsize=(8, 6))
 main_ax = plt.gca()
@@ -45,7 +45,10 @@ for i, Lx in enumerate(lattice_sizes):
     
     # Use glob to find the correct file for this Lx and Ltau
     def find_hmc_file(Lx, Ltau):
-        pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_0_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5*_cmp_False_step_*.pt"
+        pattern = (
+            f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_1_dtau_0.1_delta_0.028_"
+            "N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5*_Nrv_*_cmp_False_step_*.pt"
+        )
         files = glob.glob(os.path.join(hmc_folder, pattern))
         if not files:
             print(f"No file found for Lx={Lx}, Ltau={Ltau}")
@@ -201,7 +204,7 @@ main_ax.add_patch(rect)
 
 save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
 os.makedirs(save_dir, exist_ok=True)
-file_path = os.path.join(save_dir, "greens_loglog_vs_tau_noncomp.pdf")
+file_path = os.path.join(save_dir, "greens_loglog_vs_tau_noncomp_tmp.pdf")
 plt.savefig(file_path, format="pdf", bbox_inches="tight")
 print(f"Log-log G vs tau figure saved at: {file_path}")
 
