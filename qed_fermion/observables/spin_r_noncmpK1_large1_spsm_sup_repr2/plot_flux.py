@@ -115,9 +115,8 @@ ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
-man_slope = -4.2
 man_slope = -4.0
-man_intercept = 9.7  # Increase this to move the fit line up
+man_intercept = 8.62  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(
@@ -128,7 +127,7 @@ fit_handle, = main_ax.plot(
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
 man_slope = -3.0
-man_intercept = 7.7  # Increase this to move the fit line up
+man_intercept = 5.75  # Increase this to move the fit line up
 x_fit3 = np.arange(10, 101, dtype=float)
 fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
 fit_handle3, = main_ax.plot(
@@ -146,7 +145,8 @@ handles.insert(6, handle3)
 labels = [h.get_label() for h in handles]
 main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
-main_ax.set_ylim(10**-5, 1)
+main_ax.set_ylim(1e-5, 5e-1)
+main_ax.set_xlim(4e-1, 9e2)
 ax = main_ax
 ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=8)))
 
@@ -168,22 +168,22 @@ inset_ax = inset_axes(
 
 # Plot the stored data in the inset
 for entry in plot_data:
-    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=15, alpha=0.8)
+    inset_ax.errorbar(entry['tau'][entry['idx_plot']], entry['G_mean'][entry['idx_plot']], yerr=entry['G_std'][entry['idx_plot']], linestyle='', marker='o', markersize=5, color=entry['color'], lw=1.5, alpha=0.8)
 
 # Fit line in inset
 inset_ax.plot(x_fit, fit_line, 'k-', lw=1.5, alpha=0.8, zorder=100)
 inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1.5, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
-inset_xlim = (20, 90)
-inset_ylim = (2e-3, 9e-2)
+inset_xlim = (20, 54)
+inset_ylim = (2e-3, 3e-2)
 inset_ax.set_xlim(*inset_xlim)
 inset_ax.set_ylim(*inset_ylim)
 inset_ax.set_xscale('log')
 inset_ax.set_yscale('log')
 inset_ax.tick_params(axis='both', which='major', labelsize=10)
 # Set x-ticks and formatter for inset
-inset_xticks = [20, 30, 40, 50, 70]
+inset_xticks = [20, 30, 40, 50, 60]
 inset_ax.set_xticks(inset_xticks)
 inset_ax.set_xticks([], minor=True)  # Remove any minor ticks
 # Remove any automatic tick locator by setting the locator to a FixedLocator

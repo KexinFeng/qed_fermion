@@ -288,7 +288,7 @@ def plot_spin_r():
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
     handles, labels = plt.gca().get_legend_handles_labels()
     handles, labels = [], []
-    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1., alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
+    line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
     handles.insert(0, line_fit)
 
     # phantom
