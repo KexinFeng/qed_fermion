@@ -47,7 +47,7 @@ def plot(ax: plt.Axes):
     """Render plot_flux.py main plot into provided axis without saving/showing."""
     saved = _inject_ax_context(ax)
     try:
-        mod = importlib.import_module('qed_fermion.observables.spin_r_noncmpK0_large4_BBr.plot_flux')
+        mod = importlib.import_module('qed_fermion.observables.spin_r_noncmpK1_large1_spsm_sup_repr2.plot_flux')
         # This module executes plotting at import time; ensure context is applied
         if hasattr(mod, 'main_ax') or hasattr(mod, 'plot_data'):
             pass

@@ -27,7 +27,7 @@ def add_panel_label(ax, label, x=0.02, y=0.98):
 def main():
     from qed_fermion.observables.spin_r_noncmpK1_large1_spsm_sup_repr2.plot_fit_spsm_r_plot import plot as plot_spsm
     from qed_fermion.observables.spin_r_noncmpK1_large8_bond_pi_flux.plot_fit_bond_corr_correction_plot import plot as plot_bondcorr
-    from qed_fermion.observables.spin_r_noncmpK0_large4_BBr.plot_flux_plot import plot as plot_flux
+    from qed_fermion.observables.spin_r_noncmpK1_large1_spsm_sup_repr2.plot_flux_plot import plot as plot_flux
 
     base_w, base_h = mpl.rcParams.get('figure.figsize', (6, 4.5))
     base_w, base_h = 7.3, 6.7
