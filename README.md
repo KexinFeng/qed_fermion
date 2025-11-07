@@ -5,10 +5,7 @@ difficult problem of 𝑈(1) gauge field coupled to fermions, which gives rise t
 under the description of (2+1)d quantum electrodynamics QED3. The algorithm renders a good acceptance
 rate and, more importantly, nearly linear space-time volume scaling in computational complexity 𝑂(𝑁𝜏𝑉𝑠),
 where 𝑁𝜏 is the imaginary time dimension and 𝑉𝑠 is spatial volume, which is much more efficient than
-determinant QMC with scaling behavior of 𝑂(𝑁𝜏𝑉
-3
-𝑠
-). Such acceleration is achieved via a collection of technical
+determinant QMC with scaling behavior of 𝑂(𝑁𝜏𝑉𝑠^3). Such acceleration is achieved via a collection of technical
 improvements, including (i) the design of the efficient problem-specific preconditioner, (ii) customized CUDA
 kernel for matrix-vector multiplication, and (iii) CUDA Graph implementation on the GPU. These advances
 allow us to simulate the 𝑈(1) Dirac spin liquid state with unprecedentedly large system sizes, which is up to
