@@ -214,7 +214,7 @@ def plot_S_tau_timestep():
     ax.set_xlim(left=-230, right=6700)
     ax.set_xlabel("Steps", fontsize=14)
     ax.set_ylabel("$S_{\\tau}$ density", fontsize=14)
-    ax.legend(fontsize=12, ncol=1, bbox_to_anchor=(0.96, 0.8), borderaxespad=0.)
+    ax.legend(fontsize=12, ncol=1, bbox_to_anchor=(0.96, 0.7), borderaxespad=0.)
     ax.grid(True, alpha=0.3)
     
     # Add inset plot for autocorrelation length vs lattice size
@@ -222,14 +222,14 @@ def plot_S_tau_timestep():
         Lx_sorted = sorted(corr_lengths.keys())
         tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
         
-        # Create inset axes in the blank area (upper right, avoiding legend)
-        inset_width = 0.45
+        # Create inset axes in the blank area (lower left, avoiding legend and data)
+        inset_width = 0.5
         inset_height = 0.45
         inset_ax = inset_axes(
             ax,
             width="100%", height="100%",
-            loc='upper right',
-            bbox_to_anchor=(0.55, 0.55, inset_width, inset_height),
+            loc='lower left',
+            bbox_to_anchor=(0.25, 0.16, inset_width, inset_height),
             bbox_transform=ax.transAxes,
             borderpad=0
         )
