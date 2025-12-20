@@ -47,7 +47,7 @@ def main():
 
     save_dir = os.path.join(script_path, 'figures')
     os.makedirs(save_dir, exist_ok=True)
-    out_path_pdf = os.path.join(save_dir, 'fermion_corr.pdf')
+    out_path_pdf = os.path.join(save_dir, 'fermion_corr_noncmp_K0')
     plt.savefig(out_path_pdf, bbox_inches='tight')
     print(f'Saved merged figure to: {out_path_pdf}')
 

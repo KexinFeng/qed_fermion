@@ -116,7 +116,7 @@ ax.yaxis.set_tick_params(labelsize=20)
 
 # Manual slope and intercept for the fit line (fully manual, not normalized to data)
 man_slope = -4.0
-man_intercept = 8.62  # Increase this to move the fit line up
+man_intercept = 8.55  # Increase this to move the fit line up
 x_fit = np.arange(10, 101, dtype=float)
 fit_line = np.exp(man_intercept) * x_fit ** man_slope
 fit_handle, = main_ax.plot(
@@ -175,15 +175,15 @@ inset_ax.plot(x_fit, fit_line, 'k-', lw=1.5, alpha=0.8, zorder=100)
 inset_ax.plot(x_fit3, fit_line3, 'k--', lw=1.5, alpha=0.8, zorder=100)
 
 # Set new xlim for inset
-inset_xlim = (20, 54)
-inset_ylim = (2e-3, 3e-2)
+inset_xlim = (22, 50)
+inset_ylim = (1.4e-3, 3e-2)
 inset_ax.set_xlim(*inset_xlim)
 inset_ax.set_ylim(*inset_ylim)
 inset_ax.set_xscale('log')
 inset_ax.set_yscale('log')
 inset_ax.tick_params(axis='both', which='major', labelsize=10)
 # Set x-ticks and formatter for inset
-inset_xticks = [20, 30, 40, 50, 60]
+inset_xticks = [30, 40]
 inset_ax.set_xticks(inset_xticks)
 inset_ax.set_xticks([], minor=True)  # Remove any minor ticks
 # Remove any automatic tick locator by setting the locator to a FixedLocator
