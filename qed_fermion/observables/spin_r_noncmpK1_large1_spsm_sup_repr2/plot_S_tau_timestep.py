@@ -161,10 +161,17 @@ def plot_S_tau_timestep():
             lattice_list.append(Lx)
             print(f'Lx={Lx}: tau={tau:.2f} ± {tau_err:.2f}, density_eq={density_eq:.6e}')
         
-        # Plot S_tau density vs time step (similar to total_monitoring which uses '*' marker)
-        ax.plot(seq_idx, S_tau_density, '*', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        # Subsample data points for sparser plotting (every Nth point)
+        subsample_step = max(1, len(seq_idx) // 100)  # Aim for ~100 points max (more sparse)
+        plot_indices = np.arange(0, len(seq_idx), subsample_step)
+        seq_idx_plot = seq_idx[plot_indices]
+        S_tau_density_plot = S_tau_density[plot_indices]
         
-        # Plot fit if successful
+        # Plot S_tau density vs time step (sparse points for better visibility)
+        ax.plot(seq_idx_plot, S_tau_density_plot, '*', label=f'{Ltau}x{Lx}$^2$', 
+               alpha=0.9, markersize=4)
+        
+        # Plot fit if successful (dashed line with proportional alpha)
         if not np.isnan(tau):
             skip_idx = min(thermalization_skip, len(seq_idx) // 4)
             t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
@@ -173,7 +180,7 @@ def plot_S_tau_timestep():
                                             tau, 
                                             np.min(np.abs(S_tau_density[skip_idx:] - density_eq)))
             ax.plot(seq_idx[skip_idx:], deviation_fit + density_eq, '--', 
-                   alpha=0.5, linewidth=1.5, color=ax.lines[-1].get_color())
+                   alpha=0.6, linewidth=1.5, color=ax.lines[-1].get_color())
         # ax.set_yscale('log')
 
     ax.set_xlim(right=6500)

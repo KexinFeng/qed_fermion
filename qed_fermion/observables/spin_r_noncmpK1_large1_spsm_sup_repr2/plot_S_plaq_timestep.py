@@ -161,10 +161,17 @@ def plot_S_plaq_timestep():
             lattice_list.append(Lx)
             print(f'Lx={Lx}: tau={tau:.2f} ± {tau_err:.2f}, density_eq={density_eq:.6e}')
         
-        # Plot S_plaq density vs time step (similar to total_monitoring which uses 'o' marker)
-        ax.plot(seq_idx, S_plaq_density, 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        # Subsample data points for sparser plotting (every Nth point)
+        subsample_step = max(1, len(seq_idx) // 100)  # Aim for ~100 points max (more sparse)
+        plot_indices = np.arange(0, len(seq_idx), subsample_step)
+        seq_idx_plot = seq_idx[plot_indices]
+        S_plaq_density_plot = S_plaq_density[plot_indices]
         
-        # Plot fit if successful
+        # Plot S_plaq density vs time step (sparse points for better visibility)
+        ax.plot(seq_idx_plot, S_plaq_density_plot, 'o', label=f'{Ltau}x{Lx}$^2$', 
+               alpha=0.9, markersize=4)
+        
+        # Plot fit if successful (dashed line with proportional alpha)
         if not np.isnan(tau):
             skip_idx = min(thermalization_skip, len(seq_idx) // 4)
             t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
@@ -173,7 +180,7 @@ def plot_S_plaq_timestep():
                                             tau, 
                                             np.min(np.abs(S_plaq_density[skip_idx:] - density_eq)))
             ax.plot(seq_idx[skip_idx:], deviation_fit + density_eq, '--', 
-                   alpha=0.5, linewidth=1.5, color=ax.lines[-1].get_color())
+                   alpha=0.6, linewidth=1.5, color=ax.lines[-1].get_color())
         # ax.set_yscale('log')
         
     ax.set_xlim(right=6500)
@@ -202,7 +209,7 @@ def plot_S_plaq_timestep():
         ax2.set_xlabel("Lattice Size $L_x$", fontsize=14)
         ax2.set_ylabel("Autocorrelation Length $\\tau$", fontsize=14)
         # ax2.set_title("$S_{plaq}$ Autocorrelation Length vs Lattice Size", fontsize=16)
-        ax2.grid(True, alpha=0.3)
+        ax2.grid(True, alpha=0.8)
         plt.tight_layout()
         
         file_path2 = os.path.join(save_dir, "S_plaq_corr_length_vs_size_noncmpK1.pdf")
