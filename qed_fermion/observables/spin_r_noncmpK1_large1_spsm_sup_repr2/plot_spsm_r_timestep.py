@@ -30,16 +30,8 @@ def plot_spsm_r_timestep():
     # Define lattice sizes to analyze
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     
-    # Create a figure with subplots for each lattice size
-    # Arrange in a grid: calculate number of rows and columns
-    n_lattices = len(lattice_sizes)
-    n_cols = 3
-    n_rows = (n_lattices + n_cols - 1) // n_cols  # Ceiling division
-    
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows))
-    if n_rows == 1:
-        axes = axes.reshape(1, -1)
-    axes = axes.flatten()
+    # Create a single figure for all plots
+    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
     
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
@@ -80,9 +72,6 @@ def plot_spsm_r_timestep():
         seq_idx = np.arange(start, end, sample_step)
         seq_idx_all = np.arange(end)
 
-        # Plot spsm_r vs time step for specific r values (similar to total_monitoring)
-        ax = axes[i]
-        
         # Plot specific r values (similar to total_monitoring which plots r=3 and r=5)
         # Use r values that exist in the lattice
         r_values_to_plot = [3, 5]
@@ -94,17 +83,14 @@ def plot_spsm_r_timestep():
             # spsm_r shape: [timesteps, batch_size, Ly, Lx]
             # We want to plot at y=0, x=r
             spsm_r_at_r = spsm_r[seq_idx, :, 0, r].abs().mean(axis=1).numpy()
-            ax.plot(seq_idx, spsm_r_at_r, label=f'spsm_r[{r}]')
-        
-        ax.set_xlabel("Steps", fontsize=14)
-        ax.set_ylabel("Spsm_r", fontsize=14)
-        ax.set_title(f"spsm_r Over Steps - {Ltau}x{Lx}$^2$", fontsize=14)
-        ax.legend(fontsize=12)
-        ax.grid(True, alpha=0.3)
+            # Include lattice size in label to distinguish different lattices
+            ax.plot(seq_idx, spsm_r_at_r, label=f'{Ltau}x{Lx}$^2$ r={r}', alpha=0.7)
     
-    # Hide unused subplots
-    for j in range(n_lattices, len(axes)):
-        axes[j].set_visible(False)
+    ax.set_xlabel("Steps", fontsize=14)
+    ax.set_ylabel("Spsm_r", fontsize=14)
+    ax.set_title("spsm_r Over Steps", fontsize=16)
+    ax.legend(fontsize=10, ncol=2, loc='best')
+    ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
 
