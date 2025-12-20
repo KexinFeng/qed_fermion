@@ -233,8 +233,8 @@ def plot_S_tau_timestep():
         tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
         
         ax2.plot(Lx_sorted, tau_values, 'o-', linewidth=2, markersize=8)
-        ax2.set_xlabel("Lattice Size $L_x$", fontsize=14)
-        ax2.set_ylabel("Autocorrelation Length $\\tau$", fontsize=14)
+        ax2.set_xlabel("$L$", fontsize=14)
+        ax2.set_ylabel("$\\tau$", fontsize=14)
         # ax2.set_title("$S_{tau}$ Autocorrelation Length vs Lattice Size", fontsize=16)
         ax2.grid(True, alpha=0.3)
         plt.tight_layout()
