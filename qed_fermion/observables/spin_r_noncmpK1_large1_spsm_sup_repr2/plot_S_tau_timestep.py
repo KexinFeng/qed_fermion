@@ -201,7 +201,7 @@ def plot_S_tau_timestep():
         
         # Plot fit if successful (using fitted parameters)
         if not np.isnan(tau) and fit_params is not None:
-            if Lx == 10: continue
+            # if Lx == 10: continue
             skip_idx = min(thermalization_skip, len(seq_idx) // 4)
             t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
             # Use fitted parameters: A, tau, offset
@@ -214,8 +214,7 @@ def plot_S_tau_timestep():
     ax.set_xlim(left=-230, right=6700)
     ax.set_xlabel("Steps", fontsize=14)
     ax.set_ylabel("$S_{\\tau}$ density", fontsize=14)
-    # ax.set_title("$S_{tau}$ Density Over Steps", fontsize=16)
-    ax.legend(fontsize=10, ncol=2, loc='best')
+    ax.legend(fontsize=12, ncol=1, bbox_to_anchor=(0.96, 0.8), borderaxespad=0.)
     ax.grid(True, alpha=0.3)
     
     # Add inset plot for autocorrelation length vs lattice size
@@ -223,26 +222,26 @@ def plot_S_tau_timestep():
         Lx_sorted = sorted(corr_lengths.keys())
         tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
         
-        # Create inset axes in the blank area (upper right)
-        inset_width = 0.33
-        inset_height = 0.33
+        # Create inset axes in the blank area (upper right, avoiding legend)
+        inset_width = 0.45
+        inset_height = 0.45
         inset_ax = inset_axes(
             ax,
             width="100%", height="100%",
             loc='upper right',
-            bbox_to_anchor=(0.65, 0.65, inset_width, inset_height),
+            bbox_to_anchor=(0.55, 0.55, inset_width, inset_height),
             bbox_transform=ax.transAxes,
             borderpad=0
         )
         
         # Plot autocorrelation length vs lattice size in inset
-        inset_ax.plot(Lx_sorted, tau_values, 'o-', linewidth=2, markersize=6)
-        inset_ax.set_xlabel("$L$", fontsize=15)
-        inset_ax.set_ylabel("$\\tau$", fontsize=15)
+        inset_ax.plot(Lx_sorted, tau_values, '^', linewidth=2, markersize=6)
+        inset_ax.set_xlabel("$L$", fontsize=13)
+        inset_ax.set_ylabel("$\\tau$", fontsize=13)
         inset_ax.grid(True, alpha=0.3)
-        inset_ax.tick_params(axis='both', which='major', labelsize=15)
-        inset_ax.xaxis.set_tick_params(labelsize=15)
-        inset_ax.yaxis.set_tick_params(labelsize=15)
+        inset_ax.tick_params(axis='both', which='major', labelsize=13)
+        inset_ax.xaxis.set_tick_params(labelsize=13)
+        inset_ax.yaxis.set_tick_params(labelsize=13)
     
     plt.tight_layout()
 

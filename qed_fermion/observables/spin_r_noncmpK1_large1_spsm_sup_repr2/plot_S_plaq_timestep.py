@@ -190,7 +190,7 @@ def plot_S_plaq_timestep():
     ax.set_xlim(left=-230, right=6700)
     ax.set_xlabel("Steps", fontsize=14)
     ax.set_ylabel("$S_{plaq}$ density", fontsize=14)
-    ax.legend(fontsize=10, ncol=1, bbox_to_anchor=(0.94, 0.8), borderaxespad=0.)
+    ax.legend(fontsize=12, ncol=1, bbox_to_anchor=(0.96, 0.8), borderaxespad=0.)
     ax.grid(True, alpha=0.3)
     
     # Add inset plot for autocorrelation length vs lattice size
