@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import os
 script_path = os.path.dirname(os.path.abspath(__file__))
@@ -189,9 +190,34 @@ def plot_S_plaq_timestep():
     ax.set_xlim(left=-230, right=6700)
     ax.set_xlabel("Steps", fontsize=14)
     ax.set_ylabel("$S_{plaq}$ density", fontsize=14)
-    # ax.set_title("$S_{plaq}$ Density Over Steps", fontsize=16)
-    ax.legend(fontsize=10, ncol=2, loc='best')
+    ax.legend(fontsize=10, ncol=1, bbox_to_anchor=(0.94, 0.8), borderaxespad=0.)
     ax.grid(True, alpha=0.3)
+    
+    # Add inset plot for autocorrelation length vs lattice size
+    if len(corr_lengths) > 0:
+        Lx_sorted = sorted(corr_lengths.keys())
+        tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
+        
+        # Create inset axes in the blank area (upper right)
+        inset_width = 0.5
+        inset_height = 0.55
+        inset_ax = inset_axes(
+            ax,
+            width="100%", height="100%",
+            loc='upper right',
+            bbox_to_anchor=(0.25, 0.35, inset_width, inset_height),
+            bbox_transform=ax.transAxes,
+            borderpad=0
+        )
+        
+        # Plot autocorrelation length vs lattice size in inset
+        inset_ax.plot(Lx_sorted, tau_values, '^', linewidth=2, markersize=6)
+        inset_ax.set_xlabel("$L$", fontsize=13)
+        inset_ax.set_ylabel("$\\tau$", fontsize=13)
+        inset_ax.grid(True, alpha=0.3)
+        inset_ax.tick_params(axis='both', which='major', labelsize=13)
+        inset_ax.xaxis.set_tick_params(labelsize=13)
+        inset_ax.yaxis.set_tick_params(labelsize=13)
     
     plt.tight_layout()
 
@@ -201,23 +227,6 @@ def plot_S_plaq_timestep():
     file_path = os.path.join(save_dir, "S_plaq_density_vs_timestep_noncmpK1.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
-    
-    # Plot autocorrelation length vs lattice size
-    if len(corr_lengths) > 0:
-        fig2, ax2 = plt.subplots(1, 1, figsize=(8, 5.33))
-        Lx_sorted = sorted(corr_lengths.keys())
-        tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
-        
-        ax2.plot(Lx_sorted, tau_values, 'o-', linewidth=2, markersize=8)
-        ax2.set_xlabel("$L$", fontsize=14)
-        ax2.set_ylabel("$\\tau$", fontsize=14)
-        # ax2.set_title("$S_{plaq}$ Autocorrelation Length vs Lattice Size", fontsize=16)
-        ax2.grid(True, alpha=0.8)
-        plt.tight_layout()
-        
-        file_path2 = os.path.join(save_dir, "S_plaq_corr_length_vs_size_noncmpK1.pdf")
-        plt.savefig(file_path2, format="pdf", bbox_inches="tight")
-        print(f"Correlation length figure saved at: {file_path2}")
 
     plt.show()
 
