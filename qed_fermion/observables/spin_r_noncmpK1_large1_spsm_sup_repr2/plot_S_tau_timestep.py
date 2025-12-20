@@ -27,7 +27,7 @@ set_default_plotting()
 
 def exponential_decay(t, A, tau, offset):
     """Exponential decay function: A * exp(-t/tau) + offset"""
-    return A * np.exp(-t / tau) + offset
+    return A * (1 - np.exp(-t / tau)) + offset
 
 def fit_autocorr_length(seq_idx, density, thermalization_skip=500, tail_fraction=0.2):
     """
@@ -52,6 +52,8 @@ def fit_autocorr_length(seq_idx, density, thermalization_skip=500, tail_fraction
         Error in tau (NaN if fit fails)
     density_eq : float
         Estimated equilibrium density
+    fit_params : tuple or None
+        (A, tau, offset) fitted parameters, or None if fit failed
     """
     # Estimate equilibrium value from the tail
     tail_size = int(len(density) * tail_fraction)
@@ -66,29 +68,52 @@ def fit_autocorr_length(seq_idx, density, thermalization_skip=500, tail_fraction
     t_fit = seq_idx[fit_start_idx:fit_end_idx] - seq_idx[fit_start_idx]  # Start from 0
     density_fit = density[fit_start_idx:fit_end_idx]
     
-    # Compute deviation from equilibrium
-    deviation = np.abs(density_fit - density_eq)
+    # Only fit if we have enough points
+    if len(t_fit) < 10:
+        return np.nan, np.nan, density_eq, None
     
-    # Only fit if we have enough points and deviation is significant
-    if len(t_fit) < 10 or np.max(deviation) < 1e-10:
-        return np.nan, np.nan, density_eq
+    # For relaxation form A * (1 - exp(-t/tau)) + offset:
+    # - At t=0: offset (initial value)
+    # - As t→∞: A + offset (final/equilibrium value)
+    # So: offset = initial value, A = (final - initial)
+    initial_value = np.mean(density_fit[:min(50, len(density_fit)//10)])  # Average of first few points
+    final_value = np.mean(density_fit[-min(50, len(density_fit)//10):])   # Average of last few points
     
-    # Initial guess: A = max deviation, tau = some fraction of total time
-    A_guess = np.max(deviation)
-    tau_guess = (t_fit[-1] - t_fit[0]) / 5.0  # Rough guess
-    offset_guess = np.min(deviation)
+    # Initial guess for parameters
+    offset_guess = initial_value  # Starting value
+    A_guess = final_value - initial_value  # Change from initial to final
+    # tau guess: time for ~63% of the change (1 - exp(-1) ≈ 0.63)
+    # Estimate where we're at 63% of the way
+    if abs(A_guess) > 1e-10:
+        target_value = initial_value + 0.63 * A_guess
+        # Find index where density is closest to target
+        idx_63 = np.argmin(np.abs(density_fit - target_value))
+        if idx_63 > 0 and idx_63 < len(t_fit):
+            tau_guess = t_fit[idx_63]
+        else:
+            tau_guess = (t_fit[-1] - t_fit[0]) / 3.0  # Fallback: 1/3 of total time
+    else:
+        tau_guess = (t_fit[-1] - t_fit[0]) / 3.0
+    
+    # Ensure positive values for the fit
+    if A_guess < 0:
+        # If decreasing, we might need to adjust, but for now keep it
+        A_guess = abs(A_guess)
     
     try:
-        # Fit exponential decay
-        popt, pcov = curve_fit(exponential_decay, t_fit, deviation,
+        # Fit relaxation function: A * (1 - exp(-t/tau)) + offset
+        popt, pcov = curve_fit(exponential_decay, t_fit, density_fit,
                               p0=[A_guess, tau_guess, offset_guess],
-                              bounds=([0, 1, 0], [A_guess*2, len(t_fit), A_guess]),
+                              bounds=([0, 1, density_fit.min()*0.5], 
+                                     [abs(A_guess)*3, len(t_fit)*2, density_fit.max()*1.5]),
                               maxfev=5000)
         tau = popt[1]
         tau_err = np.sqrt(pcov[1, 1]) if not np.isnan(pcov[1, 1]) else np.nan
-        return tau, tau_err, density_eq
-    except:
-        return np.nan, np.nan, density_eq
+        fit_params = (popt[0], popt[1], popt[2])  # (A, tau, offset)
+        return tau, tau_err, density_eq, fit_params
+    except Exception as e:
+        print(f"Fit failed: {e}")
+        return np.nan, np.nan, density_eq, None
 
 def plot_S_tau_timestep():
     """Plot S_tau versus time step for different lattice sizes."""
@@ -102,7 +127,7 @@ def plot_S_tau_timestep():
     # Store autocorrelation lengths
     corr_lengths = {}
     lattice_list = []
-    
+        
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
         start = 2000 if Lx >= 20 else 4000
@@ -155,7 +180,7 @@ def plot_S_tau_timestep():
         
         # Fit autocorrelation length
         thermalization_skip = max(500, int(len(seq_idx) * 0.1))  # Skip at least 10% or 500 steps
-        tau, tau_err, density_eq = fit_autocorr_length(seq_idx, S_tau_density, 
+        tau, tau_err, density_eq, fit_params = fit_autocorr_length(seq_idx, S_tau_density, 
                                                        thermalization_skip=thermalization_skip)
         
         if not np.isnan(tau):
@@ -171,24 +196,23 @@ def plot_S_tau_timestep():
         
         # Plot S_tau density vs time step (sparse points for better visibility)
         ax.plot(seq_idx_plot, S_tau_density_plot, '*', label=f'{Ltau}x{Lx}$^2$', 
-               alpha=1.0, markersize=4)
+               alpha=1.0, markersize=6)
         
-        # Plot fit if successful (dashed line with proportional alpha)
-        if not np.isnan(tau):
+        # Plot fit if successful (using fitted parameters)
+        if not np.isnan(tau) and fit_params is not None:
             if Lx == 10: continue
             skip_idx = min(thermalization_skip, len(seq_idx) // 4)
             t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
-            deviation_fit = exponential_decay(t_fit, 
-                                            np.max(np.abs(S_tau_density[skip_idx:] - density_eq)),
-                                            tau, 
-                                            np.min(np.abs(S_tau_density[skip_idx:] - density_eq)))
-            ax.plot(seq_idx[skip_idx:], deviation_fit + density_eq, '-', 
+            # Use fitted parameters: A, tau, offset
+            A_fit, tau_fit, offset_fit = fit_params
+            density_fit = exponential_decay(t_fit, A_fit, tau_fit, offset_fit)
+            ax.plot(seq_idx[skip_idx:], density_fit, '-', 
                    alpha=0.9, linewidth=1, color=ax.lines[-1].get_color())
-        # ax.set_yscale('log')
-
+    
+    ax.set_ylim(0.86, 0.97)
     ax.set_xlim(left=-230, right=6700)
     ax.set_xlabel("Steps", fontsize=14)
-    ax.set_ylabel("$S_{tau}$ density", fontsize=14)
+    ax.set_ylabel("$S_{\\tau}$ density", fontsize=14)
     # ax.set_title("$S_{tau}$ Density Over Steps", fontsize=16)
     ax.legend(fontsize=10, ncol=2, loc='best')
     ax.grid(True, alpha=0.3)
