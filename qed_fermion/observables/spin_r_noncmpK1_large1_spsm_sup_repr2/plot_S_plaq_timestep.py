@@ -183,7 +183,7 @@ def plot_S_plaq_timestep():
                    alpha=0.6, linewidth=1.5, color=ax.lines[-1].get_color())
         # ax.set_yscale('log')
         
-    ax.set_xlim(right=6500)
+    ax.set_xlim(left=-230, right=6700)
     ax.set_xlabel("Steps", fontsize=14)
     ax.set_ylabel("$S_{plaq}$ density", fontsize=14)
     # ax.set_title("$S_{plaq}$ Density Over Steps", fontsize=16)
