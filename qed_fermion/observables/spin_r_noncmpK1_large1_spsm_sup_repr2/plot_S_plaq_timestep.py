@@ -76,12 +76,18 @@ def plot_S_plaq_timestep():
         # S_plaq shape: [timesteps, batch_size]
         S_plaq_avg = S_plaq[seq_idx].mean(axis=1).cpu().numpy()
         
-        # Plot S_plaq vs time step (similar to total_monitoring which uses 'o' marker)
-        ax.plot(seq_idx, S_plaq_avg, 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
-    
+        # Compute density: normalize by space-time volume (Lx * Ly * Ltau)
+        # Since Ly = Lx, volume = Lx^2 * Ltau
+        volume = Lx * Lx * Ltau  # Lx * Ly * Ltau
+        S_plaq_density = S_plaq_avg / volume
+        
+        # Plot S_plaq density vs time step (similar to total_monitoring which uses 'o' marker)
+        ax.plot(seq_idx, S_plaq_density, 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        
+    ax.set_xlim(right=6500)
     ax.set_xlabel("Steps", fontsize=14)
-    ax.set_ylabel("$S_{plaq}$", fontsize=14)
-    ax.set_title("$S_{plaq}$ Over Steps", fontsize=16)
+    ax.set_ylabel("$S_{plaq}$ density", fontsize=14)
+    ax.set_title("$S_{plaq}$ Density Over Steps", fontsize=16)
     ax.legend(fontsize=10, ncol=2, loc='best')
     ax.grid(True, alpha=0.3)
     
@@ -90,7 +96,7 @@ def plot_S_plaq_timestep():
     # Save the plot
     save_dir = os.path.join(script_path, "./figures/S_plaq_timestep")
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, "S_plaq_vs_timestep_noncmpK1.pdf")
+    file_path = os.path.join(save_dir, "S_plaq_density_vs_timestep_noncmpK1.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
 
