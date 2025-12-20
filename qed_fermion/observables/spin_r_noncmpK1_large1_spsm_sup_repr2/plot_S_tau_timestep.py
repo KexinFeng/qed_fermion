@@ -79,11 +79,11 @@ def plot_S_tau_timestep():
         # Compute density: normalize by volume (Lx * Ly * Ltau)
         # Since Ly = Lx and Ltau = 10 * Lx, volume = Lx^2 * Ltau = Lx^2 * 10 * Lx = 10 * Lx^3
         volume = Lx * Lx * Ltau  # Lx * Ly * Ltau
-        S_tau_density = S_tau_avg / volume
+        S_tau_density = np.abs(S_tau_avg) / volume
         
         # Plot S_tau density vs time step (similar to total_monitoring which uses '*' marker)
-        ax.plot(seq_idx, np.abs(S_tau_density), '*', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6) 
-        ax.set_yscale('log')
+        ax.plot(seq_idx, S_tau_density, '*', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6) 
+        # ax.set_yscale('log')
 
     ax.set_xlim(right=6500)
     ax.set_xlabel("Steps", fontsize=14)

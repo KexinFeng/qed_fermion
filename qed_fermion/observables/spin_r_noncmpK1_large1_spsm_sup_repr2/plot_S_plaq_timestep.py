@@ -79,11 +79,11 @@ def plot_S_plaq_timestep():
         # Compute density: normalize by space-time volume (Lx * Ly * Ltau)
         # Since Ly = Lx, volume = Lx^2 * Ltau
         volume = Lx * Lx * Ltau  # Lx * Ly * Ltau
-        S_plaq_density = S_plaq_avg / volume
+        S_plaq_density = np.abs(S_plaq_avg) / volume
         
         # Plot S_plaq density vs time step (similar to total_monitoring which uses 'o' marker)
-        ax.plot(seq_idx, np.abs(S_plaq_density), 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
-        ax.set_yscale('log')
+        ax.plot(seq_idx, S_plaq_density, 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        # ax.set_yscale('log')
         
     ax.set_xlim(right=6500)
     ax.set_xlabel("Steps", fontsize=14)
