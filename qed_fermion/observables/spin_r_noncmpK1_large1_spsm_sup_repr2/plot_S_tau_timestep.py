@@ -139,6 +139,8 @@ def plot_S_tau_timestep():
         # Extract sequence indices for equilibrated samples
         hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
         end = int(hmc_match.group(1))
+        # Truncate to max 6500 steps
+        end = min(end, start + 6500)
         seq_idx = np.arange(start, end, sample_step)
         seq_idx_all = np.arange(end)
 
@@ -162,25 +164,26 @@ def plot_S_tau_timestep():
             print(f'Lx={Lx}: tau={tau:.2f} ± {tau_err:.2f}, density_eq={density_eq:.6e}')
         
         # Subsample data points for sparser plotting (every Nth point)
-        subsample_step = max(1, len(seq_idx) // 100)  # Aim for ~100 points max (more sparse)
+        subsample_step = max(1, len(seq_idx) // 50)  # Aim for ~50 points max (much more sparse)
         plot_indices = np.arange(0, len(seq_idx), subsample_step)
         seq_idx_plot = seq_idx[plot_indices]
         S_tau_density_plot = S_tau_density[plot_indices]
         
         # Plot S_tau density vs time step (sparse points for better visibility)
         ax.plot(seq_idx_plot, S_tau_density_plot, '*', label=f'{Ltau}x{Lx}$^2$', 
-               alpha=0.9, markersize=4)
+               alpha=1.0, markersize=4)
         
         # Plot fit if successful (dashed line with proportional alpha)
         if not np.isnan(tau):
+            if Lx == 10: continue
             skip_idx = min(thermalization_skip, len(seq_idx) // 4)
             t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
             deviation_fit = exponential_decay(t_fit, 
                                             np.max(np.abs(S_tau_density[skip_idx:] - density_eq)),
                                             tau, 
                                             np.min(np.abs(S_tau_density[skip_idx:] - density_eq)))
-            ax.plot(seq_idx[skip_idx:], deviation_fit + density_eq, '--', 
-                   alpha=0.6, linewidth=1.5, color=ax.lines[-1].get_color())
+            ax.plot(seq_idx[skip_idx:], deviation_fit + density_eq, '-', 
+                   alpha=0.9, linewidth=1, color=ax.lines[-1].get_color())
         # ax.set_yscale('log')
 
     ax.set_xlim(left=-230, right=6700)
