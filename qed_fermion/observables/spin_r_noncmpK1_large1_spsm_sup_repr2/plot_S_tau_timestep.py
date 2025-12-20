@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 import numpy as np
+from scipy.optimize import curve_fit
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
@@ -24,14 +25,83 @@ data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmp
 # Set default plotting settings for physics scientific publication (Matlab style)
 set_default_plotting()
 
+def exponential_decay(t, A, tau, offset):
+    """Exponential decay function: A * exp(-t/tau) + offset"""
+    return A * np.exp(-t / tau) + offset
+
+def fit_autocorr_length(seq_idx, density, thermalization_skip=500, tail_fraction=0.2):
+    """
+    Fit exponential decay to extract autocorrelation length.
+    
+    Parameters:
+    -----------
+    seq_idx : array
+        Time step indices
+    density : array
+        Density values
+    thermalization_skip : int
+        Number of initial steps to skip (thermalization)
+    tail_fraction : float
+        Fraction of data from the end to use for estimating equilibrium value
+    
+    Returns:
+    --------
+    tau : float
+        Autocorrelation length (NaN if fit fails)
+    tau_err : float
+        Error in tau (NaN if fit fails)
+    density_eq : float
+        Estimated equilibrium density
+    """
+    # Estimate equilibrium value from the tail
+    tail_size = int(len(density) * tail_fraction)
+    density_eq = np.mean(density[-tail_size:])
+    
+    # Skip thermalization period
+    skip_idx = min(thermalization_skip, len(seq_idx) // 4)
+    fit_start_idx = skip_idx
+    fit_end_idx = len(seq_idx)
+    
+    # Extract data for fitting
+    t_fit = seq_idx[fit_start_idx:fit_end_idx] - seq_idx[fit_start_idx]  # Start from 0
+    density_fit = density[fit_start_idx:fit_end_idx]
+    
+    # Compute deviation from equilibrium
+    deviation = np.abs(density_fit - density_eq)
+    
+    # Only fit if we have enough points and deviation is significant
+    if len(t_fit) < 10 or np.max(deviation) < 1e-10:
+        return np.nan, np.nan, density_eq
+    
+    # Initial guess: A = max deviation, tau = some fraction of total time
+    A_guess = np.max(deviation)
+    tau_guess = (t_fit[-1] - t_fit[0]) / 5.0  # Rough guess
+    offset_guess = np.min(deviation)
+    
+    try:
+        # Fit exponential decay
+        popt, pcov = curve_fit(exponential_decay, t_fit, deviation,
+                              p0=[A_guess, tau_guess, offset_guess],
+                              bounds=([0, 1, 0], [A_guess*2, len(t_fit), A_guess]),
+                              maxfev=5000)
+        tau = popt[1]
+        tau_err = np.sqrt(pcov[1, 1]) if not np.isnan(pcov[1, 1]) else np.nan
+        return tau, tau_err, density_eq
+    except:
+        return np.nan, np.nan, density_eq
+
 def plot_S_tau_timestep():
     """Plot S_tau versus time step for different lattice sizes."""
     
     # Define lattice sizes to analyze
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     
-    # Create a single figure for all plots
+    # Create figures
     fig, ax = plt.subplots(1, 1, figsize=(8, 5.33))
+    
+    # Store autocorrelation lengths
+    corr_lengths = {}
+    lattice_list = []
     
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
@@ -81,8 +151,29 @@ def plot_S_tau_timestep():
         volume = Lx * Lx * Ltau  # Lx * Ly * Ltau
         S_tau_density = np.abs(S_tau_avg) / volume
         
+        # Fit autocorrelation length
+        thermalization_skip = max(500, int(len(seq_idx) * 0.1))  # Skip at least 10% or 500 steps
+        tau, tau_err, density_eq = fit_autocorr_length(seq_idx, S_tau_density, 
+                                                       thermalization_skip=thermalization_skip)
+        
+        if not np.isnan(tau):
+            corr_lengths[Lx] = tau
+            lattice_list.append(Lx)
+            print(f'Lx={Lx}: tau={tau:.2f} ± {tau_err:.2f}, density_eq={density_eq:.6e}')
+        
         # Plot S_tau density vs time step (similar to total_monitoring which uses '*' marker)
-        ax.plot(seq_idx, S_tau_density, '*', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6) 
+        ax.plot(seq_idx, S_tau_density, '*', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        
+        # Plot fit if successful
+        if not np.isnan(tau):
+            skip_idx = min(thermalization_skip, len(seq_idx) // 4)
+            t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
+            deviation_fit = exponential_decay(t_fit, 
+                                            np.max(np.abs(S_tau_density[skip_idx:] - density_eq)),
+                                            tau, 
+                                            np.min(np.abs(S_tau_density[skip_idx:] - density_eq)))
+            ax.plot(seq_idx[skip_idx:], deviation_fit + density_eq, '--', 
+                   alpha=0.5, linewidth=1.5, color=ax.lines[-1].get_color())
         # ax.set_yscale('log')
 
     ax.set_xlim(right=6500)
@@ -100,6 +191,23 @@ def plot_S_tau_timestep():
     file_path = os.path.join(save_dir, "S_tau_density_vs_timestep_noncmpK1.pdf")
     plt.savefig(file_path, format="pdf", bbox_inches="tight")
     print(f"Figure saved at: {file_path}")
+    
+    # Plot autocorrelation length vs lattice size
+    if len(corr_lengths) > 0:
+        fig2, ax2 = plt.subplots(1, 1, figsize=(8, 5.33))
+        Lx_sorted = sorted(corr_lengths.keys())
+        tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
+        
+        ax2.plot(Lx_sorted, tau_values, 'o-', linewidth=2, markersize=8)
+        ax2.set_xlabel("Lattice Size $L_x$", fontsize=14)
+        ax2.set_ylabel("Autocorrelation Length $\\tau$", fontsize=14)
+        # ax2.set_title("$S_{tau}$ Autocorrelation Length vs Lattice Size", fontsize=16)
+        ax2.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        file_path2 = os.path.join(save_dir, "S_tau_corr_length_vs_size_noncmpK1.pdf")
+        plt.savefig(file_path2, format="pdf", bbox_inches="tight")
+        print(f"Correlation length figure saved at: {file_path2}")
 
     plt.show()
 
