@@ -31,7 +31,7 @@ def plot_S_plaq_timestep():
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     
     # Create a single figure for all plots
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    fig, ax = plt.subplots(1, 1, figsize=(8, 5.33))
     
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
@@ -82,12 +82,13 @@ def plot_S_plaq_timestep():
         S_plaq_density = S_plaq_avg / volume
         
         # Plot S_plaq density vs time step (similar to total_monitoring which uses 'o' marker)
-        ax.plot(seq_idx, S_plaq_density, 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        ax.plot(seq_idx, np.abs(S_plaq_density), 'o', label=f'{Ltau}x{Lx}$^2$', alpha=0.7, markersize=6)
+        ax.set_yscale('log')
         
     ax.set_xlim(right=6500)
     ax.set_xlabel("Steps", fontsize=14)
     ax.set_ylabel("$S_{plaq}$ density", fontsize=14)
-    ax.set_title("$S_{plaq}$ Density Over Steps", fontsize=16)
+    # ax.set_title("$S_{plaq}$ Density Over Steps", fontsize=16)
     ax.legend(fontsize=10, ncol=2, loc='best')
     ax.grid(True, alpha=0.3)
     
