@@ -174,7 +174,6 @@ def plot_spin_r():
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
         spin_corr_values = np.array(spin_corr_values)
-        spin_corr_values[2:-2] if Lx < 20 else 1.0
 
         # Plot data and fit in log-log space
         plt.errorbar(r_values[0:], spin_corr_values[0:], 
