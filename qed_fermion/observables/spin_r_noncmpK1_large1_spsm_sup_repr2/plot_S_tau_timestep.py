@@ -26,6 +26,8 @@ data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmp
 # Set default plotting settings for physics scientific publication (Matlab style)
 set_default_plotting()
 
+FITTING_START = 0.92
+
 def exponential_decay(t, A, tau, offset):
     """Exponential decay function: A * exp(-t/tau) + offset"""
     return A * (1 - np.exp(-t / tau)) + offset
@@ -60,18 +62,18 @@ def fit_autocorr_length(seq_idx, density, thermalization_skip=500, tail_fraction
     tail_size = int(len(density) * tail_fraction)
     density_eq = np.mean(density[-tail_size:])
     
-    # Find the first point where density >= 0.93
-    mask = density >= 0.93
+    # Find the first point where density >= FITTING_START
+    mask = density >= FITTING_START
     fit_start_indices = np.where(mask)[0]
     
     if len(fit_start_indices) == 0:
-        # No point reaches 0.93, cannot fit
+        # No point reaches FITTING_START, cannot fit
         return np.nan, np.nan, density_eq, None
     
     fit_start_idx = fit_start_indices[0]
     fit_end_idx = len(seq_idx)
     
-    # Extract data for fitting (starting from first point where density >= 0.93)
+    # Extract data for fitting (starting from first point where density >= FITTING_START)
     t_fit = seq_idx[fit_start_idx:fit_end_idx] - seq_idx[fit_start_idx]  # Start from 0
     density_fit = density[fit_start_idx:fit_end_idx]
     
@@ -207,8 +209,8 @@ def plot_S_tau_timestep():
         
         # Plot fit if successful (using fitted parameters)
         if not np.isnan(tau) and fit_params is not None:
-            # Find the first point where density >= 0.93 (same as in fitting)
-            mask = S_tau_density >= 0.93
+            # Find the first point where density >= FITTING_START (same as in fitting)
+            mask = S_tau_density >= FITTING_START
             fit_start_indices = np.where(mask)[0]
             if len(fit_start_indices) > 0:
                 fit_start_idx = fit_start_indices[0]
