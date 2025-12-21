@@ -60,12 +60,18 @@ def fit_autocorr_length(seq_idx, density, thermalization_skip=500, tail_fraction
     tail_size = int(len(density) * tail_fraction)
     density_eq = np.mean(density[-tail_size:])
     
-    # Skip thermalization period
-    skip_idx = min(thermalization_skip, len(seq_idx) // 4)
-    fit_start_idx = skip_idx
+    # Find the first point where density >= 0.93
+    mask = density >= 0.93
+    fit_start_indices = np.where(mask)[0]
+    
+    if len(fit_start_indices) == 0:
+        # No point reaches 0.93, cannot fit
+        return np.nan, np.nan, density_eq, None
+    
+    fit_start_idx = fit_start_indices[0]
     fit_end_idx = len(seq_idx)
     
-    # Extract data for fitting
+    # Extract data for fitting (starting from first point where density >= 0.93)
     t_fit = seq_idx[fit_start_idx:fit_end_idx] - seq_idx[fit_start_idx]  # Start from 0
     density_fit = density[fit_start_idx:fit_end_idx]
     
@@ -201,14 +207,17 @@ def plot_S_tau_timestep():
         
         # Plot fit if successful (using fitted parameters)
         if not np.isnan(tau) and fit_params is not None:
-            # if Lx == 10: continue
-            skip_idx = min(thermalization_skip, len(seq_idx) // 4)
-            t_fit = seq_idx[skip_idx:] - seq_idx[skip_idx]
-            # Use fitted parameters: A, tau, offset
-            A_fit, tau_fit, offset_fit = fit_params
-            density_fit = exponential_decay(t_fit, A_fit, tau_fit, offset_fit)
-            ax.plot(seq_idx[skip_idx:], density_fit, '-', 
-                   alpha=0.9, linewidth=1, color=ax.lines[-1].get_color())
+            # Find the first point where density >= 0.93 (same as in fitting)
+            mask = S_tau_density >= 0.93
+            fit_start_indices = np.where(mask)[0]
+            if len(fit_start_indices) > 0:
+                fit_start_idx = fit_start_indices[0]
+                t_fit = seq_idx[fit_start_idx:] - seq_idx[fit_start_idx]
+                # Use fitted parameters: A, tau, offset
+                A_fit, tau_fit, offset_fit = fit_params
+                density_fit = exponential_decay(t_fit, A_fit, tau_fit, offset_fit)
+                ax.plot(seq_idx[fit_start_idx:], density_fit, '-', 
+                       alpha=0.9, linewidth=1, color=ax.lines[-1].get_color())
     
     ax.set_ylim(0.86, 0.97)
     ax.set_xlim(left=-230, right=6700)
@@ -237,7 +246,7 @@ def plot_S_tau_timestep():
         # Plot autocorrelation length vs lattice size in inset
         inset_ax.plot(Lx_sorted, tau_values, 'k^', linewidth=2, markersize=6)
         inset_ax.set_xlabel("$L$", fontsize=13)
-        inset_ax.set_ylabel("$\\tau$", fontsize=13)
+        inset_ax.set_ylabel("$\\tau_L$", fontsize=13)
         inset_ax.grid(True, alpha=0.3)
         inset_ax.tick_params(axis='both', which='major', labelsize=13)
         inset_ax.xaxis.set_tick_params(labelsize=13)
