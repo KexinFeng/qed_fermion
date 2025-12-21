@@ -330,55 +330,5 @@ def plot_spin_r():
 
     plt.show()
 
-def plot(ax):
-    """Wrapper function to be imported by merged_panels_corr_noncmp_K1.py"""
-    import matplotlib.pyplot as plt
-    from matplotlib import rcParams
-    
-    # Save current state
-    old_figure = plt.figure
-    old_subplots = plt.subplots
-    old_gca = plt.gca
-    old_savefig = plt.savefig
-    old_show = plt.show
-    old_sca = plt.sca
-    
-    # Inject axis context
-    def fake_figure(*args, **kwargs):
-        return ax.figure
-
-    def fake_subplots(*args, **kwargs):
-        return ax.figure, ax
-
-    def fake_gca():
-        return ax
-
-    def fake_savefig(*args, **kwargs):
-        return None
-
-    def fake_show(*args, **kwargs):
-        return None
-
-    plt.figure = fake_figure
-    plt.subplots = fake_subplots
-    plt.gca = fake_gca
-    plt.savefig = fake_savefig
-    plt.show = fake_show
-    plt.sca(ax)
-    
-    try:
-        plot_spin_r()
-    finally:
-        # Restore original functions
-        plt.figure = old_figure
-        plt.subplots = old_subplots
-        plt.gca = old_gca
-        plt.savefig = old_savefig
-        plt.show = old_show
-        plt.sca = old_sca
-    
-    return ax
-
-
 if __name__ == '__main__':
     plot_spin_r()
