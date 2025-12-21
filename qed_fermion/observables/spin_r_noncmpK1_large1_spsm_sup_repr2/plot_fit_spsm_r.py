@@ -175,7 +175,7 @@ def plot_spin_r():
         fit_line = np.exp(coeffs[1]) * r_fit**coeffs[0]
 
         spin_corr_values = np.array(spin_corr_values)
-        spin_corr_values[2:-2] if Lx < 20 else 1.0
+        spin_corr_errors = np.array(spin_corr_errors)
 
         # Store data for inset
         plot_data.append({
@@ -227,7 +227,8 @@ def plot_spin_r():
     dqmc_handle_1 = main_ax.errorbar(
         r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
         color=f"gray", markersize=8, alpha=0.85, 
-        label=fr'100x10$^2$', capsize=2, lw=1.2
+        label=fr'100x10$^2$', capsize=5,
+        lw=1.2, elinewidth=2.0, capthick=2.0
     )
     dqmc_plot_data.append({
         'r_values': r_dqmc_1,
@@ -246,8 +247,9 @@ def plot_spin_r():
     err_dqmc_3 = dqmc_data_3[:, 2]
     dqmc_handle_3 = main_ax.errorbar(
         r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
-        color=f"gray", markersize=8, alpha=0.85, 
-        label=fr'120x12$^2$', capsize=2, lw=1.2
+        color="gray", markersize=8, alpha=0.85, 
+        label=fr'120x12$^2$', capsize=5, 
+        lw=1.2, elinewidth=2.0, capthick=2.0
     )
     dqmc_plot_data.append({
         'r_values': r_dqmc_3,
@@ -267,7 +269,8 @@ def plot_spin_r():
     dqmc_handle_2 = main_ax.errorbar(
         r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
         color=f"gray", markersize=7, alpha=0.85, 
-        label=rf'160x16$^2$', capsize=2, lw=1.2
+        label=rf'160x16$^2$', capsize=5,
+        lw=1.2, elinewidth=2.0, capthick=2.0
     )
     dqmc_plot_data.append({
         'r_values': r_dqmc_2,
@@ -291,7 +294,7 @@ def plot_spin_r():
     main_ax.set_ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
 
     # Move the legend a little lower in the upper left by adjusting bbox_to_anchor
-    main_ax.legend(handles, labels, ncol=1, fontsize=18, loc="upper left", bbox_to_anchor=(0.00001, 0.95))
+    main_ax.legend(handles, labels, ncol=1, fontsize=18, loc="upper left", bbox_to_anchor=(0.00001, 0.93))
     main_ax.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -318,16 +321,13 @@ def plot_spin_r():
     all_dqmc_err = np.concatenate([err_dqmc_1, err_dqmc_3, err_dqmc_2])
     
     # Set inset limits to zoom into grey points region
-    inset_xlim = (2.5, 8.0)
-    inset_ylim = (2e-5, 0.0038)
-    
-    inset_width = 0.35
-    inset_height = 0.35
+    inset_width = 0.40
+    inset_height = 0.40
     inset_ax = inset_axes(
         main_ax,
         width="100%", height="100%",
         loc='lower left',
-        bbox_to_anchor=(0.08, 0.08, inset_width, inset_height),
+        bbox_to_anchor=(0.09, 0.09, inset_width, inset_height),
         bbox_transform=main_ax.transAxes,
         borderpad=0
     )
@@ -341,13 +341,11 @@ def plot_spin_r():
         corr_vals = np.array(entry['spin_corr_values'])
         corr_errs = np.array(entry['spin_corr_errors'])
         # Filter data points within inset x range
-        mask = (r_vals >= inset_xlim[0]) & (r_vals <= inset_xlim[1])
-        if np.any(mask):
-            inset_ax.errorbar(r_vals[mask], corr_vals[mask], 
-                             yerr=corr_errs[mask],
-                             linestyle=':', marker='o', 
-                             color=entry['color'], 
-                             markersize=8, alpha=0.8)
+        inset_ax.errorbar(r_vals, corr_vals, 
+                            yerr=corr_errs,
+                            linestyle=':', marker='o', 
+                            color=entry['color'], 
+                            markersize=8, alpha=0.8)
     
     # Plot all DQMC data in the inset
     for dqmc_entry in dqmc_plot_data:
@@ -355,25 +353,54 @@ def plot_spin_r():
         corr_vals = dqmc_entry['spin_corr_values']
         corr_errs = dqmc_entry['spin_corr_errors']
         # Filter data points within inset x range
-        mask = (r_vals >= inset_xlim[0]) & (r_vals <= inset_xlim[1])
-        if np.any(mask):
-            inset_ax.errorbar(r_vals[mask], corr_vals[mask], 
-                             yerr=corr_errs[mask],
-                             fmt=dqmc_entry['marker'],
-                             color=dqmc_entry['color'],
-                             markersize=6, alpha=0.85, capsize=2, lw=1.2)
-    
+        inset_ax.errorbar(r_vals, corr_vals, 
+                            yerr=corr_errs,
+                            fmt=dqmc_entry['marker'],
+                            color=dqmc_entry['color'],
+                            markersize=6, alpha=0.85, capsize=5 ,
+                            lw=1.2, elinewidth=2.0, capthick=2.0)
+
     # Set inset limits and scales
+    inset_xlim = (4.2, 8.0)
+    inset_ylim = (2e-5, 0.0008)
     inset_ax.set_xlim(*inset_xlim)
     inset_ax.set_ylim(*inset_ylim)
     inset_ax.set_xscale('log')
     inset_ax.set_yscale('log')
-    inset_ax.tick_params(axis='both', which='major', labelsize=12)
     inset_ax.set_xlabel("", fontsize=12)
     inset_ax.set_ylabel("", fontsize=12)
+
     # Remove minor ticks in inset
     inset_ax.xaxis.set_minor_locator(plt.NullLocator())
     inset_ax.yaxis.set_minor_locator(plt.NullLocator())
+    # Set x-ticks for inset
+    from matplotlib.ticker import FixedLocator
+    inset_xticks = [5, 6, 7, 8]
+    inset_ax.set_xticks(inset_xticks)
+    inset_ax.xaxis.set_major_locator(FixedLocator(inset_xticks))
+    # xtick_labels = [item.get_text() for item in inset_ax.get_xticklabels()]
+    # Only keep the x ticklabels for 5 and 8 in scientific notation (keep as 5 and 8 but formatted like previous 5e0)
+    xtick_labels = []
+    for tick in inset_xticks:
+        if tick in [5, 8]:
+            xtick_labels.append(r"${}\mathregular{{\times}}10^0$".format(tick))
+        else:
+            xtick_labels.append('')
+    inset_ax.set_xticklabels(xtick_labels)
+
+    # Set tick label fontsize for both axes to match
+    inset_ax.xaxis.set_tick_params(labelsize=16)
+    inset_ax.yaxis.set_tick_params(labelsize=16)
+    # Set shorter tick length for inset axes ticks
+    inset_ax.tick_params(axis='both', which='both', length=4)
+
+    # Rectangle on main plot to show inset region
+    rect = mpatches.Rectangle((inset_xlim[0], inset_ylim[0]), 
+                             inset_xlim[1]-inset_xlim[0], 
+                             inset_ylim[1]-inset_ylim[0], 
+                             linewidth=1.0, edgecolor=inset_ax.spines['bottom'].get_edgecolor(), 
+                             linestyle='--', facecolor='none', zorder=200)
+    main_ax.add_patch(rect)
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
@@ -382,7 +409,7 @@ def plot_spin_r():
     png_path = os.path.join(save_dir, "spin_r_vs_x_fit_log_noncmpK1_tmp.png")
     plt.savefig(pdf_path, format="pdf", bbox_inches="tight")
     plt.savefig(png_path, format="png", bbox_inches="tight", dpi=300)
-    print(f"Log-log figure saved at: {pdf_path} and {png_path}")
+    print(f"Log-log figure saved at: {pdf_path}")
 
     plt.show()
 

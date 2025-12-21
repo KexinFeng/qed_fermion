@@ -273,7 +273,6 @@ def plot_spin_r():
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
             eb.lines[0].set_alpha(0.8)
 
-        dbstop = 1
 
     # Linear axes
     plt.xlabel('r', fontsize=23)
@@ -289,19 +288,15 @@ def plot_spin_r():
     
     # Get handles and labels from the plot
     handles, labels = plt.gca().get_legend_handles_labels()
-    
-    # Plot the fit line and merge its handle/label to the beginning
+    phantom = mlines.Line2D([], [], color='none', label='')
+    handles.extend(phantom for _ in range(len(handles)-1))
+
+    # Plot the fit line and add its handle/label
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
-    # Ensure the fit line is at the beginning
-    handles.insert(0, line_fit)
+    handles.append(line_fit)
 
-    # phantom
-    phantom_line = mlines.Line2D([], [], color='none', label='')
-    handles.insert(len(handles) // 2 + 1, phantom_line)
-
-    # Ensure the fit line is appended at the end
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left')
+    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left', bbox_to_anchor=(0.0, -0.025), columnspacing=0.7)
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -313,11 +308,11 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
-        plt.ylim(10**-7.5, 10**-0.8)
-        plt.xlim(0.2, None)
+        plt.ylim(10**-7.7, 10**-0.8)
+        plt.xlim(0.4, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
-        plt.xlim(0.2, None)   
+        plt.xlim(0.4, None)   
 
     ax = plt.gca()
     ax.xaxis.set_tick_params(labelsize=22)

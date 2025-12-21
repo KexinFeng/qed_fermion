@@ -131,7 +131,7 @@ man_intercept = 5.75  # Increase this to move the fit line up
 x_fit3 = np.arange(10, 101, dtype=float)
 fit_line3 = np.exp(man_intercept) * x_fit3 ** man_slope
 fit_handle3, = main_ax.plot(
-    x_fit3, fit_line3, 'k--', lw=1.5, alpha=0.8, 
+    x_fit3, fit_line3, 'k-.', lw=1.5, alpha=0.8, 
     label=fr'$y \sim \tau^{{{man_slope:.1f}}}$', 
     zorder=100  # Ensure this line is drawn on top
 )
@@ -146,7 +146,7 @@ labels = [h.get_label() for h in handles]
 main_ax.legend(handles, labels, fontsize=15, ncol=2)
 
 main_ax.set_ylim(1e-5, 5e-1)
-main_ax.set_xlim(4e-1, 9e2)
+main_ax.set_xlim(3e-1, 9e2)
 ax = main_ax
 ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=8)))
 
@@ -199,7 +199,7 @@ inset_ax.yaxis.set_tick_params(labelsize=15)
 
 # Rectangle on main plot to show inset region
 # Rectangle parameters updated to match new inset limits
-rect = mpatches.Rectangle((inset_xlim[0], inset_ylim[0]), inset_xlim[1]-inset_xlim[0], inset_ylim[1]-inset_ylim[0], linewidth=1.5, edgecolor='k', linestyle='--', facecolor='none', zorder=200)
+rect = mpatches.Rectangle((inset_xlim[0], inset_ylim[0]), inset_xlim[1]-inset_xlim[0], inset_ylim[1]-inset_ylim[0], linewidth=1.0, edgecolor='k', linestyle='--', facecolor='none', zorder=200)
 main_ax.add_patch(rect)
 
 save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
