@@ -22,6 +22,8 @@ from matplotlib.ticker import LogLocator
 from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
 set_default_plotting()
 import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 start_dist = 1
 step_dist = 2 
@@ -74,10 +76,13 @@ def plot_spin_r():
     # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     
-    plt.figure(figsize=(8, 5.33))
+    plt.figure(figsize=(8, 5.8))
+    main_ax = plt.gca()
     
     # Store data for normalization analysis
     all_data = {}
+    # Store plot data for inset
+    plot_data = []
     
     for i, Lx in enumerate(lattice_sizes):
         Ltau = int(10 * Lx)
@@ -172,12 +177,22 @@ def plot_spin_r():
         spin_corr_values = np.array(spin_corr_values)
         spin_corr_values[2:-2] if Lx < 20 else 1.0
 
-        # Plot data and fit in log-log space
-        plt.errorbar(r_values[0:], spin_corr_values[0:], 
+        # Store data for inset
+        plot_data.append({
+            'r_values': r_values,
+            'spin_corr_values': spin_corr_values,
+            'spin_corr_errors': spin_corr_errors,
+            'label': rf'{Ltau}x{Lx}$^2$',
+            'color': color,
+            'Lx': Lx
+        })
+        
+        # Plot data and fit in log-log space (without label to remove from legend)
+        main_ax.errorbar(r_values[0:], spin_corr_values[0:], 
                      yerr=np.array(spin_corr_errors[0:]),
                      linestyle=':', marker='o', color=color, 
                      markersize=12,
-                     label=rf'{Ltau}x{Lx}$^2$', alpha=0.8)
+                     alpha=0.8)
         # plt.plot(r_fit, fit_line, '-', color=color, alpha=0.6, lw=1.5, 
         #          label=f'Fit L={Lx}: y~x^{coeffs[0]:.2f}')
         
@@ -195,28 +210,33 @@ def plot_spin_r():
     coeffs_l20[1] = -1.99
     fit_line_l20 = np.exp(coeffs_l20[1] - 0.7) * r_l20_aug ** coeffs_l20[0]
 
-    # Plot the fit line and merge its handle/label to the end of the existing legend entries
-    handles, labels = plt.gca().get_legend_handles_labels()
-    
     # Plot the fit line for L20 data
-    line_fit, = plt.plot(r_l20_aug, fit_line_l20, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$', zorder=100)
-    # Ensure the fit line is appended at the end
-    handles.insert(0, line_fit)
+    line_fit, = main_ax.plot(r_l20_aug, fit_line_l20, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeffs_l20[0]:.1f}}}$', zorder=100)
 
     dqmc_folder = "/Users/kx/Desktop/hmc/benchmark_dqmc/dqmc_data/kexin_benchmark_real_space_K1.0J1.25_ncomp/piflux_B0.0K1.0_largeL_tuneJ_noncompact_kexin_hk/spsm_r_odd"
 
+    # Store DQMC data for inset
+    dqmc_plot_data = []
+    
     # Add dqmc data from file for L=10
     dqmc_data_path_1 = os.path.join(dqmc_folder, "l10b10js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
     dqmc_data_1 = np.loadtxt(dqmc_data_path_1)
     r_dqmc_1 = dqmc_data_1[:, 0]
     corr_dqmc_1 = dqmc_data_1[:, 1]
     err_dqmc_1 = dqmc_data_1[:, 2]
-    dqmc_handle_1 = plt.errorbar(
+    dqmc_handle_1 = main_ax.errorbar(
         r_dqmc_1, corr_dqmc_1, yerr=err_dqmc_1, fmt='s', 
         color=f"gray", markersize=8, alpha=0.85, 
         label=fr'100x10$^2$', capsize=2, lw=1.2
     )
-    handles.append(dqmc_handle_1)
+    dqmc_plot_data.append({
+        'r_values': r_dqmc_1,
+        'spin_corr_values': corr_dqmc_1,
+        'spin_corr_errors': err_dqmc_1,
+        'marker': 's',
+        'color': 'gray',
+        'label': fr'100x10$^2$'
+    })
 
     # Add dqmc data from file for L=12
     dqmc_data_path_3 = os.path.join(dqmc_folder, "l12b12js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
@@ -224,12 +244,19 @@ def plot_spin_r():
     r_dqmc_3 = dqmc_data_3[:, 0]
     corr_dqmc_3 = dqmc_data_3[:, 1]
     err_dqmc_3 = dqmc_data_3[:, 2]
-    dqmc_handle_3 = plt.errorbar(
+    dqmc_handle_3 = main_ax.errorbar(
         r_dqmc_3, corr_dqmc_3, yerr=err_dqmc_3, fmt='^', 
         color=f"gray", markersize=8, alpha=0.85, 
         label=fr'120x12$^2$', capsize=2, lw=1.2
     )
-    handles.append(dqmc_handle_3)
+    dqmc_plot_data.append({
+        'r_values': r_dqmc_3,
+        'spin_corr_values': corr_dqmc_3,
+        'spin_corr_errors': err_dqmc_3,
+        'marker': '^',
+        'color': 'gray',
+        'label': fr'120x12$^2$'
+    })
 
     # # Add dqmc data from file for L=16
     dqmc_data_path_2 = os.path.join(dqmc_folder, "l16b16js1.25jpi1.0mu0.0nf2_dqmc_bin.dat")
@@ -237,49 +264,116 @@ def plot_spin_r():
     r_dqmc_2 = dqmc_data_2[:, 0]
     corr_dqmc_2 = dqmc_data_2[:, 1]
     err_dqmc_2 = dqmc_data_2[:, 2]
-    dqmc_handle_2 = plt.errorbar(
+    dqmc_handle_2 = main_ax.errorbar(
         r_dqmc_2, corr_dqmc_2, yerr=err_dqmc_2, fmt='D', 
         color=f"gray", markersize=7, alpha=0.85, 
         label=rf'160x16$^2$', capsize=2, lw=1.2
     )
-    handles.append(dqmc_handle_2)
+    dqmc_plot_data.append({
+        'r_values': r_dqmc_2,
+        'spin_corr_values': corr_dqmc_2,
+        'spin_corr_errors': err_dqmc_2,
+        'marker': 'D',
+        'color': 'gray',
+        'label': rf'160x16$^2$'
+    })
 
+    # Build legend with only fit line and DQMC data (no colored HMC points)
+    handles = [line_fit, dqmc_handle_1, dqmc_handle_3, dqmc_handle_2]
     handles = handles[1:] + handles[0:1]
     # phantom
-    handles.extend([mlines.Line2D([], [], color='none', label='') for _ in range(6)])
-    handles = handles[:10] + handles[14:] + handles[10:14]
-
+    # handles.extend([mlines.Line2D([], [], color='none', label='') for _ in range(6)])
+    # handles = handles[:10] + handles[14:] + handles[10:14]
 
     labels = [line.get_label() for line in handles]
     # Linear axes
-    plt.xlabel('r', fontsize=23)
-    plt.ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
+    main_ax.set_xlabel('r', fontsize=23)
+    main_ax.set_ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
 
-    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left')
-    plt.grid(True, alpha=0.3)
+    # Move the legend a little lower in the upper left by adjusting bbox_to_anchor
+    main_ax.legend(handles, labels, ncol=1, fontsize=18, loc="upper left", bbox_to_anchor=(0.00001, 0.95))
+    main_ax.grid(True, alpha=0.3)
     plt.tight_layout()
 
     # Set log scales
-    plt.xscale('log')
-    plt.yscale('log')
+    main_ax.set_xscale('log')
+    main_ax.set_yscale('log')
 
-    # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
-    ax = plt.gca()
     # set tick label size
-    ax = plt.gca()
-    ax.xaxis.set_tick_params(labelsize=22)
-    ax.yaxis.set_tick_params(labelsize=22)
+    main_ax.xaxis.set_tick_params(labelsize=22)
+    main_ax.yaxis.set_tick_params(labelsize=22)
 
     # Turn off minor ticks on both axes
-    ax.yaxis.set_minor_locator(plt.NullLocator())
-
-    # plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=6, prune=None))
-    ax = plt.gca()
-    # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
+    main_ax.yaxis.set_minor_locator(plt.NullLocator())
 
     # Set y-axis lower limit to 1e-7
-    plt.ylim(10**(-8.5), 10**-1.0)
-    plt.xlim(0.2, None)
+    main_ax.set_ylim(10**(-8.5), 10**-1.0)
+    main_ax.set_xlim(0.2, None)
+    
+    # --- Inset axes ---
+    # Determine inset limits based on grey DQMC data region
+    # Find the r range and corr range for DQMC data
+    all_dqmc_r = np.concatenate([r_dqmc_1, r_dqmc_3, r_dqmc_2])
+    all_dqmc_corr = np.concatenate([corr_dqmc_1, corr_dqmc_3, corr_dqmc_2])
+    all_dqmc_err = np.concatenate([err_dqmc_1, err_dqmc_3, err_dqmc_2])
+    
+    # Set inset limits to zoom into grey points region
+    inset_xlim = (2.5, 8.0)
+    inset_ylim = (2e-5, 0.0038)
+    
+    inset_width = 0.35
+    inset_height = 0.35
+    inset_ax = inset_axes(
+        main_ax,
+        width="100%", height="100%",
+        loc='lower left',
+        bbox_to_anchor=(0.08, 0.08, inset_width, inset_height),
+        bbox_transform=main_ax.transAxes,
+        borderpad=0
+    )
+    
+    # Plot all HMC data in the inset (filter by r range and L <= 160, i.e., Lx <= 16)
+    for entry in plot_data:
+        # Only plot data up to L=160 (Ltau=160 corresponds to Lx=16)
+        if entry['Lx'] > 16:
+            continue
+        r_vals = np.array(entry['r_values'])
+        corr_vals = np.array(entry['spin_corr_values'])
+        corr_errs = np.array(entry['spin_corr_errors'])
+        # Filter data points within inset x range
+        mask = (r_vals >= inset_xlim[0]) & (r_vals <= inset_xlim[1])
+        if np.any(mask):
+            inset_ax.errorbar(r_vals[mask], corr_vals[mask], 
+                             yerr=corr_errs[mask],
+                             linestyle=':', marker='o', 
+                             color=entry['color'], 
+                             markersize=8, alpha=0.8)
+    
+    # Plot all DQMC data in the inset
+    for dqmc_entry in dqmc_plot_data:
+        r_vals = dqmc_entry['r_values']
+        corr_vals = dqmc_entry['spin_corr_values']
+        corr_errs = dqmc_entry['spin_corr_errors']
+        # Filter data points within inset x range
+        mask = (r_vals >= inset_xlim[0]) & (r_vals <= inset_xlim[1])
+        if np.any(mask):
+            inset_ax.errorbar(r_vals[mask], corr_vals[mask], 
+                             yerr=corr_errs[mask],
+                             fmt=dqmc_entry['marker'],
+                             color=dqmc_entry['color'],
+                             markersize=6, alpha=0.85, capsize=2, lw=1.2)
+    
+    # Set inset limits and scales
+    inset_ax.set_xlim(*inset_xlim)
+    inset_ax.set_ylim(*inset_ylim)
+    inset_ax.set_xscale('log')
+    inset_ax.set_yscale('log')
+    inset_ax.tick_params(axis='both', which='major', labelsize=12)
+    inset_ax.set_xlabel("", fontsize=12)
+    inset_ax.set_ylabel("", fontsize=12)
+    # Remove minor ticks in inset
+    inset_ax.xaxis.set_minor_locator(plt.NullLocator())
+    inset_ax.yaxis.set_minor_locator(plt.NullLocator())
 
     # Save the plot (log-log axes)
     save_dir = os.path.join(script_path, f"./figures/spin_r_fit_{suffix}")
