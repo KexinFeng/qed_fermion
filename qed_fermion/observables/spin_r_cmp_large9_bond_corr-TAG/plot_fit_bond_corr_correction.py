@@ -287,9 +287,6 @@ def plot_spin_r():
     ax.xaxis.set_tick_params(labelsize=22)
     ax.yaxis.set_tick_params(labelsize=22)
 
-    # Turn off minor ticks on both axes
-    ax.yaxis.set_minor_locator(plt.NullLocator())
-
     # Add a reference fit line with coeff[0] = -3.3 and coeff[1] = 0
     # r_min = min([min(d['r_values']) for d in all_data.values() if d['r_values']])
     # r_max = max([max(d['r_values']) for d in all_data.values() if d['r_values']])
@@ -299,17 +296,18 @@ def plot_spin_r():
     coeff0 = -3.7
     coeff1 = -2.1
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
+    
+    # Get handles and labels from the plot
     handles, labels = plt.gca().get_legend_handles_labels()
+    phantom = mlines.Line2D([], [], color='none', label='')
+    handles.extend(phantom for _ in range(len(handles)-1))
+
+    # Plot the fit line and add its handle/label
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
-    handles.insert(0, line_fit)
+    handles.append(line_fit)
 
-    # phantom
-    phantom_line = mlines.Line2D([], [], color='none', label='')
-    handles.insert(len(handles) // 2 + 1, phantom_line)
-
-    # Ensure the fit line is appended at the end
-    labels = [line.get_label() for line in handles[0:1]]
-    plt.legend(handles, labels, ncol=1, fontsize=18 if not separate else 8, loc='lower left')
+    labels = [line.get_label() for line in handles]
+    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left', bbox_to_anchor=(0.0, -0.025), columnspacing=0.5)
 
     # # plt.grid(True, alpha=0.3)
     # plt.tight_layout()
@@ -321,22 +319,28 @@ def plot_spin_r():
     # Set y-axis lower limit to 1e-7
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
-        plt.ylim(10**-7.0, 10**-0.8)
-        plt.xlim(0.75, None)
+        plt.ylim(10**-7.8, 10**-0.8)
+        plt.xlim(0.35, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
-        plt.xlim(0.5, None)   
+        plt.xlim(0.4, None)   
 
     ax = plt.gca()
+    ax.xaxis.set_tick_params(labelsize=22)
+    ax.yaxis.set_tick_params(labelsize=22)
+    
+    # Turn off minor ticks on y-axis
+    ax.yaxis.set_minor_locator(plt.NullLocator())
+    
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
-    # # Save the plot (log-log axes)
-    # save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
-    # os.makedirs(save_dir, exist_ok=True)
-    # file_path = os.path.join(save_dir, 
-    #                          ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
-    # plt.savefig(file_path, format="pdf", bbox_inches="tight")
-    # print(f"Log-log figure saved at: {file_path}")
+    # Save the plot (log-log axes)
+    save_dir = os.path.join(script_path, f"./figures/BB_r_fit_{suffix}")
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, 
+                             ("sep_" if separate else "") + "BB_r_vs_x_fit_log_noncmpK0_large4_BBr.pdf")
+    plt.savefig(file_path, format="pdf", bbox_inches="tight")
+    print(f"Log-log figure saved at: {file_path}")
 
     plt.show()
 

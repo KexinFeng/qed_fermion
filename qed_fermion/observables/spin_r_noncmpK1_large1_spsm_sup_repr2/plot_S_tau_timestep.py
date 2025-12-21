@@ -254,6 +254,10 @@ def plot_S_tau_timestep():
         inset_ax.xaxis.set_tick_params(labelsize=13)
         inset_ax.yaxis.set_tick_params(labelsize=13)
     
+    # Add "(a)" label at top left corner, aligned with y-axis label
+    ax.text(-0.13, 0.98, "(a)", transform=ax.transAxes, 
+            fontsize=14, verticalalignment='top', horizontalalignment='left')
+    
     plt.tight_layout()
 
     # Save the plot

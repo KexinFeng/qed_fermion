@@ -382,8 +382,8 @@ def plot_spin_r():
     # Only keep the x ticklabels for 5 and 8 in scientific notation (keep as 5 and 8 but formatted like previous 5e0)
     xtick_labels = []
     for tick in inset_xticks:
-        if tick in [5, 8]:
-            xtick_labels.append(r"${}\mathregular{{\times}}10^0$".format(tick))
+        if tick in [5, 6, 7, 8]:
+            xtick_labels.append(r"${}$".format(tick))
         else:
             xtick_labels.append('')
     inset_ax.set_xticklabels(xtick_labels)

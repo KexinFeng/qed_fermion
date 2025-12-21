@@ -206,7 +206,7 @@ inset_ax.yaxis.set_tick_params(labelsize=15)
 
 # Rectangle on main plot to show inset region
 # Rectangle parameters updated to match new inset limits
-rect = mpatches.Rectangle((inset_xlim[0], inset_ylim[0]), inset_xlim[1]-inset_xlim[0], inset_ylim[1]-inset_ylim[0], linewidth=1.5, edgecolor='k', linestyle='--', facecolor='none', zorder=200)
+rect = mpatches.Rectangle((inset_xlim[0], inset_ylim[0]), inset_xlim[1]-inset_xlim[0], inset_ylim[1]-inset_ylim[0], linewidth=1.0, edgecolor='k', linestyle='--', facecolor='none', zorder=200)
 main_ax.add_patch(rect)
 
 # save_dir = os.path.join(script_path, "./figures/flux_greens_loglog")
