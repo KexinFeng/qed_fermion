@@ -48,8 +48,10 @@ def main():
     save_dir = os.path.join(script_path, 'figures')
     os.makedirs(save_dir, exist_ok=True)
     out_path_pdf = os.path.join(save_dir, 'fermion_corr_noncmp_K1.pdf')
-    plt.savefig(out_path_pdf, bbox_inches='tight')
-    print(f'Saved merged figure to: {out_path_pdf}')
+    out_path_png = os.path.join(save_dir, 'fermion_corr_noncmp_K1.png')
+    plt.savefig(out_path_pdf, format='pdf', bbox_inches='tight')
+    plt.savefig(out_path_png, format='png', bbox_inches='tight', dpi=300)
+    print(f'Saved merged figure to: {out_path_pdf} and {out_path_png}')
 
 
 if __name__ == '__main__':
