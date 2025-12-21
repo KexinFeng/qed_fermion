@@ -74,7 +74,7 @@ def plot_spin_r():
     # lattice_sizes = [8, 12, 16, 20, 30, 40, 56, 60]
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
     
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 5.33))
     
     # Store data for normalization analysis
     all_data = {}

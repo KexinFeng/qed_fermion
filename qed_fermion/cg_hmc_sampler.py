@@ -144,7 +144,7 @@ class CgHmcSampler(HmcSampler):
         # Visualize the sparsity pattern of the preconditioner
         if precon is not None and self.plt_pattern:
             precon_dense = precon.to_dense().cpu().numpy()
-            plt.figure(figsize=(8, 8))
+            plt.figure(figsize=(8, 5.33))
             plt.spy(precon_dense, markersize=0.5)
             plt.title("Sparsity Pattern of Preconditioner")
             plt.xlabel("Columns")
@@ -246,7 +246,7 @@ class CgHmcSampler(HmcSampler):
     @staticmethod
     def visual(M):
         M_dense = M.to_dense().cpu().numpy()
-        plt.figure(figsize=(8, 8))
+        plt.figure(figsize=(8, 5.33))
         plt.spy(M_dense, markersize=0.5)
         plt.title("Sparsity Pattern")
         plt.xlabel("Columns")

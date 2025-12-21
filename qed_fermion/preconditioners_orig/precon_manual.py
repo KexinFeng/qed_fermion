@@ -207,7 +207,7 @@ def get_precon_man(Lx, Ltau):
         print("precon_man size:", precon_man.size())
 
         # Plot
-        plt.figure(figsize=(8, 8))
+        plt.figure(figsize=(8, 5.33))
         plt.spy(precon_man.to_dense().real, markersize=0.5)
         plt.title("Sparsity Pattern of Preconditioner")
         plt.xlabel("Columns")

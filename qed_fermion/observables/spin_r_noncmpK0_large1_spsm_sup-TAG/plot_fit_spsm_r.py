@@ -78,7 +78,7 @@ def plot_spin_r():
     start = 5000  # Skip initial equilibration steps
     sample_step = 1
     
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 5.33))
     
     # Store data for normalization analysis
     all_data = {}

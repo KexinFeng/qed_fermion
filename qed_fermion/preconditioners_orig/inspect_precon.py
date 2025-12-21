@@ -68,7 +68,7 @@ os.makedirs(save_dir, exist_ok=True)
 file_name = "sparse_pattern.pdf"
 file_path = os.path.join(save_dir, file_name)
 
-plt.figure(figsize=(8, 8))
+plt.figure(figsize=(8, 5.33))
 plt.spy(precon_dense, markersize=0.5)
 plt.title("Sparsity Pattern of Preconditioner")
 plt.xlabel("Columns")
@@ -78,7 +78,7 @@ plt.savefig(file_path, format="pdf", bbox_inches="tight")
 print(f"Figure saved at: {file_path}")
 
 # Plot the real part of the preconditioner
-plt.figure(figsize=(8, 8))
+plt.figure(figsize=(8, 5.33))
 cmap = plt.get_cmap('seismic')
 divnorm = colors.TwoSlopeNorm(vmin=np.min(precon_dense.real), vcenter=0.0, vmax=np.max(precon_dense.real))
 im = plt.imshow(precon_dense.real, cmap=cmap, norm=divnorm, aspect='auto')
