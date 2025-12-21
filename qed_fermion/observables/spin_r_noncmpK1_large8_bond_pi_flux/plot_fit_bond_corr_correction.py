@@ -256,10 +256,10 @@ def plot_spin_r():
         if separate:
             eb = plt.errorbar(r_values[0:], np.abs(spin_corr_values[0:]), yerr=spin_corr_errors[0:], 
                             linestyle=':', marker='o', color=color, 
-                            label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8)
+                            label=rf'${Ltau}x{Lx}^2$_corr(vivj)', alpha=0.8, markersize=12)
             eb2 = plt.errorbar(r_values[0:], np.abs(spin_corr_values0[0:]), yerr=spin_corr_errors0[0:], 
                             linestyle='-', marker='^', color=color, 
-                            label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8)
+                            label=rf'${Ltau}x{Lx}^2$_original', alpha=0.8, markersize=12)
             if hasattr(eb2, 'lines') and len(eb2.lines) > 0:
                 eb2.lines[0].set_alpha(0.8)
         else:
@@ -267,7 +267,7 @@ def plot_spin_r():
                             (np.abs(spin_corr_values) + np.abs(spin_corr_values0)[0:]), 
                             yerr=(((spin_corr_errors**2 + spin_corr_errors0**2) /2 )**(1/2))[0:], 
                             linestyle=':', marker='o', color=color, 
-                            label=rf'${Ltau}x{Lx}^2$', alpha=1.0)        
+                            label=rf'{Ltau}x{Lx}$^2$', alpha=0.8, markersize=12)        
         
         # Set only the marker (dots) to have alpha=0.8
         if hasattr(eb, 'lines') and len(eb.lines) > 0:
@@ -286,9 +286,13 @@ def plot_spin_r():
     coeff0 = -3.7
     coeff1 = -2.2
     fit_line = np.exp(coeff1) * r_fitline ** coeff0
+    
+    # Get handles and labels from the plot
     handles, labels = plt.gca().get_legend_handles_labels()
-    handles, labels = [], []
+    
+    # Plot the fit line and merge its handle/label to the beginning
     line_fit, = plt.plot(r_fitline, fit_line, 'k-', lw=1.5, alpha=0.9, label=fr'$y \sim r^{{{coeff0:.1f}}}$', zorder=100)
+    # Ensure the fit line is at the beginning
     handles.insert(0, line_fit)
 
     # phantom
@@ -297,7 +301,7 @@ def plot_spin_r():
 
     # Ensure the fit line is appended at the end
     labels = [line.get_label() for line in handles]
-    plt.legend(handles, labels, ncol=1, fontsize=18 if not separate else 8, loc='lower left')
+    plt.legend(handles, labels, ncol=2, fontsize=18, loc='lower left')
 
     # plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -310,10 +314,10 @@ def plot_spin_r():
     # plt.ylim(1e-6, 10**-0.5)
     if not separate:
         plt.ylim(10**-7.5, 10**-0.8)
-        plt.xlim(0.75, None)
+        plt.xlim(0.2, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
-        plt.xlim(0.5, None)   
+        plt.xlim(0.2, None)   
 
     ax = plt.gca()
     ax.xaxis.set_tick_params(labelsize=22)
