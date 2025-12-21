@@ -180,7 +180,7 @@ def plot_S_tau_timestep():
         S_tau_density = np.abs(S_tau_avg) / volume
         
         # Fit autocorrelation length
-        thermalization_skip = max(500, int(len(seq_idx) * 0.1))  # Skip at least 10% or 500 steps
+        thermalization_skip = 500  # Skip at least 10% or 500 steps
         tau, tau_err, density_eq, fit_params = fit_autocorr_length(seq_idx, S_tau_density, 
                                                        thermalization_skip=thermalization_skip)
         
@@ -235,7 +235,7 @@ def plot_S_tau_timestep():
         )
         
         # Plot autocorrelation length vs lattice size in inset
-        inset_ax.plot(Lx_sorted, tau_values, '^', linewidth=2, markersize=6)
+        inset_ax.plot(Lx_sorted, tau_values, 'k^', linewidth=2, markersize=6)
         inset_ax.set_xlabel("$L$", fontsize=13)
         inset_ax.set_ylabel("$\\tau$", fontsize=13)
         inset_ax.grid(True, alpha=0.3)
