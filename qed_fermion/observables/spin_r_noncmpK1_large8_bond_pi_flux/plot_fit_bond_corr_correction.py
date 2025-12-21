@@ -322,6 +322,10 @@ def plot_spin_r():
     ax = plt.gca()
     ax.xaxis.set_tick_params(labelsize=22)
     ax.yaxis.set_tick_params(labelsize=22)
+    
+    # Turn off minor ticks on y-axis
+    ax.yaxis.set_minor_locator(plt.NullLocator())
+    
     # ax.yaxis.set_major_formatter(FuncFormatter(selective_log_label_func(ax, numticks=6)))
 
     # Save the plot (log-log axes)
