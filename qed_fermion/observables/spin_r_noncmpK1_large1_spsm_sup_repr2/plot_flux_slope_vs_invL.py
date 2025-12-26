@@ -153,28 +153,50 @@ def plot_flux_slope_vs_invL():
         x = np.arange(G_mean.shape[0])
         tau = x + 1
 
-        # Determine fit window: only data with log y values in [10^(-3), 2.2*10^(-2)]
-        # Filter data where G_mean is in the specified range
+        # Determine fit window: 
+        # 1. Take the left half of all data
+        # 2. Find the first contiguous window where G values are in [G_min, G_max]
         G_min = 10**(-3)
         G_max = 2.2 * 10**(-2)
         
-        # Filter data in the specified G range
-        range_mask = (G_mean >= G_min) & (G_mean <= G_max) & (G_mean > 0) & (tau > 0)
+        # First, take the left half of all data
+        n_total = len(tau)
+        left_half_end = (n_total + 1) // 2  # Left half (inclusive)
+        left_half_indices = np.arange(left_half_end)
+        
+        # Get left half data
+        tau_left = tau[left_half_indices]
+        G_left = G_mean[left_half_indices]
+        G_err_left = G_std[left_half_indices]
+        
+        # Find the first contiguous window in left half where G is in [G_min, G_max]
+        range_mask = (G_left >= G_min) & (G_left <= G_max) & (G_left > 0) & (tau_left > 0)
         
         if np.sum(range_mask) < 3:  # Need at least 3 points
-            print(f"Warning: Not enough points in range [10^(-3), 2.2*10^(-2)] for Lx={Lx}, skipping...")
+            print(f"Warning: Not enough points in range [10^(-3), 2.2*10^(-2)] in left half for Lx={Lx}, skipping...")
             continue
         
-        # Get indices where data is in range
-        range_indices = np.where(range_mask)[0]
+        # Find the first contiguous block of True values
+        range_bool = range_mask.astype(int)
+        # Find where the range starts (first True)
+        first_true_idx = np.argmax(range_mask)
+        if not range_mask[first_true_idx]:
+            print(f"Warning: No valid points in range for Lx={Lx}, skipping...")
+            continue
         
-        # Take the left half (first half) of the filtered data
-        n_range = len(range_indices)
-        left_half_end = (n_range + 1) // 2  # Take first half (inclusive)
-        fit_indices = range_indices[:left_half_end]
+        # Find the end of the first contiguous block
+        # Start from first_true_idx and find where it stops being True
+        fit_start = first_true_idx
+        fit_end = fit_start
+        while fit_end < len(range_mask) and range_mask[fit_end]:
+            fit_end += 1
+        
+        # Extract the first contiguous window
+        fit_indices_in_left = np.arange(fit_start, fit_end)
+        fit_indices = left_half_indices[fit_indices_in_left]
         
         if len(fit_indices) < 3:  # Need at least 3 points for fit
-            print(f"Warning: Not enough points in left half for Lx={Lx}, skipping...")
+            print(f"Warning: Not enough points in first contiguous window for Lx={Lx}, skipping...")
             continue
         
         # Extract data for fitting
@@ -194,7 +216,7 @@ def plot_flux_slope_vs_invL():
         slope, slope_error, intercept = fit_slope_with_error(log_tau, log_G, log_G_errors)
         
         # Generate fit line for visualization
-        tau_fit_extended = np.linspace(tau_fit[0], tau_fit[-1] * 1.0, 100)
+        tau_fit_extended = np.linspace(tau_fit[0]*0.6, tau_fit[-1]*2.0, 100)
         fit_line = np.exp(intercept) * tau_fit_extended**slope
         
         print(f"Lx={Lx}: slope={slope:.4f} ± {slope_error:.4f}, fit window: tau {tau_fit[0]:.1f} to {tau_fit[-1]:.1f}")
@@ -236,6 +258,7 @@ def plot_flux_slope_vs_invL():
     
     plt.show()
     
+    # ------------------------------------------------------------ #
     # Second figure: slope vs 1/L
     plt.figure(figsize=(8, 6))
     ax2 = plt.gca()
@@ -355,7 +378,7 @@ def plot_flux_slope_vs_invL():
     # Format: value ± error (common practice in physics)
     extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
     
-    extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
+    extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=None,
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,
                                      elinewidth=2, alpha=0.8, label=extrap_label, zorder=5)
     
