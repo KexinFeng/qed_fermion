@@ -258,7 +258,7 @@ def plot_slope_vs_invL():
     
     ax2.errorbar(inv_L_values, slopes, yerr=slope_errors, 
                 marker='o', markersize=10, linestyle='-', linewidth=2,
-                capsize=5, capthick=2, elinewidth=2, alpha=0.8, label='Data')
+                capsize=5, capthick=2, elinewidth=2, alpha=0.8)
     
     # Fit with a function that flattens as 1/L -> 0 (nonincreasing)
     # Using a rational function: y = a + b * (1/L) / (1 + c * (1/L))
@@ -322,18 +322,21 @@ def plot_slope_vs_invL():
     print(f"Weighted R² = {r2:.4f}, derivative at 0 = {deriv_at_0:.4f}")
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f}")
 
-    # Plot the fit line
-    ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
-                label=f'Power-rational fit (R²={r2:.3f})')
+    # Plot the fit line and store handle
+    fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
+                         label=f'Power-rational fit (R²={r2:.3f})')
     
-    # Mark the extrapolated point at 1/L = 0
-    ax2.plot([0], [slope_extrapolated], 's', color='red', markersize=12, 
-                label=f'Extrapolated: {slope_extrapolated:.4f}', zorder=5)
+    # Mark the extrapolated point at 1/L = 0 and store handle
+    extrap_point, = ax2.plot([0], [slope_extrapolated], 's', color='red', markersize=12, 
+                             label=f'Extrapolated: {slope_extrapolated:.4f}', zorder=5)
     
     # Set x-axis to include 0 to show extrapolated point
     ax2.set_xlim(left=0)
     
-    ax2.legend(fontsize=14, loc='best')
+    # Create legend with only fit line and extrapolated point
+    handles = [fit_line, extrap_point]
+    labels = [h.get_label() for h in handles]
+    ax2.legend(handles, labels, fontsize=14, loc='best')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)
