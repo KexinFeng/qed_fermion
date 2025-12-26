@@ -420,7 +420,7 @@ def plot_slope_vs_invL():
     )
     
     # Combine all error sources in quadrature (assuming independent)
-    slope_extrapolated_error = np.sqrt(error_param**2)
+    slope_extrapolated_error = np.sqrt(error_param**2 + error_model**2)
     
     # Also calculate error from parameter a alone (at x=0, y = a for d > 1)
     # This serves as a check - should be similar to the full error propagation

@@ -506,7 +506,7 @@ def plot_slope_vs_invL():
     )
     
     # Combine all error sources in quadrature (assuming independent)
-    slope_extrapolated_error = np.sqrt(error_param**2)
+    slope_extrapolated_error = np.sqrt(error_param**2 + error_model**2)
     
     # Print breakdown of error sources for debugging
     print(f"\nError breakdown for extrapolated value:")
