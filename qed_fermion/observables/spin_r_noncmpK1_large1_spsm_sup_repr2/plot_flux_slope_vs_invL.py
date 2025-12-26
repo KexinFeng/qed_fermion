@@ -263,35 +263,42 @@ def plot_flux_slope_vs_invL():
     plt.figure(figsize=(8, 6))
     ax2 = plt.gca()
     
-    ax2.errorbar(inv_L_values, slopes, yerr=slope_errors, 
-                marker='o', markersize=10, linestyle='-', linewidth=2,
-                capsize=5, capthick=2, elinewidth=2, alpha=0.8)
-    
     # Fit with a function that flattens as 1/L -> 0 (nonincreasing)
     inv_L_array = np.array(inv_L_values)
-    slopes_array = np.array(slopes)
+    slopes_array = -np.array(slopes)
     Lx_array = np.array(Lx_values)
     
+    ax2.errorbar(inv_L_array, slopes_array, yerr=slope_errors, 
+                marker='o', markersize=10, linestyle='-', linewidth=2,
+                capsize=5, capthick=2, elinewidth=2, alpha=0.8) 
+
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**2
+    weights = Lx_array**0.5
     weights = weights / np.mean(weights)
     
     def power_rat_func(x, a, b, c, d):
         """
         Power-law rational function: y = a + b * x^d / (1 + c * x)
         - As x -> 0: y -> a (flat, derivative = 0 if d > 1)
-        - As x increases: y increases
+        - As x increases: y changes based on sign of b
         - Derivative at 0: 0 if d > 1, or b if d = 1
         - For d > 1, derivative at 0 is 0 (nonincreasing/flat)
         """
         if len(x) == 0:
             return np.array([])
         x_safe = np.maximum(x, 1e-10)  # Avoid issues with x=0
-        return a + b * (x_safe**d) / (1 + c * x_safe)
+        denominator = 1 + c * x_safe
+        # Avoid division by zero or very small denominators
+        denominator = np.maximum(denominator, 1e-10)
+        return a + b * (x_safe**d) / denominator
     
     # Initial guess
     a_init = np.min(slopes_array)  # Value at 1/L=0
-    b_init = (np.max(slopes_array) - np.min(slopes_array)) * 10.0  # Amplitude
+    slope_range = np.max(slopes_array) - np.min(slopes_array)
+    # Use typical inv_L value for scaling
+    typical_inv_L = np.mean(inv_L_array)
+    # For y = a + b*x^d/(1+c*x), estimate parameters
+    b_init = (slope_range) * 10.0  # Amplitude
     c_init = 10.0  # Controls saturation
     d_init = 2.0  # Power (should be > 1 for flat derivative at 0)
 
@@ -301,11 +308,29 @@ def plot_flux_slope_vs_invL():
     effective_sigma = slope_errors_array / np.sqrt(weights)
     
     # Fit with proper error weighting
+    # Reduce weights for outlier data points: the last 4th, 5th, 6th, and 7th entries (from the end) are outliers
+    # i.e., reduce weights at indices -4, -5, -6, -7 instead of removing them
+
+    # Get indices of outlier points (from the end: -4, -5, -6, -7)
+    n = len(inv_L_array)
+    outlier_indices = [n - 4, n - 5, n - 6, n - 7]
+    # Make sure the indices are valid
+    outlier_indices = [i for i in outlier_indices if i >= 0 and i < n]
+
+    # Reduce weights for outlier points (multiply by a small factor, e.g., 0.1)
+    # This keeps them in the fit but with much less influence
+    weight_reduction_factor = 0.03
+    for idx in outlier_indices:
+        weights[idx] *= weight_reduction_factor
+    
+    # Recalculate effective_sigma with the reduced weights
+    effective_sigma = slope_errors_array / np.sqrt(weights)
     popt, pcov = curve_fit(power_rat_func, inv_L_array, slopes_array, 
                             p0=[a_init, b_init, c_init, d_init],
                             sigma=effective_sigma,
                             absolute_sigma=True,  # Use absolute uncertainties
-                            bounds=([-np.inf, -np.inf, 0, 1.1], [np.inf, np.inf, np.inf, 5.0]))  # d > 1, c >= 0
+                            bounds=([-np.inf, -np.inf, 0, 1.1], [np.inf, np.inf, np.inf, 5.0]),  # d > 1, c >= 0
+                            maxfev=10000)
     
     a_fit, b_fit, c_fit, d_fit = popt
     
@@ -376,9 +401,9 @@ def plot_flux_slope_vs_invL():
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
+    extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.1g}'
     
-    extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=None,
+    extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,
                                      elinewidth=2, alpha=0.8, label=extrap_label, zorder=5)
     
@@ -387,7 +412,7 @@ def plot_flux_slope_vs_invL():
     
     # Create legend with only fit line and extrapolated point
     # errorbar returns a container, extract the line for the legend
-    handles = [fit_line, extrap_container]  # extrap_container[0] is the line/marker
+    handles = [fit_line, extrap_container]
     labels = [h.get_label() for h in handles]
     ax2.legend(handles, labels, fontsize=18, loc='best')
         
