@@ -269,7 +269,7 @@ def plot_flux_slope_vs_invL():
     Lx_array = np.array(Lx_values)
     
     ax2.errorbar(inv_L_array, slopes_array, yerr=slope_errors, 
-                marker='o', markersize=10, linestyle='-', linewidth=2,
+                marker='o', markersize=10, linestyle='', linewidth=2,
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8) 
 
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
