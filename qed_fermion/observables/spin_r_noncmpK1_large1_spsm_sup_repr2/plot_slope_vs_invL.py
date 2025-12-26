@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, minimize
 
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
@@ -258,10 +258,83 @@ def plot_slope_vs_invL():
     
     ax2.errorbar(inv_L_values, slopes, yerr=slope_errors, 
                 marker='o', markersize=10, linestyle='-', linewidth=2,
-                capsize=5, capthick=2, elinewidth=2, alpha=0.8)
+                capsize=5, capthick=2, elinewidth=2, alpha=0.8, label='Data')
     
+    # Fit with a function that flattens as 1/L -> 0 (nonincreasing)
+    # Using a rational function: y = a + b * (1/L) / (1 + c * (1/L))
+    # This naturally flattens to y = a as 1/L -> 0, with derivative at 0 = b
+    # To ensure nonincreasing, we constrain b <= 0
+    inv_L_array = np.array(inv_L_values)
+    slopes_array = np.array(slopes)
+    Lx_array = np.array(Lx_values)
     
+    # Calculate weights: weight proportional to L^2 (larger systems get more weight)
+    weights = Lx_array**2
+    weights = weights / np.mean(weights)
     
+    def power_rat_func(x, a, b, c, d):
+        """
+        Power-law rational function: y = a + b * x^d / (1 + c * x)
+        - As x -> 0: y -> a (flat, derivative = 0 if d > 1)
+        - As x increases: y increases
+        - Derivative at 0: 0 if d > 1, or b if d = 1
+        - For d > 1, derivative at 0 is 0 (nonincreasing/flat)
+        """
+        if len(x) == 0:
+            return np.array([])
+        x_safe = np.maximum(x, 1e-10)  # Avoid issues with x=0
+        return a + b * (x_safe**d) / (1 + c * x_safe)
+    
+    # Initial guess
+    a_init = np.min(slopes_array)  # Value at 1/L=0
+    b_init = (np.max(slopes_array) - np.min(slopes_array)) * 10.0  # Amplitude
+    c_init = 10.0  # Controls saturation
+    d_init = 2.0  # Power (should be > 1 for flat derivative at 0)
+
+    # Fit with weights
+    popt, pcov = curve_fit(power_rat_func, inv_L_array, slopes_array, 
+                            p0=[a_init, b_init, c_init, d_init],
+                            sigma=1.0/np.sqrt(weights),
+                            absolute_sigma=False,
+                            bounds=([-np.inf, -np.inf, 0, 1.1], [np.inf, np.inf, np.inf, 5.0]))  # d > 1, c >= 0
+    
+    a_fit, b_fit, c_fit, d_fit = popt
+    
+    # Generate smooth curve for plotting
+    inv_L_fit = np.linspace(0, max(inv_L_array) * 1.1, 200)
+    slopes_fit = power_rat_func(inv_L_fit, a_fit, b_fit, c_fit, d_fit)
+    
+    # Extrapolate to 1/L = 0
+    slope_extrapolated = power_rat_func(np.array([0.0]), a_fit, b_fit, c_fit, d_fit)[0]
+    
+    # Calculate R-squared
+    y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
+    ss_res = np.sum(weights * (slopes_array - y_pred)**2)
+    y_mean = np.average(slopes_array, weights=weights)
+    ss_tot = np.sum(weights * (slopes_array - y_mean)**2)
+    r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+    
+    # Check derivative at 0 (should be 0 if d > 1)
+    # For y = a + b * x^d / (1 + c * x), derivative at 0 is 0 if d > 1
+    deriv_at_0 = 0.0 if d_fit > 1.0 else b_fit
+    
+    print(f"Power-rational fit: a = {a_fit:.4f}, b = {b_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
+    print(f"Weighted R² = {r2:.4f}, derivative at 0 = {deriv_at_0:.4f}")
+    print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f}")
+
+    # Plot the fit line
+    ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
+                label=f'Power-rational fit (R²={r2:.3f})')
+    
+    # Mark the extrapolated point at 1/L = 0
+    ax2.plot([0], [slope_extrapolated], 's', color='red', markersize=12, 
+                label=f'Extrapolated: {slope_extrapolated:.4f}', zorder=5)
+    
+    # Set x-axis to include 0 to show extrapolated point
+    ax2.set_xlim(left=0)
+    
+    ax2.legend(fontsize=14, loc='best')
+        
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)
     ax2.grid(True, alpha=0.3)
