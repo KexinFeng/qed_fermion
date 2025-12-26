@@ -395,7 +395,7 @@ def plot_flux_slope_vs_invL():
 
     # Plot the fit line and store handle
     # Format equation: y = a + b * (1/L)^d / (1 + c * (1/L))
-    fit_label = r'Power-rational fit: $y = a + b \cdot x^d / (1 + c \cdot x)$'
+    fit_label = r'$y = a + b \cdot x^d / (1 + c \cdot x)$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     
@@ -414,10 +414,10 @@ def plot_flux_slope_vs_invL():
     # errorbar returns a container, extract the line for the legend
     handles = [fit_line, extrap_container]
     labels = [h.get_label() for h in handles]
-    ax2.legend(handles, labels, fontsize=18, loc='best')
+    ax2.legend(handles, labels, fontsize=22, loc='upper left')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
-    ax2.set_ylabel('Slope (log-log fit)', fontsize=23)
+    ax2.set_ylabel('$2\Delta$', fontsize=23)
     ax2.grid(True, alpha=0.3)
     
     # Set tick label size
