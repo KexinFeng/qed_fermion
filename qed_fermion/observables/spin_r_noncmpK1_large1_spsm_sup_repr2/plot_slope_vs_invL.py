@@ -89,6 +89,18 @@ def plot_slope_vs_invL():
     plt.figure(figsize=(8, 6))
     main_ax = plt.gca()
     
+    # Finalize first figure: log-log correlation plots with fits
+    main_ax.set_xlabel('r', fontsize=23)
+    main_ax.set_ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
+    main_ax.set_xscale('log')
+    main_ax.set_yscale('log')
+    main_ax.grid(True, alpha=0.3)
+    main_ax.xaxis.set_tick_params(labelsize=22)
+    main_ax.yaxis.set_tick_params(labelsize=22)
+    main_ax.legend(fontsize=14, ncol=2, loc='best', framealpha=0.9)
+    
+    plt.tight_layout()
+
     # Store results
     slopes = []
     slope_errors = []
@@ -214,54 +226,20 @@ def plot_slope_vs_invL():
         inv_L_values.append(1.0 / Lx)
         Lx_values.append(Lx)
         
-        # Store data for visualization
+        # Plot data and fit during iteration
         color = f"C{i}"
         Ltau = int(10 * Lx)
-        plot_data.append({
-            'r_values': r_values,
-            'spin_corr_values': spin_corr_values,
-            'spin_corr_errors': spin_corr_errors,
-            'r_fit': r_fit_extended,
-            'fit_line': fit_line,
-            'label': rf'{Ltau}x{Lx}$^2$',
-            'color': color,
-            'Lx': Lx,
-            'slope': slope,
-            'slope_error': slope_error
-        })
-    
-    # First figure: log-log correlation plots with fits
-    plt.figure(figsize=(8, 6))
-    ax1 = plt.gca()
-    
-    for entry in plot_data:
-        r_vals = entry['r_values']
-        corr_vals = entry['spin_corr_values']
-        corr_errs = entry['spin_corr_errors']
-        r_fit = entry['r_fit']
-        fit_line = entry['fit_line']
-        color = entry['color']
-        label = entry['label']
-        slope = entry['slope']
+        label = rf'{Ltau}x{Lx}$^2$'
         
         # Plot data
-        ax1.errorbar(r_vals, corr_vals, yerr=corr_errs,
-                     linestyle=':', marker='o', color=color,
-                     markersize=8, alpha=0.7, label=label)
+        main_ax.errorbar(r_values, spin_corr_values, yerr=spin_corr_errors,
+                         linestyle=':', marker='o', color=color,
+                         markersize=8, alpha=0.7, label=label)
         
-        # Plot fit line (without label to avoid cluttering legend)
-        ax1.plot(r_fit, fit_line, '-', color=color, alpha=0.8, lw=2)
+        # Plot fit line
+        main_ax.plot(r_fit_extended, fit_line, '-', color=color, alpha=0.8, lw=2)
     
-    ax1.set_xlabel('r', fontsize=23)
-    ax1.set_ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
-    ax1.set_xscale('log')
-    ax1.set_yscale('log')
-    ax1.grid(True, alpha=0.3)
-    ax1.xaxis.set_tick_params(labelsize=22)
-    ax1.yaxis.set_tick_params(labelsize=22)
-    ax1.legend(fontsize=14, ncol=2, loc='best', framealpha=0.9)
-    
-    plt.tight_layout()
+        dbstop = 1
     
     # Save the first plot
     save_dir = os.path.join(script_path, "./figures/slope_vs_invL")
