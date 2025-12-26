@@ -40,7 +40,7 @@ def linear_func(x, slope, intercept):
 
 def fit_slope_with_error(log_r, log_corr, log_corr_errors):
     """
-    Perform linear fit in log-log space with error estimation.
+    Perform unweighted linear fit in log-log space with error estimation.
     
     Parameters:
     -----------
@@ -49,7 +49,7 @@ def fit_slope_with_error(log_r, log_corr, log_corr_errors):
     log_corr : array
         Log of correlation values
     log_corr_errors : array
-        Errors in log space (approximated from relative errors)
+        Errors in log space (not used for unweighted fit, kept for compatibility)
     
     Returns:
     --------
@@ -60,22 +60,22 @@ def fit_slope_with_error(log_r, log_corr, log_corr_errors):
     intercept : float
         Fitted intercept
     """
-    # Use curve_fit with weights based on errors
-    # Weights are inverse of variance
-    weights = 1.0 / (log_corr_errors**2 + 1e-10)  # Add small value to avoid division by zero
+    # Use unweighted fit (numpy.polyfit)
+    coeffs = np.polyfit(log_r, log_corr, 1)
+    slope = coeffs[0]
+    intercept = coeffs[1]
     
-    try:
-        popt, pcov = curve_fit(linear_func, log_r, log_corr, 
-                               sigma=log_corr_errors, absolute_sigma=True)
-        slope = popt[0]
-        intercept = popt[1]
-        slope_error = np.sqrt(pcov[0, 0])
-    except:
-        # Fallback to unweighted fit if weighted fit fails
-        popt, pcov = curve_fit(linear_func, log_r, log_corr)
-        slope = popt[0]
-        intercept = popt[1]
-        slope_error = np.sqrt(pcov[0, 0]) if pcov[0, 0] > 0 else 0.0
+    # Calculate error in slope using residual sum of squares
+    y_pred = slope * log_r + intercept
+    residuals = log_corr - y_pred
+    ss_res = np.sum(residuals**2)
+    n = len(log_r)
+    mse = ss_res / (n - 2)  # Mean squared error (degrees of freedom = n - 2)
+    
+    # Calculate variance of slope
+    ss_x = np.sum((log_r - np.mean(log_r))**2)
+    slope_variance = mse / ss_x
+    slope_error = np.sqrt(slope_variance)
     
     return slope, slope_error, intercept
 
@@ -190,7 +190,7 @@ def plot_slope_vs_invL():
         else:
             # Fit from 3rd to min(1/2*len(r_values)-th, 8th) data (both inclusive)
             # 0-indexed: from 2 to min(n_points//2 - 1, 7)
-            start_idx = 2
+            start_idx = 0
             end_idx = min((n_points + 1) // 2 - 1, 7)
         
         # Ensure valid indices
@@ -215,7 +215,7 @@ def plot_slope_vs_invL():
         slope, slope_error, intercept = fit_slope_with_error(log_r, log_corr, log_corr_errors)
         
         # Generate fit line for visualization (extend slightly beyond fit points for better visualization)
-        r_fit_extended = np.linspace(r_fit[0], r_fit[-1] * 1.2, 100)
+        r_fit_extended = np.linspace(r_fit[0], r_fit[-1] * 1.0, 100)
         fit_line = np.exp(intercept) * r_fit_extended**slope
         
         print(f"Lx={Lx}: slope={slope:.4f} ± {slope_error:.4f}, fit window: indices {start_idx} to {end_idx}")
@@ -260,8 +260,10 @@ def plot_slope_vs_invL():
                 marker='o', markersize=10, linestyle='-', linewidth=2,
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8)
     
+    
+    
     ax2.set_xlabel(r'$1/L$', fontsize=23)
-    ax2.set_ylabel('Slope (log-log fit)', fontsize=23)
+    ax2.set_ylabel('$2\Delta$', fontsize=23)
     ax2.grid(True, alpha=0.3)
     
     # Set tick label size
