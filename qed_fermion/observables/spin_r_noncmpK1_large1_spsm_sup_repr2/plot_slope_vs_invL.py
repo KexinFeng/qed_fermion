@@ -389,12 +389,14 @@ def plot_slope_vs_invL():
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
+    # Format equation: y = a + b * (1/L)^d / (1 + c * (1/L))
+    fit_label = r'Power-rational fit: $y = a + b \cdot x^d / (1 + c \cdot x)$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
-                         label=f'Power-rational fit (R²={r2:.3f})')
+                         label=fit_label)
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'Extrapolated: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}'
+    extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
     
     extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,
