@@ -273,7 +273,7 @@ def plot_flux_slope_vs_invL():
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8) 
 
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**0.5
+    weights = Lx_array**0
     weights = weights / np.mean(weights)
     
     # Fit with proper error weighting
