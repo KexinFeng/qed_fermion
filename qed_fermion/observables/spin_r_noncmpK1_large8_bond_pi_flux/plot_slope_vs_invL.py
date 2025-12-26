@@ -1,5 +1,12 @@
 import re
 import matplotlib.pyplot as plt
+import os
+import sys
+
+script_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_path + '/../../../')
+
+from qed_fermion.utils.util import convolution
 
 plt.ion()
 
@@ -9,12 +16,7 @@ from scipy.optimize import curve_fit, minimize
 from matplotlib import rcParams
 rcParams['figure.raise_window'] = False
 
-import os
-script_path = os.path.dirname(os.path.abspath(__file__))
-
 import torch
-import sys
-sys.path.insert(0, script_path + '/../../../')
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n
 from matplotlib.ticker import FuncFormatter, MaxNLocator
@@ -27,8 +29,13 @@ start_dist = 1
 step_dist = 2 
 y_diplacement = lambda x: 0
 
-# HMC data folder
-data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmpK1_large1_spsm_sup_repr2"
+# HMC data folder for large8_bond_pi_flux
+data_folder = "/Users/kx/Desktop/hmc/fignote/back_tracing/hmc_check_point_noncmpK1_large8_bond_pi_flux"
+data_folder2 = ""
+data_folder3 = ""
+data_folder4 = ""
+
+separate = False
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -91,7 +98,7 @@ def plot_slope_vs_invL():
     
     # Finalize first figure: log-log correlation plots with fits
     main_ax.set_xlabel('r', fontsize=23)
-    main_ax.set_ylabel(r'$C_S^{\uparrow\downarrow}(r, 0)$', fontsize=23)
+    main_ax.set_ylabel('$C_B(r, 0)$', fontsize=23)
     main_ax.set_xscale('log')
     main_ax.set_yscale('log')
     main_ax.grid(True, alpha=0.3)
@@ -107,10 +114,13 @@ def plot_slope_vs_invL():
     inv_L_values = []
     Lx_values = []
     
+    # Sampling parameters
+    sample_step = 1
+    
     for i, Lx in enumerate(lattice_sizes):
+        # Construct filename for this lattice size
         Ltau = int(10 * Lx)
-        start = 2000 if Lx >= 20 else 4000
-        sample_step = 1
+        start = 1000
 
         import glob
         # Find the correct file for this Lx and Ltau
@@ -140,45 +150,131 @@ def plot_slope_vs_invL():
         res = torch.load(hmc_filename, map_location='cpu')
         print(f'Loaded: {hmc_filename}')
         
-
-        # Extract spin-spin correlation data: spsm_r_list
-        spsm_r = res['spsm_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
+        # Extract bond correlation data: BB_r_list
+        bb_r = res['BB_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
+        bb0_r = res['BB0_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
+        b_r = res['B_r_list']
         
         # Extract sequence indices for equilibrated samples
-        hmc_match = re.search(r'Nstp_(\d+)', hmc_filename)
+        hmc_match = re.search(r'step_(\d+)', hmc_filename)
         end = int(hmc_match.group(1))
         seq_idx = np.arange(start, end, sample_step)
-        hmc_match_bs = re.search(r'bs(\d+)', hmc_filename)
-        bs = int(hmc_match_bs.group(1))
 
-        # Average over equilibrated timesteps and batch dimension
-        spsm_r_avg = spsm_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        spsm_r_avg_std = spsm_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
-        spsm_r_avg_abs = spsm_r_avg.abs()            # Take absolute value for correlation
-        
+        # Average over equilibrated timesteps and batch dimension for first folder
+        bb0_r_avg1 = bb0_r[seq_idx].mean(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+        v_r_seq1 = b_r[seq_idx]
+        v_r_avg1 = v_r_seq1.mean(dim=(0, 1), keepdim=True)       # Average over [timesteps, batches] -> [Ly, Lx]
+        bb0_r_avg_std1 = bb0_r[seq_idx].std(dim=(0, 1))       # Average over [timesteps, batches] -> [Ly, Lx]
+
+        vv_r_seq1 = convolution(v_r_seq1)
+        vv_r_avg1 = convolution(v_r_avg1)
+        bb1_r_avg1 = (4 * (vv_r_seq1 - vv_r_avg1)).mean(dim=(0, 1))
+        bb1_r_avg_std1 = (4 * (vv_r_seq1 - vv_r_avg1)).std(dim=(0, 1))
+
         # Convert to numpy for easier manipulation
-        spsm_r_np = spsm_r_avg.numpy()
-        spsm_r_np_abs = spsm_r_avg_abs.numpy()
-        spsm_r_avg_std_np = spsm_r_avg_std.numpy()
+        bb_r_np_abs1 = bb1_r_avg1.abs().numpy()
+        bb0_r_np_abs1 = bb0_r_avg1.abs().numpy()
+        bb_r_avg_std_np1 = bb1_r_avg_std1.numpy()
+        bb0_r_avg_std_np1 = bb0_r_avg_std1.numpy()
+
+        # Load data from second folder
+        hmc_filename2 = find_hmc_file(Lx, Ltau, data_folder2)
+        hmc_filename3 = find_hmc_file(Lx, Ltau, data_folder3)
+        hmc_filename4 = find_hmc_file(Lx, Ltau, data_folder4)
+
+        # If no file found in second folder, use only first folder data
+        bb_r_np_abs = bb_r_np_abs1
+        bb0_r_np_abs = bb0_r_np_abs1
+        bb_r_avg_std_np = bb_r_avg_std_np1
+        bb0_r_avg_std_np = bb0_r_avg_std_np1
+        total_samples = len(seq_idx) * bs
+
+        for extra_filename in [hmc_filename2, hmc_filename3, hmc_filename4]:
+            if extra_filename is None: continue
+            # Load checkpoint data from second folder
+            res2 = torch.load(extra_filename, map_location='cpu')
+            print(f'Loaded: {extra_filename}')
+            
+            # Extract required lists from second folder
+            bb0_r2 = res2['BB0_r_list']  # Shape: [timesteps, batch_size, Ly, Lx]
+            b_r2 = res2['B_r_list']
+            
+            # Extract sequence indices for equilibrated samples
+            hmc_match2 = re.search(r'step_(\d+)', extra_filename)
+            end2 = int(hmc_match2.group(1))
+            start2 = 1000
+            seq_idx2 = np.arange(start2, end2, sample_step)
+
+            # Average over equilibrated timesteps and batch dimension for second folder (newest calc)
+            bb0_r_avg2 = bb0_r2[seq_idx2].mean(dim=(0, 1))
+            v_r_seq2 = b_r2[seq_idx2]
+            v_r_avg2 = v_r_seq2.mean(dim=(0, 1), keepdim=True)
+            bb0_r_avg_std2 = bb0_r2[seq_idx2].std(dim=(0, 1))
+
+            vv_r_seq2 = convolution(v_r_seq2)
+            vv_r_avg2 = convolution(v_r_avg2)
+            bb1_r_avg2 = (4 * (vv_r_seq2 - vv_r_avg2)).mean(dim=(0, 1))
+            bb1_r_avg_std2 = (4 * (vv_r_seq2 - vv_r_avg2)).std(dim=(0, 1))
+            
+            # Convert to numpy for easier manipulation
+            bb_r_np_abs2 = bb1_r_avg2.abs().numpy()
+            bb0_r_np_abs2 = bb0_r_avg2.abs().numpy()
+            bb_r_avg_std_np2 = bb1_r_avg_std2.numpy()
+            bb0_r_avg_std_np2 = bb0_r_avg_std2.numpy()
+
+            # Combine data from both folders (average)
+            n1 = total_samples
+            n2 = len(seq_idx2) * bs
+            total_samples = n1 + n2
+            bb_r_np_abs = (bb_r_np_abs * n1 + bb_r_np_abs2 * n2) / total_samples
+            bb0_r_np_abs = (bb0_r_np_abs * n1 + bb0_r_np_abs2 * n2) / total_samples
+            # For the standard deviation, combine variances weighted by sample size, then take sqrt
+            bb_r_avg_std_np = np.sqrt(
+                (bb_r_avg_std_np**2 * n1 + bb_r_avg_std_np2**2 * n2) / total_samples
+            )
+            bb0_r_avg_std_np = np.sqrt(
+                (bb0_r_avg_std_np**2 * n1 + bb0_r_avg_std_np2**2 * n2) / total_samples
+            )
         
         r_values = []
         spin_corr_values = []
+        spin_corr_values0 = []
         spin_corr_errors = []
+        spin_corr_errors0 = []
         
-        # Simplified: plot spin correlation along x-direction only (y=0)
+        # Simplified: plot bond correlation along x-direction only (y=0)
         for r in range(start_dist, Lx, step_dist):
             x = r
             y = y_diplacement(x) 
             
             r_values.append(r)
-            val = 1/2 * (spsm_r_np_abs[y, x] + spsm_r_np_abs[y, Lx - x]) if y != x else spsm_r_np_abs[y, x]
-            err = 1/2 * (spsm_r_avg_std_np[y, x] + spsm_r_avg_std_np[y, Lx - x]) if y != x else spsm_r_avg_std_np[y, x] 
-            spin_corr_values.append(val)
-            spin_corr_errors.append(err / np.sqrt(len(seq_idx) * bs))
+            val = 1/2 * (bb_r_np_abs[y, x] + bb_r_np_abs[y, Lx - x]) if y != x else bb_r_np_abs[y, x]  # bb_r_np_abs[Ly - y, x] will err, since y = 0.
+            val0 = 1/2 * (bb0_r_np_abs[y, x] + bb0_r_np_abs[y, Lx - x]) if y != x else bb0_r_np_abs[y, x]  # bb_r_np_abs[Ly - y, x] will err, since y = 0.
+            err = 1/2 * (bb_r_avg_std_np[y, x] + bb_r_avg_std_np[y, Lx - x]) if y != x else bb_r_avg_std_np[y, x] 
+            err0 = 1/2 * (bb0_r_avg_std_np[y, x] + bb0_r_avg_std_np[y, Lx - x]) if y != x else bb0_r_avg_std_np[y, x] 
 
-        r_values = np.array(r_values)
+            spin_corr_values.append(val)
+            spin_corr_values0.append(val0)
+            spin_corr_errors.append(err / np.sqrt(total_samples))
+            spin_corr_errors0.append(err0 / np.sqrt(total_samples))
+
         spin_corr_values = np.array(spin_corr_values)
+        spin_corr_values0 = np.array(spin_corr_values0)
         spin_corr_errors = np.array(spin_corr_errors)
+        spin_corr_errors0 = np.array(spin_corr_errors0)
+        
+        # Combine correlations when separate=False (same as in plot_fit_bond_corr_correction.py)
+        if not separate:
+            # Use combined correlation: (abs(spin_corr_values) + abs(spin_corr_values0))
+            # And combined error: sqrt((spin_corr_errors^2 + spin_corr_errors0^2) / 2)
+            combined_corr_values = np.abs(spin_corr_values) + np.abs(spin_corr_values0)
+            combined_corr_errors = np.sqrt((spin_corr_errors**2 + spin_corr_errors0**2) / 2)
+        else:
+            # Use only the corrected correlation
+            combined_corr_values = np.abs(spin_corr_values)
+            combined_corr_errors = spin_corr_errors
+        
+        r_values = np.array(r_values)
         
         # Determine fit window based on Lx
         n_points = len(r_values)
@@ -200,8 +296,8 @@ def plot_slope_vs_invL():
         
         # Extract data for fitting
         r_fit = r_values[start_idx:end_idx+1]
-        corr_fit = spin_corr_values[start_idx:end_idx+1]
-        corr_err_fit = spin_corr_errors[start_idx:end_idx+1]
+        corr_fit = combined_corr_values[start_idx:end_idx+1]
+        corr_err_fit = combined_corr_errors[start_idx:end_idx+1]
         
         # Convert to log space
         log_r = np.log(r_fit)
@@ -232,20 +328,18 @@ def plot_slope_vs_invL():
         label = rf'{Ltau}x{Lx}$^2$'
         
         # Plot data
-        main_ax.errorbar(r_values, spin_corr_values, yerr=spin_corr_errors,
+        main_ax.errorbar(r_values, combined_corr_values, yerr=combined_corr_errors,
                          linestyle=':', marker='o', color=color,
                          markersize=8, alpha=0.7, label=label)
         
         # Plot fit line
         main_ax.plot(r_fit_extended, fit_line, '-', color=color, alpha=0.8, lw=2)
     
-        dbstop = 1
-    
     # Save the first plot
     save_dir = os.path.join(script_path, "./figures/slope_vs_invL")
     os.makedirs(save_dir, exist_ok=True)
-    pdf_path1 = os.path.join(save_dir, "corr_with_fits_noncmpK1.pdf")
-    png_path1 = os.path.join(save_dir, "corr_with_fits_noncmpK1.png")
+    pdf_path1 = os.path.join(save_dir, "corr_with_fits_noncmpK1_bond.pdf")
+    png_path1 = os.path.join(save_dir, "corr_with_fits_noncmpK1_bond.png")
     plt.savefig(pdf_path1, format="pdf", bbox_inches="tight")
     plt.savefig(png_path1, format="png", bbox_inches="tight", dpi=300)
     print(f"Correlation plot with fits saved at: {pdf_path1}")
@@ -269,7 +363,7 @@ def plot_slope_vs_invL():
     Lx_array = np.array(Lx_values)
     
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**2
+    weights = Lx_array**1
     weights = weights / np.mean(weights)
     
     def power_rat_func(x, a, b, c, d):
@@ -409,7 +503,7 @@ def plot_slope_vs_invL():
     # errorbar returns a container, extract the line for the legend
     handles = [fit_line, extrap_container]  # extrap_container[0] is the line/marker
     labels = [h.get_label() for h in handles]
-    ax2.legend(handles, labels, fontsize=18, loc='best')
+    ax2.legend(handles, labels, fontsize=17, loc='best')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)
@@ -422,8 +516,8 @@ def plot_slope_vs_invL():
     plt.tight_layout()
     
     # Save the second plot
-    pdf_path2 = os.path.join(save_dir, "slope_vs_invL_noncmpK1.pdf")
-    png_path2 = os.path.join(save_dir, "slope_vs_invL_noncmpK1.png")
+    pdf_path2 = os.path.join(save_dir, "slope_vs_invL_noncmpK1_bond.pdf")
+    png_path2 = os.path.join(save_dir, "slope_vs_invL_noncmpK1_bond.png")
     plt.savefig(pdf_path2, format="pdf", bbox_inches="tight")
     plt.savefig(png_path2, format="png", bbox_inches="tight", dpi=300)
     print(f"Slope vs 1/L plot saved at: {pdf_path2}")
