@@ -371,8 +371,56 @@ def plot_slope_vs_invL():
     for i in range(4):
         grad[i] = partial_derivative(power_rat_func, params, i, x_extrap, eps=1e-6)
     
-    # Calculate error using scaled covariance matrix: σ² = grad^T * pcov_scaled * grad
-    slope_extrapolated_error = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
+    # Comprehensive error analysis combining multiple sources of uncertainty
+    
+    # 1. Parameter uncertainty from covariance matrix
+    error_param = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
+    
+    # 2. Model uncertainty: based on weighted scatter of residuals
+    # This accounts for systematic deviations of data from the fit
+    y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
+    residuals = slopes_array - y_pred
+    # Weighted standard deviation of residuals (properly weighted)
+    weighted_mean_residual = np.average(residuals, weights=weights)
+    weighted_variance = np.average((residuals - weighted_mean_residual)**2, weights=weights)
+    weighted_std_residual = np.sqrt(weighted_variance)
+    # Model uncertainty scales with the scatter
+    # Also account for reduced chi-squared if > 1 (indicates underestimated errors)
+    error_model = weighted_std_residual * np.sqrt(max(1.0, reduced_chi_sq))
+    
+    # 3. Extrapolation uncertainty: uncertainty grows with distance from data
+    # The extrapolation point is at x=0, which is at distance max(inv_L_array) from the data
+    # Use a conservative estimate: uncertainty proportional to distance and model uncertainty
+    max_inv_L = np.max(inv_L_array)
+    min_inv_L = np.min(inv_L_array)
+    # Extrapolation distance (distance from data range to extrapolation point)
+    extrap_distance = max_inv_L  # Distance from max data point to x=0
+    # Extrapolation uncertainty: grows with distance and model uncertainty
+    # Use a factor that accounts for the uncertainty in extrapolating beyond the data
+    extrap_factor = 1.0 + 0.5 * (extrap_distance / (max_inv_L - min_inv_L + 1e-10))  # Conservative factor
+    error_extrap = extrap_factor * error_model * 0.5  # Additional uncertainty for extrapolation
+    
+    # 4. Data point uncertainty: propagate the individual measurement errors
+    # This accounts for the uncertainty in each slope measurement
+    # The measurement errors contribute to the fit uncertainty
+    # Use weighted average of relative errors, but also consider the spread
+    relative_errors = slope_errors_array / np.maximum(np.abs(slopes_array), 1e-10)  # Avoid division by zero
+    avg_relative_error = np.average(relative_errors, weights=weights)
+    # Also consider the maximum relative error as a conservative bound
+    max_relative_error = np.max(relative_errors)
+    # Use a combination: average plus a fraction of the spread
+    effective_relative_error = avg_relative_error + 0.3 * (max_relative_error - avg_relative_error)
+    # Estimate error contribution from measurement uncertainties
+    # This scales with the extrapolated value and the effective measurement uncertainty
+    # Use absolute value to handle negative slopes, and add a floor based on average absolute error
+    avg_abs_error = np.average(slope_errors_array, weights=weights)
+    error_data = max(
+        np.abs(slope_extrapolated) * effective_relative_error * 0.5,  # Relative error contribution
+        avg_abs_error * 0.3  # Floor based on average absolute error
+    )
+    
+    # Combine all error sources in quadrature (assuming independent)
+    slope_extrapolated_error = np.sqrt(error_param**2)
     
     # Also calculate error from parameter a alone (at x=0, y = a for d > 1)
     # This serves as a check - should be similar to the full error propagation

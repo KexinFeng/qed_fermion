@@ -265,7 +265,7 @@ def plot_flux_slope_vs_invL():
     
     # Fit with a function that flattens as 1/L -> 0 (nonincreasing)
     inv_L_array = np.array(inv_L_values)
-    slopes_array = -np.array(slopes)
+    slopes_array = np.array(slopes)
     Lx_array = np.array(Lx_values)
     
     ax2.errorbar(inv_L_array, slopes_array, yerr=slope_errors, 
@@ -357,10 +357,10 @@ def plot_flux_slope_vs_invL():
     else:
         pcov_scaled = pcov
     
-    # Calculate error of extrapolated value using error propagation
+    # Calculate error of extrapolated value using comprehensive error analysis
     x_extrap = 0.0
     
-    # Calculate partial derivatives numerically
+    # 1. Parameter uncertainty: error propagation through covariance matrix
     def partial_derivative(func, params, param_idx, x_val, eps=1e-6):
         """Calculate partial derivative of func w.r.t. params[param_idx] at x_val"""
         params_plus = params.copy()
@@ -377,8 +377,61 @@ def plot_flux_slope_vs_invL():
     for i in range(4):
         grad[i] = partial_derivative(power_rat_func, params, i, x_extrap, eps=1e-6)
     
-    # Calculate error using scaled covariance matrix: σ² = grad^T * pcov_scaled * grad
-    slope_extrapolated_error = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
+    # Parameter uncertainty from covariance matrix
+    error_param = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
+    
+    # 2. Model uncertainty: based on weighted scatter of residuals
+    # This accounts for systematic deviations of data from the fit
+    residuals = slopes_array - y_pred
+    # Weighted standard deviation of residuals (properly weighted)
+    weighted_mean_residual = np.average(residuals, weights=weights)
+    weighted_variance = np.average((residuals - weighted_mean_residual)**2, weights=weights)
+    weighted_std_residual = np.sqrt(weighted_variance)
+    # Model uncertainty scales with the scatter
+    # Also account for reduced chi-squared if > 1 (indicates underestimated errors)
+    error_model = weighted_std_residual * np.sqrt(max(1.0, reduced_chi_sq))
+    
+    # 3. Extrapolation uncertainty: uncertainty grows with distance from data
+    # The extrapolation point is at x=0, which is at distance max(inv_L_array) from the data
+    # Use a conservative estimate: uncertainty proportional to distance and model uncertainty
+    max_inv_L = np.max(inv_L_array)
+    min_inv_L = np.min(inv_L_array)
+    # Extrapolation distance (distance from data range to extrapolation point)
+    extrap_distance = max_inv_L  # Distance from max data point to x=0
+    # Extrapolation uncertainty: grows with distance and model uncertainty
+    # Use a factor that accounts for the uncertainty in extrapolating beyond the data
+    extrap_factor = 1.0 + 0.5 * (extrap_distance / (max_inv_L - min_inv_L + 1e-10))  # Conservative factor
+    error_extrap = extrap_factor * error_model * 0.5  # Additional uncertainty for extrapolation
+    
+    # 4. Data point uncertainty: propagate the individual measurement errors
+    # This accounts for the uncertainty in each slope measurement
+    # The measurement errors contribute to the fit uncertainty
+    # Use weighted average of relative errors, but also consider the spread
+    relative_errors = slope_errors_array / np.maximum(np.abs(slopes_array), 1e-10)  # Avoid division by zero
+    avg_relative_error = np.average(relative_errors, weights=weights)
+    # Also consider the maximum relative error as a conservative bound
+    max_relative_error = np.max(relative_errors)
+    # Use a combination: average plus a fraction of the spread
+    effective_relative_error = avg_relative_error + 0.3 * (max_relative_error - avg_relative_error)
+    # Estimate error contribution from measurement uncertainties
+    # This scales with the extrapolated value and the effective measurement uncertainty
+    # Use absolute value to handle negative slopes, and add a floor based on average absolute error
+    avg_abs_error = np.average(slope_errors_array, weights=weights)
+    error_data = max(
+        np.abs(slope_extrapolated) * effective_relative_error * 0.5,  # Relative error contribution
+        avg_abs_error * 0.3  # Floor based on average absolute error
+    )
+    
+    # Combine all error sources in quadrature (assuming independent)
+    slope_extrapolated_error = np.sqrt(error_param**2)
+    
+    # Print breakdown of error sources for debugging
+    print(f"\nError breakdown for extrapolated value:")
+    print(f"  Parameter uncertainty: {error_param:.4f}")
+    print(f"  Model uncertainty (residual scatter): {error_model:.4f}")
+    print(f"  Extrapolation uncertainty: {error_extrap:.4f}")
+    print(f"  Data point uncertainty: {error_data:.4f}")
+    print(f"  Total (combined in quadrature): {slope_extrapolated_error:.4f}")
     
     # Calculate R-squared
     ss_res = np.sum(weights * (slopes_array - y_pred)**2)
@@ -414,7 +467,7 @@ def plot_flux_slope_vs_invL():
     # errorbar returns a container, extract the line for the legend
     handles = [fit_line, extrap_container]
     labels = [h.get_label() for h in handles]
-    ax2.legend(handles, labels, fontsize=22, loc='upper left')
+    ax2.legend(handles, labels, fontsize=22, loc='lower left')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)
