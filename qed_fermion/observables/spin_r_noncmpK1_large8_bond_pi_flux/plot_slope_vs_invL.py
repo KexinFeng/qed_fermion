@@ -351,7 +351,7 @@ def plot_slope_vs_invL():
     ax2 = plt.gca()
     
     ax2.errorbar(inv_L_values, slopes, yerr=slope_errors, 
-                marker='o', markersize=10, linestyle='-', linewidth=2,
+                marker='o', markersize=10, linestyle='', linewidth=2,
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8)
     
     # Fit with a function that flattens as 1/L -> 0 (nonincreasing)

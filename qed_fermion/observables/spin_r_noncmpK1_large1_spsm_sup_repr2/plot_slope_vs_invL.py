@@ -239,7 +239,6 @@ def plot_slope_vs_invL():
         # Plot fit line
         main_ax.plot(r_fit_extended, fit_line, '-', color=color, alpha=0.8, lw=2)
     
-        dbstop = 1
     
     # Save the first plot
     save_dir = os.path.join(script_path, "./figures/slope_vs_invL")
@@ -252,12 +251,13 @@ def plot_slope_vs_invL():
     
     plt.show()
     
+    # ------------------------------------------------------------ #
     # Second figure: slope vs 1/L
     plt.figure(figsize=(8, 6))
     ax2 = plt.gca()
     
     ax2.errorbar(inv_L_values, slopes, yerr=slope_errors, 
-                marker='o', markersize=10, linestyle='-', linewidth=2,
+                marker='o', markersize=10, linestyle='', linewidth=2,
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8)
     
     # Fit with a function that flattens as 1/L -> 0 (nonincreasing)
