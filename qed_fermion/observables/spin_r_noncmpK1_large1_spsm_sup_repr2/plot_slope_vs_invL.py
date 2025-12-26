@@ -291,11 +291,17 @@ def plot_slope_vs_invL():
     c_init = 10.0  # Controls saturation
     d_init = 2.0  # Power (should be > 1 for flat derivative at 0)
 
-    # Fit with weights
+    # Fit with weights and data errors
+    # Combine data errors with weights: effective sigma = data_error / sqrt(weight)
+    # This gives more weight to larger systems while still accounting for measurement errors
+    slope_errors_array = np.array(slope_errors)
+    effective_sigma = slope_errors_array / np.sqrt(weights)
+    
+    # Fit with proper error weighting
     popt, pcov = curve_fit(power_rat_func, inv_L_array, slopes_array, 
                             p0=[a_init, b_init, c_init, d_init],
-                            sigma=1.0/np.sqrt(weights),
-                            absolute_sigma=False,
+                            sigma=effective_sigma,
+                            absolute_sigma=True,  # Use absolute uncertainties
                             bounds=([-np.inf, -np.inf, 0, 1.1], [np.inf, np.inf, np.inf, 5.0]))  # d > 1, c >= 0
     
     a_fit, b_fit, c_fit, d_fit = popt
@@ -338,20 +344,34 @@ def plot_slope_vs_invL():
         y_minus = func(np.array([x_val]), *params_minus)[0]
         return (y_plus - y_minus) / (2 * eps)
     
+    # Calculate reduced chi-squared to check if errors are underestimated
+    y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
+    residuals = slopes_array - y_pred
+    chi_sq = np.sum((residuals / effective_sigma)**2)
+    n_data = len(slopes_array)
+    n_params = 4
+    dof = n_data - n_params  # degrees of freedom
+    reduced_chi_sq = chi_sq / dof if dof > 0 else 1.0
+    
+    # Scale covariance matrix by reduced chi-squared if > 1 (indicates underestimated errors)
+    # This is common practice when errors might be underestimated
+    if reduced_chi_sq > 1.0:
+        pcov_scaled = pcov * reduced_chi_sq
+        print(f"Reduced χ² = {reduced_chi_sq:.2f} > 1, scaling covariance matrix")
+    else:
+        pcov_scaled = pcov
+    
     params = np.array([a_fit, b_fit, c_fit, d_fit])
     grad = np.zeros(4)
     for i in range(4):
         grad[i] = partial_derivative(power_rat_func, params, i, x_extrap, eps=1e-6)
     
-    # Calculate error using covariance matrix: σ² = grad^T * pcov * grad
-    slope_extrapolated_error = np.sqrt(np.dot(grad, np.dot(pcov, grad)))
+    # Calculate error using scaled covariance matrix: σ² = grad^T * pcov_scaled * grad
+    slope_extrapolated_error = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
     
-    # Alternative simpler approach: at x=0, y = a, so error is just error in a
-    # This is exact for d > 1, but we use the general formula above for robustness
-    slope_extrapolated_error_simple = np.sqrt(pcov[0, 0])
-    
-    # Use the more accurate error propagation result
-    slope_extrapolated_error = slope_extrapolated_error
+    # Also calculate error from parameter a alone (at x=0, y = a for d > 1)
+    # This serves as a check - should be similar to the full error propagation
+    slope_extrapolated_error_a = np.sqrt(pcov_scaled[0, 0])
     
     # Calculate R-squared
     y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
@@ -365,7 +385,7 @@ def plot_slope_vs_invL():
     deriv_at_0 = 0.0 if d_fit > 1.0 else b_fit
     
     print(f"Power-rational fit: a = {a_fit:.4f}, b = {b_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
-    print(f"Weighted R² = {r2:.4f}, derivative at 0 = {deriv_at_0:.4f}")
+    print(f"Weighted R² = {r2:.4f}, reduced χ² = {reduced_chi_sq:.2f}, derivative at 0 = {deriv_at_0:.4f}")
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
