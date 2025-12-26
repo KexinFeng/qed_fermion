@@ -307,6 +307,52 @@ def plot_slope_vs_invL():
     # Extrapolate to 1/L = 0
     slope_extrapolated = power_rat_func(np.array([0.0]), a_fit, b_fit, c_fit, d_fit)[0]
     
+    # Calculate error of extrapolated value using error propagation
+    # For y = a + b * x^d / (1 + c * x), at x = 0: y = a (since x^d = 0 for d > 1)
+    # Error propagation: σ_y² = Σ_i Σ_j (∂y/∂p_i) * (∂y/∂p_j) * cov(p_i, p_j)
+    # At x = 0: ∂y/∂a = 1, ∂y/∂b = 0, ∂y/∂c = 0, ∂y/∂d = 0 (for d > 1)
+    # So σ_y² = cov(a, a) = pcov[0, 0]
+    # But to be general, we calculate partial derivatives at x = 0
+    
+    x_extrap = 0.0
+    # Calculate partial derivatives at x = 0
+    # For y = a + b * x^d / (1 + c * x)
+    # ∂y/∂a = 1
+    # ∂y/∂b = x^d / (1 + c*x) = 0 at x=0 (for d > 1)
+    # ∂y/∂c = -b * x^(d+1) / (1 + c*x)^2 = 0 at x=0 (for d > 1)
+    # ∂y/∂d = b * x^d * ln(x) / (1 + c*x) = 0 at x=0 (for d > 1, but ln(0) is problematic)
+    
+    # For numerical stability, use a small epsilon
+    eps = 1e-6
+    x_eps = eps
+    
+    # Calculate partial derivatives numerically
+    def partial_derivative(func, params, param_idx, x_val, eps=1e-6):
+        """Calculate partial derivative of func w.r.t. params[param_idx] at x_val"""
+        params_plus = params.copy()
+        params_plus[param_idx] += eps
+        params_minus = params.copy()
+        params_minus[param_idx] -= eps
+        
+        y_plus = func(np.array([x_val]), *params_plus)[0]
+        y_minus = func(np.array([x_val]), *params_minus)[0]
+        return (y_plus - y_minus) / (2 * eps)
+    
+    params = np.array([a_fit, b_fit, c_fit, d_fit])
+    grad = np.zeros(4)
+    for i in range(4):
+        grad[i] = partial_derivative(power_rat_func, params, i, x_extrap, eps=1e-6)
+    
+    # Calculate error using covariance matrix: σ² = grad^T * pcov * grad
+    slope_extrapolated_error = np.sqrt(np.dot(grad, np.dot(pcov, grad)))
+    
+    # Alternative simpler approach: at x=0, y = a, so error is just error in a
+    # This is exact for d > 1, but we use the general formula above for robustness
+    slope_extrapolated_error_simple = np.sqrt(pcov[0, 0])
+    
+    # Use the more accurate error propagation result
+    slope_extrapolated_error = slope_extrapolated_error
+    
     # Calculate R-squared
     y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
     ss_res = np.sum(weights * (slopes_array - y_pred)**2)
@@ -320,21 +366,26 @@ def plot_slope_vs_invL():
     
     print(f"Power-rational fit: a = {a_fit:.4f}, b = {b_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
     print(f"Weighted R² = {r2:.4f}, derivative at 0 = {deriv_at_0:.4f}")
-    print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f}")
+    print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=f'Power-rational fit (R²={r2:.3f})')
     
-    # Mark the extrapolated point at 1/L = 0 and store handle
-    extrap_point, = ax2.plot([0], [slope_extrapolated], 's', color='red', markersize=12, 
-                             label=f'Extrapolated: {slope_extrapolated:.4f}', zorder=5)
+    # Mark the extrapolated point at 1/L = 0 with error bar and store handle
+    # Format: value ± error (common practice in physics)
+    extrap_label = f'Extrapolated: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}'
+    
+    extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
+                                     fmt='o', color='red', markersize=12, capsize=5, capthick=2,
+                                     elinewidth=2, alpha=0.8,label=extrap_label, zorder=5)
     
     # Set x-axis to include 0 to show extrapolated point
-    ax2.set_xlim(left=0)
+    ax2.set_xlim(left=-0.005)
     
     # Create legend with only fit line and extrapolated point
-    handles = [fit_line, extrap_point]
+    # errorbar returns a container, extract the line for the legend
+    handles = [fit_line, extrap_container]  # extrap_container[0] is the line/marker
     labels = [h.get_label() for h in handles]
     ax2.legend(handles, labels, fontsize=14, loc='best')
         
