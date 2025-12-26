@@ -346,6 +346,7 @@ def plot_slope_vs_invL():
     
     plt.show()
     
+    # ------------------------------------------------------------ #
     # Second figure: slope vs 1/L
     plt.figure(figsize=(8, 6))
     ax2 = plt.gca()
@@ -472,7 +473,7 @@ def plot_slope_vs_invL():
     weighted_std_residual = np.sqrt(weighted_variance)
     # Model uncertainty scales with the scatter
     # Also account for reduced chi-squared if > 1 (indicates underestimated errors)
-    error_model = weighted_std_residual * np.sqrt(max(1.0, reduced_chi_sq))
+    error_model = weighted_std_residual
     
     # 3. Extrapolation uncertainty: uncertainty grows with distance from data
     # The extrapolation point is at x=0, which is at distance max(inv_L_array) from the data

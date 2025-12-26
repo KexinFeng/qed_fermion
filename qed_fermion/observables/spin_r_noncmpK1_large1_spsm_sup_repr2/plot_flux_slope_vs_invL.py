@@ -276,6 +276,22 @@ def plot_flux_slope_vs_invL():
     weights = Lx_array**0.5
     weights = weights / np.mean(weights)
     
+    # Fit with proper error weighting
+    # Reduce weights for outlier data points: the last 4th, 5th, 6th, and 7th entries (from the end) are outliers
+    # i.e., reduce weights at indices -4, -5, -6, -7 instead of removing them
+
+    # Get indices of outlier points (from the end: -4, -5, -6, -7)
+    n = len(inv_L_array)
+    outlier_indices = [n - 4, n - 5, n - 6, n - 7]
+    # Make sure the indices are valid
+    outlier_indices = [i for i in outlier_indices if i >= 0 and i < n]
+
+    # Reduce weights for outlier points (multiply by a small factor, e.g., 0.1)
+    # This keeps them in the fit but with much less influence
+    weight_reduction_factor = 0.03
+    for idx in outlier_indices:
+        weights[idx] *= weight_reduction_factor
+
     def power_rat_func(x, a, b, c, d):
         """
         Power-law rational function: y = a + b * x^d / (1 + c * x)
@@ -306,22 +322,6 @@ def plot_flux_slope_vs_invL():
     # Combine data errors with weights: effective sigma = data_error / sqrt(weight)
     slope_errors_array = np.array(slope_errors)
     effective_sigma = slope_errors_array / np.sqrt(weights)
-    
-    # Fit with proper error weighting
-    # Reduce weights for outlier data points: the last 4th, 5th, 6th, and 7th entries (from the end) are outliers
-    # i.e., reduce weights at indices -4, -5, -6, -7 instead of removing them
-
-    # Get indices of outlier points (from the end: -4, -5, -6, -7)
-    n = len(inv_L_array)
-    outlier_indices = [n - 4, n - 5, n - 6, n - 7]
-    # Make sure the indices are valid
-    outlier_indices = [i for i in outlier_indices if i >= 0 and i < n]
-
-    # Reduce weights for outlier points (multiply by a small factor, e.g., 0.1)
-    # This keeps them in the fit but with much less influence
-    weight_reduction_factor = 0.03
-    for idx in outlier_indices:
-        weights[idx] *= weight_reduction_factor
     
     # Recalculate effective_sigma with the reduced weights
     effective_sigma = slope_errors_array / np.sqrt(weights)
@@ -389,7 +389,7 @@ def plot_flux_slope_vs_invL():
     weighted_std_residual = np.sqrt(weighted_variance)
     # Model uncertainty scales with the scatter
     # Also account for reduced chi-squared if > 1 (indicates underestimated errors)
-    error_model = weighted_std_residual * np.sqrt(max(1.0, reduced_chi_sq))
+    error_model = weighted_std_residual
     
     # 3. Extrapolation uncertainty: uncertainty grows with distance from data
     # The extrapolation point is at x=0, which is at distance max(inv_L_array) from the data
