@@ -270,6 +270,11 @@ def plot_slope_vs_invL():
     
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
     weights = Lx_array**2
+    n = len(weights)
+    indices_to_double = [n - 5, n - 7, n - 8]
+    for idx in indices_to_double:
+        if 0 <= idx < n:
+            weights[idx] *= 5
     weights = weights / np.mean(weights)
     
     def power_rat_func(x, a, b, c, d):
