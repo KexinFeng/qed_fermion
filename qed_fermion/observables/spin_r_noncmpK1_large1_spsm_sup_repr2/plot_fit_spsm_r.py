@@ -204,7 +204,6 @@ def plot_spin_r():
     log_corr_l20 = np.log(corr_l20)
     coeffs_l20 = np.polyfit(log_r_l20, log_corr_l20, 1)
     r_l20_aug = np.concatenate([r_l20, [11, 13, 15, 17, 19]])
-    # coeffs_l20[0] = -3.6
     # fit_line_l20 = np.exp(coeffs_l20[1] + 0.1) * r_l20_aug ** coeffs_l20[0]
     coeffs_l20[0] = -3.8
     coeffs_l20[1] = -1.99
@@ -314,12 +313,6 @@ def plot_spin_r():
     main_ax.set_xlim(0.2, None)
     
     # --- Inset axes ---
-    # Determine inset limits based on grey DQMC data region
-    # Find the r range and corr range for DQMC data
-    all_dqmc_r = np.concatenate([r_dqmc_1, r_dqmc_3, r_dqmc_2])
-    all_dqmc_corr = np.concatenate([corr_dqmc_1, corr_dqmc_3, corr_dqmc_2])
-    all_dqmc_err = np.concatenate([err_dqmc_1, err_dqmc_3, err_dqmc_2])
-    
     # Set inset limits to zoom into grey points region
     inset_width = 0.40
     inset_height = 0.40
