@@ -28,7 +28,7 @@ start = 4000  # Skip initial equilibration steps
 sample_step = 1
 
 # HMC data folder (same as in plot_flux.py)
-data_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large4_Nrv40/hmc_check_point_cmp_large4_Nrv40"
+hmc_folder = "/Users/kx/Desktop/hmc/fignote/cmp_noncmp_result/cmp_large4_Nrv40/hmc_check_point_cmp_large4_Nrv40"
 
 # Set default plotting settings for physics scientific publication (Matlab style)
 from qed_fermion.utils.prep_plots import set_default_plotting
@@ -82,8 +82,9 @@ def fit_slope_with_error(log_tau, log_G, log_G_errors):
 def plot_flux_slope_vs_invL():
     """Plot slope of log-log fit vs 1/L for different lattice sizes."""
     
-    # Define lattice sizes to analyze
+    # Define lattice sizes to analyze (same as in plot_flux.py)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
     
     # Create first figure for flux plots with fits
     plt.figure(figsize=(8, 6))
@@ -113,13 +114,12 @@ def plot_flux_slope_vs_invL():
         Ltau = int(10 * Lx)
         Ly = Lx
         
-        # Find the correct file for this Lx and Ltau
-        def find_hmc_file(Lx, Ltau, folder=data_folder):
-            # Pattern with optional Nrv (some files don't have Nrv_*)
+        # Find the correct file for this Lx and Ltau (same as in plot_flux.py)
+        def find_hmc_file(Lx, Ltau):
             pattern = f"ckpt_N_hmc_{Lx}_Ltau_{Ltau}_Nstp_*_bs*_Jtau_1.2_K_1_dtau_0.1_delta_0.028_N_leapfrog_5_m_1_cg_rtol_*_max_block_idx_1_gear0_steps_1000_dt_deque_max_len_5*_cmp_True_step_*.pt"
-            files = glob.glob(os.path.join(folder, pattern))
+            files = glob.glob(os.path.join(hmc_folder, pattern))
             if not files:
-                print(f"No file found for Lx={Lx}, Ltau={Ltau} in {folder}")
+                print(f"No file found for Lx={Lx}, Ltau={Ltau}")
                 return None
             # Pick the file with the largest step (sort by step number)
             def extract_step(filename):
@@ -271,7 +271,7 @@ def plot_flux_slope_vs_invL():
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8) 
 
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**0.5
+    weights = Lx_array**1
     weights = weights / np.mean(weights)
     
     # Fit with proper error weighting
