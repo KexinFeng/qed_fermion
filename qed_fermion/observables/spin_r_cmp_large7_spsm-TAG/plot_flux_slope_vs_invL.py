@@ -271,12 +271,12 @@ def plot_flux_slope_vs_invL():
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8) 
 
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**1
+    weights = Lx_array**0
     n = len(weights)
-    indices_to_double = [n-1, n-2, n - 6]
+    indices_to_double = [n-1, n-2, n-6]
     for idx in indices_to_double:
         if 0 <= idx < n:
-            weights[idx] *= 0.1
+            weights[idx] *= 1.0
     weights = weights / np.mean(weights)
     
     # Fit with proper error weighting
@@ -336,7 +336,7 @@ def plot_flux_slope_vs_invL():
                             p0=[y0_init, c_init, d_init],
                             sigma=effective_sigma,
                             absolute_sigma=True,  # Use absolute uncertainties
-                            bounds=([-np.inf, -np.inf, -1.0], [np.inf, np.inf, 1.0]),  # Constrain d between -5.0 and 5.0
+                            bounds=([-np.inf, -np.inf, -3.0], [np.inf, np.inf, 1.0]),  # Constrain d between -5.0 and 5.0
                             maxfev=10000)
     
     y0_fit, c_fit, d_fit = popt
@@ -475,7 +475,7 @@ def plot_flux_slope_vs_invL():
     # errorbar returns a container, extract the line for the legend
     handles = [fit_line, extrap_container]
     labels = [h.get_label() for h in handles]
-    ax2.legend(handles, labels, fontsize=22, loc='lower right')
+    ax2.legend(handles, labels, fontsize=21, loc='lower right', bbox_to_anchor=(1.0, 0.15))
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)
