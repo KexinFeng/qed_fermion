@@ -272,6 +272,11 @@ def plot_flux_slope_vs_invL():
 
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
     weights = Lx_array**1
+    n = len(weights)
+    indices_to_double = [n-1, n-2, n - 6]
+    for idx in indices_to_double:
+        if 0 <= idx < n:
+            weights[idx] *= 0.1
     weights = weights / np.mean(weights)
     
     # Fit with proper error weighting
@@ -290,31 +295,35 @@ def plot_flux_slope_vs_invL():
     for idx in outlier_indices:
         weights[idx] *= weight_reduction_factor
 
-    def power_rat_func(x, a, b, c, d):
+    def rational_func(x, y0, c, d):
         """
-        Power-law rational function: y = a + b * x^d / (1 + c * x)
-        - As x -> 0: y -> a (flat, derivative = 0 if d > 1)
-        - As x increases: y changes based on sign of b
-        - Derivative at 0: 0 if d > 1, or b if d = 1
-        - For d > 1, derivative at 0 is 0 (nonincreasing/flat)
+        Rational function: y = y0 + c*x/(1 + d*x)
+        - As x -> 0: y -> y0 (intercept)
+        - Derivative at 0: c (linear coefficient)
         """
         if len(x) == 0:
             return np.array([])
-        x_safe = np.maximum(x, 1e-10)  # Avoid issues with x=0
-        denominator = 1 + c * x_safe
-        # Avoid division by zero or very small denominators
-        denominator = np.maximum(denominator, 1e-10)
-        return a + b * (x_safe**d) / denominator
+        x = np.asarray(x)
+        # Handle x=0 separately to return exactly y0
+        result = np.full_like(x, y0, dtype=float)
+        mask = np.abs(x) > 1e-15
+        if np.any(mask):
+            x_vals = x[mask]
+            denominator = 1 + d * x_vals
+            # Avoid division by zero: clamp denominator to minimum absolute value while preserving sign
+            abs_denom = np.maximum(np.abs(denominator), 1e-10)
+            denominator = np.sign(denominator) * abs_denom
+            result[mask] = y0 + c * x_vals / denominator
+        return result
     
-    # Initial guess
-    a_init = np.min(slopes_array)  # Value at 1/L=0
+    # Initial guess for rational function: y = y0 + c*x/(1 + d*x)
+    y0_init = np.min(slopes_array)  # Intercept (value at 1/L=0)
     slope_range = np.max(slopes_array) - np.min(slopes_array)
     # Use typical inv_L value for scaling
     typical_inv_L = np.mean(inv_L_array)
-    # For y = a + b*x^d/(1+c*x), estimate parameters
-    b_init = (slope_range) * 10.0  # Amplitude
-    c_init = 10.0  # Controls saturation
-    d_init = 2.0  # Power (should be > 1 for flat derivative at 0)
+    # Estimate parameters: c controls linear behavior, d controls saturation
+    c_init = slope_range / typical_inv_L  # Linear coefficient (when d=0, behaves like y0 + c*x)
+    d_init = 0.0  # Start with d=0 (linear behavior), will be optimized within bounds
 
     # Fit with weights and data errors
     # Combine data errors with weights: effective sigma = data_error / sqrt(weight)
@@ -323,28 +332,28 @@ def plot_flux_slope_vs_invL():
     
     # Recalculate effective_sigma with the reduced weights
     effective_sigma = slope_errors_array / np.sqrt(weights)
-    popt, pcov = curve_fit(power_rat_func, inv_L_array, slopes_array, 
-                            p0=[a_init, b_init, c_init, d_init],
+    popt, pcov = curve_fit(rational_func, inv_L_array, slopes_array, 
+                            p0=[y0_init, c_init, d_init],
                             sigma=effective_sigma,
                             absolute_sigma=True,  # Use absolute uncertainties
-                            bounds=([-np.inf, -np.inf, 0, 1.1], [np.inf, np.inf, np.inf, 5.0]),  # d > 1, c >= 0
+                            bounds=([-np.inf, -np.inf, -1.0], [np.inf, np.inf, 1.0]),  # Constrain d between -5.0 and 5.0
                             maxfev=10000)
     
-    a_fit, b_fit, c_fit, d_fit = popt
+    y0_fit, c_fit, d_fit = popt
     
     # Generate smooth curve for plotting
     inv_L_fit = np.linspace(0, max(inv_L_array) * 1.1, 200)
-    slopes_fit = power_rat_func(inv_L_fit, a_fit, b_fit, c_fit, d_fit)
+    slopes_fit = rational_func(inv_L_fit, y0_fit, c_fit, d_fit)
     
     # Extrapolate to 1/L = 0
-    slope_extrapolated = power_rat_func(np.array([0.0]), a_fit, b_fit, c_fit, d_fit)[0]
+    slope_extrapolated = rational_func(np.array([0.0]), y0_fit, c_fit, d_fit)[0]
     
     # Calculate reduced chi-squared to check if errors are underestimated
-    y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
+    y_pred = rational_func(inv_L_array, y0_fit, c_fit, d_fit)
     residuals = slopes_array - y_pred
     chi_sq = np.sum((residuals / effective_sigma)**2)
     n_data = len(slopes_array)
-    n_params = 4
+    n_params = 3
     dof = n_data - n_params  # degrees of freedom
     reduced_chi_sq = chi_sq / dof if dof > 0 else 1.0
     
@@ -370,10 +379,10 @@ def plot_flux_slope_vs_invL():
         y_minus = func(np.array([x_val]), *params_minus)[0]
         return (y_plus - y_minus) / (2 * eps)
     
-    params = np.array([a_fit, b_fit, c_fit, d_fit])
-    grad = np.zeros(4)
-    for i in range(4):
-        grad[i] = partial_derivative(power_rat_func, params, i, x_extrap, eps=1e-6)
+    params = np.array([y0_fit, c_fit, d_fit])
+    grad = np.zeros(3)
+    for i in range(3):
+        grad[i] = partial_derivative(rational_func, params, i, x_extrap, eps=1e-6)
     
     # Parameter uncertainty from covariance matrix
     error_param = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
@@ -437,16 +446,17 @@ def plot_flux_slope_vs_invL():
     ss_tot = np.sum(weights * (slopes_array - y_mean)**2)
     r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
     
-    # Check derivative at 0 (should be 0 if d > 1)
-    deriv_at_0 = 0.0 if d_fit > 1.0 else b_fit
+    # Check derivative at 0 (for y = y0 + c*x/(1 + d*x), derivative = c/(1 + d*x) - c*d*x/(1 + d*x)^2)
+    # At x=0: derivative = c
+    deriv_at_0 = c_fit
     
-    print(f"Power-rational fit: a = {a_fit:.4f}, b = {b_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
+    print(f"Rational fit: y0 = {y0_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
     print(f"Weighted R² = {r2:.4f}, reduced χ² = {reduced_chi_sq:.2f}, derivative at 0 = {deriv_at_0:.4f}")
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
-    # Format equation: y = a + b * (1/L)^d / (1 + c * (1/L))
-    fit_label = r'$y = a + b \cdot x^d / (1 + c \cdot x)$'
+    # Format equation: y = y0 + c*x/(1 + d*x)
+    fit_label = r'$y = y_0 + \frac{c \cdot x}{1 + d \cdot x}$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     
@@ -465,7 +475,7 @@ def plot_flux_slope_vs_invL():
     # errorbar returns a container, extract the line for the legend
     handles = [fit_line, extrap_container]
     labels = [h.get_label() for h in handles]
-    ax2.legend(handles, labels, fontsize=22, loc='lower left')
+    ax2.legend(handles, labels, fontsize=22, loc='lower right')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)
