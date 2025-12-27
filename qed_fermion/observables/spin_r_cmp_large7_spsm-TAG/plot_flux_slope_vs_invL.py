@@ -455,8 +455,8 @@ def plot_flux_slope_vs_invL():
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
-    # Format equation: y = y0 + c*x/(1 + d*x)
-    fit_label = r'$y = y_0 + \frac{c \cdot x}{1 + d \cdot x}$'
+    # Format equation: y = y0 + b*x/(1 + c*x)
+    fit_label = r'$y = y_0 + \frac{b \cdot x}{1 + c \cdot x}$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     

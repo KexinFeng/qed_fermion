@@ -367,7 +367,7 @@ def plot_slope_vs_invL():
     Lx_array = np.array(Lx_values)
     
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**1
+    weights = Lx_array**1.0
     weights = weights / np.mean(weights)
     
     def rat_func(x, y0, c, d):
@@ -404,8 +404,8 @@ def plot_slope_vs_invL():
                             p0=[y0_init, c_init, d_init],
                             sigma=effective_sigma,
                             absolute_sigma=True,  # Use absolute uncertainties
-                            bounds=([-np.inf, -np.inf, -5.0], [np.inf, np.inf, 8.0]))
-    
+                            bounds=([-np.inf, -np.inf, -3.0], [np.inf, np.inf, 4.0]),
+                            maxfev=10000)
     y0_fit, c_fit, d_fit = popt
     
     # Generate smooth curve for plotting
@@ -539,14 +539,14 @@ def plot_slope_vs_invL():
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
-    # Format equation: y = y0 + c*x / (1 + d*x)
-    fit_label = r'$y = y_0 + \frac{c \cdot x}{1 + d \cdot x}$'
+    # Format equation: y = y0 + b*x / (1 + c*x)
+    fit_label = r'$y = y_0 + \frac{b \cdot x}{1 + c \cdot x}$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
+    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.1f}'
     
     extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,

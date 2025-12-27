@@ -540,7 +540,7 @@ def plot_slope_vs_invL():
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
+    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.1f}'
     
     extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,
