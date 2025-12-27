@@ -360,10 +360,8 @@ def plot_slope_vs_invL():
                 marker='o', markersize=10, linestyle='', linewidth=2,
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8)
     
-    # Fit with a function that flattens as 1/L -> 0 (nonincreasing)
-    # Using a rational function: y = a + b * (1/L) / (1 + c * (1/L))
-    # This naturally flattens to y = a as 1/L -> 0, with derivative at 0 = b
-    # To ensure nonincreasing, we constrain b <= 0
+    # Fit with a rational function: y = y0 + c*x / (1 + d*x)
+    # This naturally flattens to y = y0 as x -> 0, with derivative at 0 = c
     inv_L_array = np.array(inv_L_values)
     slopes_array = np.array(slopes)
     Lx_array = np.array(Lx_values)
@@ -372,24 +370,27 @@ def plot_slope_vs_invL():
     weights = Lx_array**1
     weights = weights / np.mean(weights)
     
-    def power_rat_func(x, a, b, c, d):
+    def rat_func(x, y0, c, d):
         """
-        Power-law rational function: y = a + b * x^d / (1 + c * x)
-        - As x -> 0: y -> a (flat, derivative = 0 if d > 1)
-        - As x increases: y increases
-        - Derivative at 0: 0 if d > 1, or b if d = 1
-        - For d > 1, derivative at 0 is 0 (nonincreasing/flat)
+        Rational function: y = y0 + c*x / (1 + d*x)
+        - As x -> 0: y -> y0
+        - Derivative at 0: c
         """
         if len(x) == 0:
             return np.array([])
-        x_safe = np.maximum(x, 1e-10)  # Avoid issues with x=0
-        return a + b * (x_safe**d) / (1 + c * x_safe)
+        x_safe = np.maximum(x, -0.99 / np.maximum(np.abs(d), 1e-10))  # Avoid division by zero in denominator
+        return y0 + c * x_safe / (1 + d * x_safe)
     
-    # Initial guess
-    a_init = np.min(slopes_array)  # Value at 1/L=0
-    b_init = (np.max(slopes_array) - np.min(slopes_array)) * 10.0  # Amplitude
-    c_init = 10.0  # Controls saturation
-    d_init = 2.0  # Power (should be > 1 for flat derivative at 0)
+    # Initial guess for y = y0 + c*x / (1 + d*x)
+    y0_init = np.min(slopes_array)  # Value at 1/L=0
+    # Estimate derivative at 0 from first two points
+    if len(slopes_array) >= 2:
+        deriv_est = (slopes_array[1] - slopes_array[0]) / (inv_L_array[1] - inv_L_array[0])
+    else:
+        deriv_est = 0.0
+    # For y = y0 + c*x/(1+d*x), derivative at 0 = c
+    c_init = deriv_est
+    d_init = 0.1  # Small positive value to start
 
     # Fit with weights and data errors
     # Combine data errors with weights: effective sigma = data_error / sqrt(weight)
@@ -398,35 +399,35 @@ def plot_slope_vs_invL():
     effective_sigma = slope_errors_array / np.sqrt(weights)
     
     # Fit with proper error weighting
-    popt, pcov = curve_fit(power_rat_func, inv_L_array, slopes_array, 
-                            p0=[a_init, b_init, c_init, d_init],
+    # Bounds: y0, c can be any real, d should avoid making denominator too small
+    popt, pcov = curve_fit(rat_func, inv_L_array, slopes_array, 
+                            p0=[y0_init, c_init, d_init],
                             sigma=effective_sigma,
                             absolute_sigma=True,  # Use absolute uncertainties
-                            bounds=([-np.inf, -np.inf, 0, 1.1], [np.inf, np.inf, np.inf, 5.0]))  # d > 1, c >= 0
+                            bounds=([-np.inf, -np.inf, -5.0], [np.inf, np.inf, 8.0]))
     
-    a_fit, b_fit, c_fit, d_fit = popt
+    y0_fit, c_fit, d_fit = popt
     
     # Generate smooth curve for plotting
     inv_L_fit = np.linspace(0, max(inv_L_array) * 1.1, 200)
-    slopes_fit = power_rat_func(inv_L_fit, a_fit, b_fit, c_fit, d_fit)
+    slopes_fit = rat_func(inv_L_fit, y0_fit, c_fit, d_fit)
     
     # Extrapolate to 1/L = 0
-    slope_extrapolated = power_rat_func(np.array([0.0]), a_fit, b_fit, c_fit, d_fit)[0]
+    slope_extrapolated = rat_func(np.array([0.0]), y0_fit, c_fit, d_fit)[0]
     
     # Calculate error of extrapolated value using error propagation
-    # For y = a + b * x^d / (1 + c * x), at x = 0: y = a (since x^d = 0 for d > 1)
+    # For y = y0 + c*x / (1 + d*x), at x = 0: y = y0
     # Error propagation: σ_y² = Σ_i Σ_j (∂y/∂p_i) * (∂y/∂p_j) * cov(p_i, p_j)
-    # At x = 0: ∂y/∂a = 1, ∂y/∂b = 0, ∂y/∂c = 0, ∂y/∂d = 0 (for d > 1)
-    # So σ_y² = cov(a, a) = pcov[0, 0]
+    # At x = 0: ∂y/∂y0 = 1, ∂y/∂c = 0, ∂y/∂d = 0
+    # So σ_y² = cov(y0, y0) = pcov[0, 0]
     # But to be general, we calculate partial derivatives at x = 0
     
     x_extrap = 0.0
     # Calculate partial derivatives at x = 0
-    # For y = a + b * x^d / (1 + c * x)
-    # ∂y/∂a = 1
-    # ∂y/∂b = x^d / (1 + c*x) = 0 at x=0 (for d > 1)
-    # ∂y/∂c = -b * x^(d+1) / (1 + c*x)^2 = 0 at x=0 (for d > 1)
-    # ∂y/∂d = b * x^d * ln(x) / (1 + c*x) = 0 at x=0 (for d > 1, but ln(0) is problematic)
+    # For y = y0 + c*x / (1 + d*x)
+    # ∂y/∂y0 = 1
+    # ∂y/∂c = x / (1 + d*x) = 0 at x=0
+    # ∂y/∂d = -c*x^2 / (1 + d*x)^2 = 0 at x=0
     
     # For numerical stability, use a small epsilon
     eps = 1e-6
@@ -445,11 +446,11 @@ def plot_slope_vs_invL():
         return (y_plus - y_minus) / (2 * eps)
     
     # Calculate reduced chi-squared to check if errors are underestimated
-    y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
+    y_pred = rat_func(inv_L_array, y0_fit, c_fit, d_fit)
     residuals = slopes_array - y_pred
     chi_sq = np.sum((residuals / effective_sigma)**2)
     n_data = len(slopes_array)
-    n_params = 4
+    n_params = 3
     dof = n_data - n_params  # degrees of freedom
     reduced_chi_sq = chi_sq / dof if dof > 0 else 1.0
     
@@ -461,10 +462,10 @@ def plot_slope_vs_invL():
     else:
         pcov_scaled = pcov
     
-    params = np.array([a_fit, b_fit, c_fit, d_fit])
-    grad = np.zeros(4)
-    for i in range(4):
-        grad[i] = partial_derivative(power_rat_func, params, i, x_extrap, eps=1e-6)
+    params = np.array([y0_fit, c_fit, d_fit])
+    grad = np.zeros(3)
+    for i in range(3):
+        grad[i] = partial_derivative(rat_func, params, i, x_extrap, eps=1e-6)
     
     # Parameter uncertainty from covariance matrix
     error_param = np.sqrt(np.dot(grad, np.dot(pcov_scaled, grad)))
@@ -523,23 +524,23 @@ def plot_slope_vs_invL():
     print(f"  Total (combined in quadrature): {slope_extrapolated_error:.4f}")
     
     # Calculate R-squared
-    y_pred = power_rat_func(inv_L_array, a_fit, b_fit, c_fit, d_fit)
+    y_pred = rat_func(inv_L_array, y0_fit, c_fit, d_fit)
     ss_res = np.sum(weights * (slopes_array - y_pred)**2)
     y_mean = np.average(slopes_array, weights=weights)
     ss_tot = np.sum(weights * (slopes_array - y_mean)**2)
     r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
     
-    # Check derivative at 0 (should be 0 if d > 1)
-    # For y = a + b * x^d / (1 + c * x), derivative at 0 is 0 if d > 1
-    deriv_at_0 = 0.0 if d_fit > 1.0 else b_fit
+    # Check derivative at 0
+    # For y = y0 + c*x / (1 + d*x), derivative at 0 = c
+    deriv_at_0 = c_fit
     
-    print(f"Power-rational fit: a = {a_fit:.4f}, b = {b_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
+    print(f"Rational fit: y0 = {y0_fit:.4f}, c = {c_fit:.4f}, d = {d_fit:.4f}")
     print(f"Weighted R² = {r2:.4f}, reduced χ² = {reduced_chi_sq:.2f}, derivative at 0 = {deriv_at_0:.4f}")
     print(f"Extrapolated slope at 1/L = 0: {slope_extrapolated:.4f} ± {slope_extrapolated_error:.4f}")
 
     # Plot the fit line and store handle
-    # Format equation: y = a + b * (1/L)^d / (1 + c * (1/L))
-    fit_label = r'$y = a + b \cdot x^d / (1 + c \cdot x)$'
+    # Format equation: y = y0 + c*x / (1 + d*x)
+    fit_label = r'$y = y_0 + c x / (1 + d x)$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     
