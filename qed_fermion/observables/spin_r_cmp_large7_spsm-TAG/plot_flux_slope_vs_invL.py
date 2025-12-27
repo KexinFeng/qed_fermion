@@ -462,7 +462,7 @@ def plot_flux_slope_vs_invL():
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.1g}'
+    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.1g}'
     
     extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,
@@ -475,7 +475,7 @@ def plot_flux_slope_vs_invL():
     # errorbar returns a container, extract the line for the legend
     handles = [fit_line, extrap_container]
     labels = [h.get_label() for h in handles]
-    ax2.legend(handles, labels, fontsize=21, loc='lower right', bbox_to_anchor=(1.0, 0.15))
+    ax2.legend(handles, labels, fontsize=22, loc='lower right', bbox_to_anchor=(1.0, 0.15))
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
     ax2.set_ylabel('$2\Delta$', fontsize=23)

@@ -443,13 +443,13 @@ def plot_slope_vs_invL():
 
     # Plot the fit line and store handle
     # Format equation: y = a + b * (1/L)^d / (1 + c * (1/L))
-    fit_label = r'$y = a + b \cdot x^d / (1 + c \cdot x)$'
+    fit_label = r'$y = y_0 + \frac{b \cdot x^d}{1 + c \cdot x}$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
+    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
     
     extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,

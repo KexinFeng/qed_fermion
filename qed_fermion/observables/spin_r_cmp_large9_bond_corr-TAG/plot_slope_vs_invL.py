@@ -19,7 +19,7 @@ rcParams['figure.raise_window'] = False
 import torch
 
 from qed_fermion.utils.stat import error_mean, t_based_error, std_root_n
-from matplotlib.ticker import FuncFormatter, MaxNLocator
+from matplotlib.ticker import FuncFormatter, MaxNLocator, MultipleLocator
 from matplotlib.ticker import LogLocator
 
 from qed_fermion.utils.prep_plots import selective_log_label_func, set_default_plotting
@@ -540,13 +540,13 @@ def plot_slope_vs_invL():
 
     # Plot the fit line and store handle
     # Format equation: y = y0 + c*x / (1 + d*x)
-    fit_label = r'$y = y_0 + c x / (1 + d x)$'
+    fit_label = r'$y = y_0 + \frac{c \cdot x}{1 + d \cdot x}$'
     fit_line, = ax2.plot(inv_L_fit, slopes_fit, '--', color='red', linewidth=2, 
                          label=fit_label)
     
     # Mark the extrapolated point at 1/L = 0 with error bar and store handle
     # Format: value ± error (common practice in physics)
-    extrap_label = f'Extrapolated: {slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
+    extrap_label = f'{slope_extrapolated:.1f} ± {slope_extrapolated_error:.2f}'
     
     extrap_container = ax2.errorbar([0], [slope_extrapolated], yerr=[slope_extrapolated_error],
                                      fmt='o', color='red', markersize=12, capsize=5, capthick=2,
@@ -568,6 +568,7 @@ def plot_slope_vs_invL():
     # Set tick label size
     ax2.xaxis.set_tick_params(labelsize=22)
     ax2.yaxis.set_tick_params(labelsize=22)
+    ax2.yaxis.set_major_locator(MultipleLocator(0.5))
     
     plt.tight_layout()
     
