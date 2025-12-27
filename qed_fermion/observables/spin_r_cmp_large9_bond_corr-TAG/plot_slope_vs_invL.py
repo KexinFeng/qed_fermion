@@ -283,6 +283,11 @@ def plot_slope_vs_invL():
             # 0-indexed: from 0 to n_points//2 - 1
             start_idx = 0
             end_idx = (n_points + 1) // 2 - 1
+        elif Lx <= 30:
+            # Fit from 3rd to min(1/2*len(r_values)-th, 8th) data (both inclusive)
+            # 0-indexed: from 2 to min(n_points//2 - 1, 4)
+            start_idx = 0
+            end_idx = min((n_points + 1) // 2 - 1, 4)
         else:
             # Fit from 3rd to min(1/2*len(r_values)-th, 8th) data (both inclusive)
             # 0-indexed: from 2 to min(n_points//2 - 1, 7)
