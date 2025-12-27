@@ -271,7 +271,7 @@ def plot_flux_slope_vs_invL():
                 capsize=5, capthick=2, elinewidth=2, alpha=0.8) 
 
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**0
+    weights = Lx_array**0.0
     n = len(weights)
     indices_to_double = [n-1, n-2, n-6]
     for idx in indices_to_double:

@@ -270,7 +270,7 @@ def plot_slope_vs_invL():
     Lx_array = np.array(Lx_values)
     
     # Calculate weights: weight proportional to L^2 (larger systems get more weight)
-    weights = Lx_array**0
+    weights = Lx_array**0.0
     n = len(weights)
     indices_to_double = [n - 5]
     for idx in indices_to_double:
