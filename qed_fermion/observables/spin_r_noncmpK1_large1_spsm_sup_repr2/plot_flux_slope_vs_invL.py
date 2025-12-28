@@ -463,7 +463,7 @@ def plot_flux_slope_vs_invL():
     ax2.legend(handles, labels, fontsize=22, loc='lower left')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
-    ax2.set_ylabel('$2\Delta$', fontsize=23)
+    ax2.set_ylabel(r'$2\Delta_{\mathrm{flux}}$', fontsize=23)
     ax2.grid(True, alpha=0.3)
     
     # Set tick label size

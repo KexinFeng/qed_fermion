@@ -465,7 +465,7 @@ def plot_slope_vs_invL():
     ax2.legend(handles, labels, fontsize=22, loc='upper left')
         
     ax2.set_xlabel(r'$1/L$', fontsize=23)
-    ax2.set_ylabel('$2\Delta$', fontsize=23)
+    ax2.set_ylabel('$2\Delta_S$', fontsize=23)
     ax2.grid(True, alpha=0.3)
     
     # Set tick label size
