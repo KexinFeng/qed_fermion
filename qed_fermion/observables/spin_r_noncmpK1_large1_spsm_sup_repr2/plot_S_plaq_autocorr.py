@@ -243,8 +243,10 @@ def plot_S_plaq_timestep():
             lags_plot = lags
             autocorr_plot = autocorr
         
-        ax.plot(lags_plot, autocorr_plot, 'o-', label=f'$L={Lx}$', 
-               alpha=0.7, markersize=3, linewidth=1.5)
+        # Sparsify plotted dots by plotting only every Nth point (but keep the line)
+        plot_step = max(1, len(lags_plot) // 50)  # Adjust '50' to control sparsity
+        ax.plot(lags_plot[::plot_step], autocorr_plot[::plot_step], 'o-', 
+                alpha=0.7, markersize=4, linewidth=1.0, label=f'$L={Lx}$')
 
         # Create a supplementary figure for the autocorrelation curves (for publication or SI)
         # supp_fig, supp_ax = plt.subplots(figsize=(6, 4.2))
