@@ -200,7 +200,7 @@ def plot_S_plaq_timestep():
         
         # Find equilibrium point: first time S_plaq_density >= EQUILIBRIUM_THRESHOLD
         # Set EQUILIBRIUM_THRESHOLD to mean of S_plaq_density[5000:6000]
-        EQUILIBRIUM_THRESHOLD = (S_plaq_density[5000:6000].mean() if Lx >= 30 else S_plaq_density[3000:4000].mean()) * 1.1
+        EQUILIBRIUM_THRESHOLD = (S_plaq_density[5000:6000].mean() if Lx >= 30 else S_plaq_density[3000:4000].mean()) * 1.07
         equilibrium_indices = np.where(S_plaq_density <= EQUILIBRIUM_THRESHOLD)[0]
         if len(equilibrium_indices) == 0:
             print(f'Lx={Lx}: No equilibrium point found (S_plaq_density never reached {EQUILIBRIUM_THRESHOLD})')
@@ -270,19 +270,13 @@ def plot_S_plaq_timestep():
                 if np.sum(mask_positive) > 0:
                     ax.plot(k_fit_smooth[mask_positive], autocorr_fit_values[mask_positive], '--', 
                            alpha=0.8, linewidth=1.5, color=ax.lines[-1].get_color())
-        else:
-            dbstop = 1
-        
-        dbstop = 1
-        # ax.legend(fontsize=11, ncol=3, loc='lower left')
-
     
     ax.set_xlabel("Lag $k$", fontsize=14)
-    ax.set_ylabel("Autocorrelation", fontsize=14)
+    ax.set_ylabel("$S_{plaq}$ autocorrelation", fontsize=14)
     ax.set_xlim(left=0, right=3000)
-    ax.set_ylim(bottom=-0.5, top=1)
+    ax.set_ylim(bottom=-0.7, top=1)
     # ax.set_yscale('log')
-    ax.legend(fontsize=11, ncol=4, loc='lower left')
+    ax.legend(fontsize=11, ncol=3, loc='lower left')
     ax.grid(True, alpha=0.3, which='both')
     
     # Add inset plot for autocorrelation length vs lattice size
@@ -292,11 +286,11 @@ def plot_S_plaq_timestep():
         tau_errors = [corr_lengths_err.get(Lx, 0) for Lx in Lx_sorted]
         
         inset_width = 0.58
-        inset_height = 0.62
+        inset_height = 0.58
         inset_ax = inset_axes(
             ax,
             width=f"{inset_width*100}%", height=f"{inset_height*100}%",
-            bbox_to_anchor=(0.35, 0.35, inset_width, inset_height),
+            bbox_to_anchor=(0.35, 0.4, inset_width, inset_height),
             bbox_transform=ax.transAxes,
             borderpad=0
         )
