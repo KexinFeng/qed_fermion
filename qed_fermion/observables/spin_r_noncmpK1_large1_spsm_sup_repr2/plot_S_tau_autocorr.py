@@ -191,7 +191,7 @@ def plot_S_tau_autocorr():
         if len(late_window) == 0:
             print(f'Lx={Lx}: insufficient data for equilibrium detection')
             continue
-        EQUILIBRIUM_THRESHOLD = late_window.mean() * 0.98
+        EQUILIBRIUM_THRESHOLD = late_window.mean() * 0.99
         equilibrium_indices = np.where(S_tau_density <= EQUILIBRIUM_THRESHOLD)[0]
         if len(equilibrium_indices) == 0:
             print(f'Lx={Lx}: No equilibrium point found (density never reached {EQUILIBRIUM_THRESHOLD})')
@@ -257,7 +257,7 @@ def plot_S_tau_autocorr():
 
     ax.set_xlabel("Lag $k$", fontsize=14)
     ax.set_ylabel("$S_{\\tau}$ autocorrelation", fontsize=14)
-    ax.set_xlim(left=0, right=1500)
+    ax.set_xlim(left=0, right=300)
     ax.set_ylim(bottom=-0.4, top=1)
     ax.legend(fontsize=11, ncol=3, loc='lower left')
     ax.grid(True, alpha=0.3, which='both')
@@ -323,7 +323,7 @@ def plot_S_tau_autocorr():
                 print("Power-law fit failed:", e)
 
     # Panel label
-    ax.text(-0.13, 0.98, "(b)", transform=ax.transAxes, fontsize=14, verticalalignment='top', horizontalalignment='left')
+    ax.text(-0.13, 0.98, "(a)", transform=ax.transAxes, fontsize=14, verticalalignment='top', horizontalalignment='left')
 
     plt.tight_layout()
 
