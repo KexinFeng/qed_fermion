@@ -100,14 +100,25 @@ def fit_autocorr_length(lags, autocorr):
     if len(lags) < 10 or len(autocorr) < 10:
         return np.nan, np.nan, None
     
-    # Only fit positive autocorrelation values and reasonable lags
-    # Skip k=0 (always 1.0) and use data where autocorr > 0
-    mask = (lags > 0) & (autocorr > 0)
-    if np.sum(mask) < 5:
+    # Fit only the initial consecutive positive sequence of autocorrelation values starting from lag 1
+    mask = lags > 0
+    lags_pos = lags[mask]
+    autocorr_pos = autocorr[mask]
+    # Find the longest initial sequence of positive autocorr (starting at k=1)
+    pos_idx = np.where(autocorr_pos > 0)[0]
+    if len(pos_idx) == 0 or pos_idx[0] != 0:
         return np.nan, np.nan, None
-    
-    k_fit = lags[mask]
-    autocorr_fit = autocorr[mask]
+
+    # Find where initial positive sequence ends
+    first_nonpos = np.where(autocorr_pos <= 0)[0]
+    if len(first_nonpos) == 0:
+        end = len(autocorr_pos)
+    else:
+        end = first_nonpos[0]
+    k_fit = lags_pos[:end]
+    autocorr_fit = autocorr_pos[:end]
+    if len(k_fit) < 5:
+        return np.nan, np.nan, None
     
     # Initial guess: A = max autocorr (should be ~1), tau = some fraction of max lag
     A_guess = np.max(autocorr_fit)
@@ -263,7 +274,7 @@ def plot_S_plaq_timestep():
             dbstop = 1
         
         dbstop = 1
-        ax.legend(fontsize=10, ncol=3, loc='lower left')
+        # ax.legend(fontsize=11, ncol=3, loc='lower left')
 
     
     ax.set_xlabel("Lag $k$", fontsize=14)
@@ -271,7 +282,7 @@ def plot_S_plaq_timestep():
     ax.set_xlim(left=0, right=3000)
     ax.set_ylim(bottom=-0.5, top=1)
     # ax.set_yscale('log')
-    ax.legend(fontsize=10, ncol=3, loc='lower left')
+    ax.legend(fontsize=11, ncol=4, loc='lower left')
     ax.grid(True, alpha=0.3, which='both')
     
     # Add inset plot for autocorrelation length vs lattice size
@@ -280,19 +291,17 @@ def plot_S_plaq_timestep():
         tau_values = [corr_lengths[Lx] for Lx in Lx_sorted]
         tau_errors = [corr_lengths_err.get(Lx, 0) for Lx in Lx_sorted]
         
-        # Create inset axes in the blank area (upper right)
-        inset_width = 0.5
-        inset_height = 0.55
+        inset_width = 0.58
+        inset_height = 0.62
         inset_ax = inset_axes(
             ax,
             width=f"{inset_width*100}%", height=f"{inset_height*100}%",
-            loc='upper right',
-            bbox_to_anchor=(1, 1, inset_width, inset_height),
+            bbox_to_anchor=(0.35, 0.35, inset_width, inset_height),
             bbox_transform=ax.transAxes,
             borderpad=0
         )
         
-        # Plot autocorrelation length vs lattice size in inset
+        # Plot autocorrelation length vs lattice size in inset and fit power-law
         inset_ax.errorbar(Lx_sorted, tau_values, yerr=tau_errors, 
                          fmt='k^', linewidth=2, markersize=6, capsize=4)
         inset_ax.set_xlabel("$L$", fontsize=13)
@@ -301,6 +310,41 @@ def plot_S_plaq_timestep():
         inset_ax.tick_params(axis='both', which='major', labelsize=13)
         inset_ax.xaxis.set_tick_params(labelsize=13)
         inset_ax.yaxis.set_tick_params(labelsize=13)
+        
+        # Fit to a power-law: tau_L = a * L**z
+        from scipy.optimize import curve_fit
+
+        def power_law(L, a, z):
+            return a * L**z
+
+        # Only use points with finite values for fitting
+        Lx_arr = np.array(Lx_sorted)
+        tau_arr = np.array(tau_values)
+        tau_err_arr = np.array(tau_errors)
+        valid = np.isfinite(Lx_arr) & np.isfinite(tau_arr) & (tau_arr > 0)
+        if np.sum(valid) >= 2:
+            try:
+                popt, pcov = curve_fit(
+                    power_law,
+                    Lx_arr[valid],
+                    tau_arr[valid],
+                    p0=[1.0, 1.0],
+                    sigma=tau_err_arr[valid] if len(tau_err_arr) == len(Lx_arr) and np.all(tau_err_arr[valid] > 0) else None,
+                    absolute_sigma=True if len(tau_err_arr) == len(Lx_arr) and np.all(tau_err_arr[valid] > 0) else False
+                )
+                a_fit, z_fit = popt
+                err_a, err_z = np.sqrt(np.diag(pcov))
+                # Plot the fit line
+                Lx_fit = np.linspace(min(Lx_arr[valid]), max(Lx_arr[valid]), 200)
+                tau_fit = power_law(Lx_fit, a_fit, z_fit)
+                inset_ax.plot(Lx_fit, tau_fit, 'b--', lw=2, label=fr"$\sim L^{{{z_fit:.2f}}}$")
+                # Annotate the exponent
+                inset_ax.text(0.05, 0.9, fr"$z = {z_fit:.2f} \pm {err_z:.2f}$", transform=inset_ax.transAxes, 
+                              fontsize=12, verticalalignment='top', color='b')
+                inset_ax.legend(fontsize=11, frameon=False)
+            except Exception as e:
+                print("Power-law fit failed:", e)
+
     
     # Add "(b)" label at top left corner, aligned with y-axis label
     ax.text(-0.13, 0.98, "(b)", transform=ax.transAxes, 
