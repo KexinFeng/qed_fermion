@@ -240,8 +240,8 @@ def plot_S_plaq_timestep():
         
         # Sparsify plotted dots by plotting only every Nth point (but keep the line)
         plot_step = max(1, len(lags_plot) // 50)  # Adjust '50' to control sparsity
-        ax.plot(lags_plot[::plot_step], autocorr_plot[::plot_step], 'o-', 
-                alpha=0.7, markersize=4, linewidth=1.0, label=f'$L={Lx}$')
+        ax.plot(lags_plot[::plot_step], autocorr_plot[::plot_step], 'o', 
+                alpha=1.0, markersize=4, linewidth=1.0, label=f'$L={Lx}$')
 
         # Create a supplementary figure for the autocorrelation curves (for publication or SI)
         # supp_fig, supp_ax = plt.subplots(figsize=(6, 4.2))
@@ -265,13 +265,13 @@ def plot_S_plaq_timestep():
                 # Only plot where fit values are positive (for log scale)
                 mask_positive = autocorr_fit_values > 0
                 if np.sum(mask_positive) > 0:
-                    ax.plot(k_fit_smooth[mask_positive], autocorr_fit_values[mask_positive], '--', 
-                           alpha=0.8, linewidth=1.5, color=ax.lines[-1].get_color())
+                    ax.plot(k_fit_smooth[mask_positive], autocorr_fit_values[mask_positive], '-', 
+                           alpha=1.0, linewidth=1.0, color=ax.lines[-1].get_color())
     
     ax.set_xlabel("Lag $k$", fontsize=14)
     ax.set_ylabel("$S_{plaq}$ autocorrelation", fontsize=14)
     ax.set_xlim(left=0, right=3000)
-    ax.set_ylim(bottom=-0.7, top=1)
+    ax.set_ylim(bottom=-0.7)
     # ax.set_yscale('log')
     ax.legend(fontsize=11, ncol=3, loc='lower left')
     ax.grid(True, alpha=0.3, which='both')

@@ -223,7 +223,7 @@ def plot_S_tau_autocorr():
             print(f'Lx={Lx}: tau_L={tau:.2f} ± {tau_err:.2f}')
 
         # Plot autocorr curve (sparse points)
-        max_plot_points = 200
+        max_plot_points = 500
         if len(lags) > max_plot_points:
             subsample_step = len(lags) // max_plot_points
             plot_indices = np.arange(0, len(lags), subsample_step)
@@ -233,7 +233,7 @@ def plot_S_tau_autocorr():
             lags_plot = lags
             autocorr_plot = autocorr
 
-        ax.plot(lags_plot, autocorr_plot, 'o-', alpha=0.7, markersize=4, linewidth=1.0, label=f'$L={Lx}$')
+        ax.plot(lags_plot, autocorr_plot, 'o', alpha=1.0, markersize=4, linewidth=1.0, label=f'$L={Lx}$')
 
         # Plot exponential fit if available
         if not np.isnan(tau) and fit_params is not None:
@@ -249,16 +249,16 @@ def plot_S_tau_autocorr():
                     ax.plot(
                         k_fit_smooth[mask_positive],
                         autocorr_fit_values[mask_positive],
-                        '--',
-                        alpha=0.8,
-                        linewidth=1.5,
+                        '-',
+                        alpha=1.0,
+                        linewidth=1.0,
                         color=ax.lines[-1].get_color(),
                     )
 
     ax.set_xlabel("Lag $k$", fontsize=14)
     ax.set_ylabel("$S_{\\tau}$ autocorrelation", fontsize=14)
     ax.set_xlim(left=0, right=300)
-    ax.set_ylim(bottom=-0.4, top=1)
+    ax.set_ylim(bottom=-0.4)
     ax.legend(fontsize=11, ncol=3, loc='lower left')
     ax.grid(True, alpha=0.3, which='both')
 
