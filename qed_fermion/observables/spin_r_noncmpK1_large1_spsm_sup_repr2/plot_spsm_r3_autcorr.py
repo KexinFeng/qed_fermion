@@ -263,7 +263,7 @@ def plot_spsm_r_autocorr():
         dbstop = 1
     
     ax.set_xlabel("Lag $k$", fontsize=14)
-    ax.set_ylabel(f"$C^{{\\uparrow\\downarrow}}(r={R_VALUE})$ autocorrelation", fontsize=14)
+    ax.set_ylabel(f"$C_S^{{\\uparrow\\downarrow}}(r={R_VALUE})$ autocorrelation", fontsize=14)
     ax.set_xlim(left=0, right=3000)
     ax.set_ylim(bottom=-0.4)
     ax.legend(fontsize=11, ncol=3, loc='lower left')
@@ -286,7 +286,7 @@ def plot_spsm_r_autocorr():
         )
         
         # Plot autocorrelation length vs lattice size in inset and fit power-law
-        inset_ax.errorbar(Lx_sorted, tau_values, yerr=tau_errors, 
+        inset_ax.errorbar(Lx_sorted, tau_values, yerr=None, 
                          fmt='k^', linewidth=2, markersize=6, capsize=4)
         inset_ax.set_xlabel("$L$", fontsize=13)
         inset_ax.set_ylabel("$\\tau_L$", fontsize=13)

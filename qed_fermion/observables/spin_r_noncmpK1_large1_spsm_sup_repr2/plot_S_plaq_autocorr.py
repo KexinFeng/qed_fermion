@@ -270,8 +270,8 @@ def plot_S_plaq_timestep():
     
     ax.set_xlabel("Lag $k$", fontsize=14)
     ax.set_ylabel("$S_{plaq}$ autocorrelation", fontsize=14)
-    ax.set_xlim(left=0, right=3000)
-    ax.set_ylim(bottom=-0.7)
+    ax.set_xlim(left=0, right=2000)
+    ax.set_ylim(bottom=-0.58)
     # ax.set_yscale('log')
     ax.legend(fontsize=11, ncol=3, loc='lower left')
     ax.grid(True, alpha=0.3, which='both')
