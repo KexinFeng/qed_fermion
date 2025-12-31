@@ -75,6 +75,7 @@ def plot_spsm_r_timestep():
         # Plot specific r values (similar to total_monitoring which plots r=3 and r=5)
         # Use r values that exist in the lattice
         r_values_to_plot = [3, 5]
+        r_values_to_plot = [3]
         # Adjust r values if they're too large for the lattice
         r_values_to_plot = [r for r in r_values_to_plot if r < Lx]
         
