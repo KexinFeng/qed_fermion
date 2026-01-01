@@ -328,7 +328,7 @@ def plot_S_plaq_timestep():
                 # Plot the fit line
                 Lx_fit = np.linspace(min(Lx_arr[valid]), max(Lx_arr[valid]), 200)
                 tau_fit = power_law(Lx_fit, a_fit, z_fit)
-                inset_ax.plot(Lx_fit, tau_fit, 'b--', lw=2, label=fr"$\sim L^{{{z_fit:.2f}}}$")
+                inset_ax.plot(Lx_fit, tau_fit, 'b--', lw=2, label=fr"$\sim L^z$")
                 # Annotate the exponent
                 inset_ax.text(0.05, 0.9, fr"$z = {z_fit:.2f} \pm {err_z:.2f}$", transform=inset_ax.transAxes, 
                               fontsize=12, verticalalignment='top', color='b')
