@@ -233,7 +233,7 @@ def plot_S_tau_autocorr():
             lags_plot = lags
             autocorr_plot = autocorr
 
-        ax.plot(lags_plot, autocorr_plot, 'o', alpha=1.0, markersize=4, linewidth=1.0, label=f'$L={Lx}$')
+        ax.plot(lags_plot, autocorr_plot, 'o', alpha=1.0, markersize=4, linewidth=1.0, label=fr'${Ltau}\times{Lx}^2$')
 
         # Plot exponential fit if available
         if not np.isnan(tau) and fit_params is not None:
