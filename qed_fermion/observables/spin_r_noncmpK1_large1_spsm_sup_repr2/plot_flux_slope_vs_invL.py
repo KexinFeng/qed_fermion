@@ -83,7 +83,7 @@ def plot_flux_slope_vs_invL():
     """Plot slope of log-log fit vs 1/L for different lattice sizes."""
     
     # Define lattice sizes to analyze
-    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
     
     # Create first figure for flux plots with fits
     plt.figure(figsize=(8, 6))

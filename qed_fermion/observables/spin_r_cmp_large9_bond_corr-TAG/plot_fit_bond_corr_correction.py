@@ -323,7 +323,7 @@ def plot_spin_r():
         plt.xlim(0.35, None)
     else:
         plt.ylim(10**-10, 10**-0.5)
-        plt.xlim(0.4, None)   
+        plt.xlim(0.35, None)   
 
     ax = plt.gca()
     ax.xaxis.set_tick_params(labelsize=22)

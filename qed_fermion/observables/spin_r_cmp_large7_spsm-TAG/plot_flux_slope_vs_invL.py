@@ -84,7 +84,7 @@ def plot_flux_slope_vs_invL():
     
     # Define lattice sizes to analyze (same as in plot_flux.py)
     lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60]
-    lattice_sizes = [12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
+    lattice_sizes = [10, 12, 16, 20, 30, 36, 40, 46, 56, 60, 66]
     
     # Create first figure for flux plots with fits
     plt.figure(figsize=(8, 6))
