@@ -21,4 +21,4 @@ Latency vs linear size L:
 
 <img width="506" height="372" alt="Screenshot 2025-08-29 at 12 59 49 PM" src="https://github.com/user-attachments/assets/039a7a7f-1d37-4603-bd92-1cbf8cbbfd10" />
 
-
+https://github.com/KexinFeng/cuda_pcg
