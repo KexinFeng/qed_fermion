@@ -37,7 +37,7 @@ The working execution scripts are in `qed_fermion/pbs_files/`. Typical scripts a
  ```
  bash qed_fermion/pbs_files/r_large_cmp.sh
  ```
-2. `r_large_noncmp.sh`: parallel to above except for noncompact QED model
+2. `r_large_noncmp.sh`: parallel to above except for noncompact QED model.
 3. `r_build_cuda.sh`: runs the cuda kernel building code; calls `s_build_cuda.cmd` under the hood, which in turn calls `cr.sh` in repo https://github.com/KexinFeng/cuda_pcg, which in turns calls `setup.py`.
 ```
 bash qed_fermion/pbs_files/r_build_cuda.sh
@@ -47,11 +47,11 @@ bash qed_fermion/pbs_files/r_build_cuda.sh
 
 ## Cuda compilation setup
 
-Specified in `qed_fermion/qed_fermion/pbs_files/r_build_cuda.sh`.
+Specified in `qed_fermion/pbs_files/r_build_cuda.sh`.
 
 ## Run time setup
 
-Specified in `qed_fermion/qed_fermion/pbs_files/r_large_cmp.sh`, or `qed_fermion/qed_fermion/pbs_files/r_large_noncmp.sh`.
+Specified in `qed_fermion/pbs_files/r_large_cmp.sh`, or `qed_fermion/qed_fermion/pbs_files/r_large_noncmp.sh`.
 
 
 
