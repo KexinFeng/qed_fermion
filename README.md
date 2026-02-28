@@ -23,14 +23,14 @@ Latency vs linear size L:
 
 <img width="506" height="372" alt="Screenshot 2025-08-29 at 12 59 49 PM" src="https://github.com/user-attachments/assets/039a7a7f-1d37-4603-bd92-1cbf8cbbfd10" />
 
-# Dependency repo
+## Dependency repo
 
 The cuda kernels are in repo: 
 https://github.com/KexinFeng/cuda_pcg
 
 They need to be compiled with `setup.py` therein and moved to the root directory here.
 
-# How to start
+## How to start
 
 The working execution scripts are in `qed_fermion/pbs_files/`. Typical scripts are:
 1. `r_large_cmp.sh`: runs the computation for compact QED model; calls `s_hmc_cmp.cmd` under the hood; write data to `qed_fermion/check_points/hmc_check_point_{suffix}/`
@@ -43,18 +43,24 @@ The working execution scripts are in `qed_fermion/pbs_files/`. Typical scripts a
 bash qed_fermion/pbs_files/r_build_cuda.sh
 ```
 
-# Environment Setup
+## Environment Setup
 
-## Cuda compilation setup
+### Cuda compilation setup
 
 Specified in `qed_fermion/pbs_files/r_build_cuda.sh`.
 
-## Run time setup
+### Run time setup
 
 Specified in `qed_fermion/pbs_files/r_large_cmp.sh`, or `qed_fermion/qed_fermion/pbs_files/r_large_noncmp.sh`.
 
 
+## Postprocessing
 
+The output data is written to `qed_fermion/check_points/hmc_check_point_{suffix}/`.
+
+The data postprocessing scripts and plotting scripts are in `qed_fermion/observables/`.
+
+An entry point of plotting is `qed_fermion/note/merged_panels_corr_cmp.py`.
 
 
 
