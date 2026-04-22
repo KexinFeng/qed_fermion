@@ -2,7 +2,7 @@ import collections
 import gc
 import json
 import math
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
@@ -119,7 +119,46 @@ print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cpu')
+print(f"device: {device}")
 
+enable_chrome_trace = int(os.getenv("enable_chrome_trace", "0")) != 0
+trace_dir = os.getenv("trace_dir", os.path.join(script_path, "trace_folder"))
+trace_label = os.getenv("trace_label", "hmc_measure")
+
+profile_memory = int(os.getenv("profile_memory", "0")) != 0
+profile_wait = int(os.getenv("profile_wait", "5"))
+profile_warmup = int(os.getenv("profile_warmup", "1"))
+profile_active = int(os.getenv("profile_active", "2"))
+profile_repeat = int(os.getenv("profile_repeat", "1"))
+
+if enable_chrome_trace:
+    from torch.profiler import profile, ProfilerActivity, schedule
+
+    os.makedirs(trace_dir, exist_ok=True)
+
+    def _trace_handler(prof):
+        trace_path = os.path.join(
+            trace_dir,
+            f"trace_{trace_label}_Lx{Lx}_Ltau{Ltau}_Nstep{Nstep}_cudagraph_{cuda_graph}.json",
+        )
+        prof.export_chrome_trace(trace_path)
+        print(f"Chrome trace exported to: {trace_path}")
+
+    prof_ctx = profile(
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        schedule=schedule(
+            wait=profile_wait,
+            warmup=profile_warmup,
+            active=profile_active,
+            repeat=profile_repeat,
+        ),
+        on_trace_ready=_trace_handler,
+        record_shapes=False,
+        profile_memory=profile_memory,
+        with_stack=False,
+    )
+else:
+    prof_ctx = nullcontext()
 
 @contextmanager
 def _nvtx_range(range_name):
@@ -140,8 +179,6 @@ def _call_cuda_kernel(kernel_fn, *args, **kwargs):
     kernel_name = f"{module_name}.{func_name}" if module_name else func_name
     with _nvtx_range(kernel_name):
         return kernel_fn(*args, **kwargs)
-
-print(f"device: {device}")
 
 dtype = torch.float32
 cdtype = torch.complex64
@@ -3060,170 +3097,175 @@ class HmcSampler(object):
                 self.update_sigma_hat_cpu(boson_cpu, i)                
             return i  # Return the step index for identification
 
-        for i in tqdm(range(self.N_step)):
-            if i % 1000 == 0:  # Print timing every 100 steps
-                if torch.cuda.is_available():
-                    torch.cuda.synchronize()
-                start_time0 = time.perf_counter()
+        with prof_ctx as prof:
+            for i in tqdm(range(self.N_step)):
+                if i % 1000 == 0:  # Print timing every 100 steps
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    start_time0 = time.perf_counter()
 
-            boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
+                boson, accp, cg_converge_iter, cg_r_err = self.metropolis_update()            
 
-            # self.threshold_queue.append(threshold)
-            if mass_mode != 0:
-                self.apply_sigma_hat_cpu(i)
-            self.adjust_delta_t()
+                # self.threshold_queue.append(threshold)
+                if mass_mode != 0:
+                    self.apply_sigma_hat_cpu(i)
+                self.adjust_delta_t()
 
-            # Fermion - with timing
-            if i % 1000 == 0:  # Print timing every 100 steps
-                if torch.cuda.is_available():
-                    torch.cuda.synchronize()
-                start_time = time.perf_counter()
+                # Fermion - with timing
+                if i % 1000 == 0:  # Print timing every 100 steps
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    start_time = time.perf_counter()
 
-                print(f"Step {i}: metropolis update took {(start_time - start_time0)*1:.2f} sec")
-                sys.stdout.flush()
+                    print(f"Step {i}: metropolis update took {(start_time - start_time0)*1:.2f} sec")
+                    sys.stdout.flush()
 
-            if compute_BB or compute_spsm or compute_spsm_tau:
-                eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
-                obsr = self.se.get_fermion_obsr_compile(boson, eta)
-                BB_r = obsr['BB_r'] if compute_BB else None
-                B_r = obsr['B_r'] if compute_BB else None
-                BB0_r = obsr['BB0_r'] if compute_BB else None
-                spsm_r = obsr['spsm_r'] if compute_spsm else None
-                spsm_r_tau = obsr['spsm_r_tau'] if compute_spsm_tau else None
-            else:
-                BB_r = B_r = BB0_r = spsm_r = None
-                spsm_r_tau = None
+                if compute_BB or compute_spsm or compute_spsm_tau:
+                    eta = self.se.random_vec_bin()  # [Nrv, Ltau * Ly * Lx]
+                    obsr = self.se.get_fermion_obsr_compile(boson, eta)
+                    BB_r = obsr['BB_r'] if compute_BB else None
+                    B_r = obsr['B_r'] if compute_BB else None
+                    BB0_r = obsr['BB0_r'] if compute_BB else None
+                    spsm_r = obsr['spsm_r'] if compute_spsm else None
+                    spsm_r_tau = obsr['spsm_r_tau'] if compute_spsm_tau else None
+                else:
+                    BB_r = B_r = BB0_r = spsm_r = None
+                    spsm_r_tau = None
 
-            if i % 1000 == 0:  # Print timing every 100 steps
-                if torch.cuda.is_available():
-                    torch.cuda.synchronize()
-                end_time = time.perf_counter()
-            
-                print(f"Step {i}: Fermion computation took {(end_time - start_time)*1:.2f} sec")
-                sys.stdout.flush()
+                if i % 1000 == 0:  # Print timing every 100 steps
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    end_time = time.perf_counter()
                 
-            # Submit new task to the executor
-            future = executor.submit(
-                async_cpu_computations, 
-                i, 
-                boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
-                (BB_r.cpu() if BB_r is not None and BB_r.is_cuda else (BB_r.clone() if BB_r is not None else None)),
-                (B_r.cpu() if B_r is not None and B_r.is_cuda else (B_r.clone() if B_r is not None else None)),
-                (BB0_r.cpu() if BB0_r is not None and BB0_r.is_cuda else (BB0_r.clone() if BB0_r is not None else None)),
-                (spsm_r.cpu() if spsm_r is not None and spsm_r.is_cuda else (spsm_r.clone() if spsm_r is not None else None)),
-                (spsm_r_tau.cpu() if spsm_r_tau is not None and spsm_r_tau.is_cuda else (spsm_r_tau.clone() if spsm_r_tau is not None else None)),
-                # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
-                accp.cpu() if accp.is_cuda else accp.clone(), 
-                (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
-                cg_r_err.cpu() if cg_r_err.is_cuda else cg_r_err.clone(), 
-                self.delta_t_tensor.cpu() if self.delta_t_tensor.is_cuda else self.delta_t_tensor.clone(),
-                cnt_stream_write
-            )
-            futures[i] = future
-            
-            # Clean up completed futures to maintain memory efficiency
-            # Only keep the most recent futures to avoid memory buildup
-            completed_futures = [idx for idx, fut in list(futures.items()) if fut.done()]
-            for idx in completed_futures:
-                # Get the result to raise exceptions if there were any
-                try:
-                    futures[idx].result()
-                except Exception as e:
-                    print(f"Error in async computation at step {idx}: {e}")
-                del futures[idx]
+                    print(f"Step {i}: Fermion computation took {(end_time - start_time)*1:.2f} sec")
+                    sys.stdout.flush()
+                    
+                # Submit new task to the executor
+                future = executor.submit(
+                    async_cpu_computations, 
+                    i, 
+                    boson.cpu() if boson.is_cuda else boson.clone(),  # Detach and clone tensors to avoid CUDA synchronization
+                    (BB_r.cpu() if BB_r is not None and BB_r.is_cuda else (BB_r.clone() if BB_r is not None else None)),
+                    (B_r.cpu() if B_r is not None and B_r.is_cuda else (B_r.clone() if B_r is not None else None)),
+                    (BB0_r.cpu() if BB0_r is not None and BB0_r.is_cuda else (BB0_r.clone() if BB0_r is not None else None)),
+                    (spsm_r.cpu() if spsm_r is not None and spsm_r.is_cuda else (spsm_r.clone() if spsm_r is not None else None)),
+                    (spsm_r_tau.cpu() if spsm_r_tau is not None and spsm_r_tau.is_cuda else (spsm_r_tau.clone() if spsm_r_tau is not None else None)),
+                    # dimer_dimer_r.cpu() if dimer_dimer_r.is_cuda else dimer_dimer_r.clone(),
+                    accp.cpu() if accp.is_cuda else accp.clone(), 
+                    (cg_converge_iter.cpu() if cg_converge_iter.is_cuda else cg_converge_iter.clone()) if cg_converge_iter is not None else None,
+                    cg_r_err.cpu() if cg_r_err.is_cuda else cg_r_err.clone(), 
+                    self.delta_t_tensor.cpu() if self.delta_t_tensor.is_cuda else self.delta_t_tensor.clone(),
+                    cnt_stream_write
+                )
+                futures[i] = future
                 
-            # If there are too many pending futures, wait for some to complete
-            if len(futures) > 2:  # Adjust this number based on your system resources
-                # Wait for the oldest future to complete
-                oldest_idx = min(futures.keys())
-                try:
-                    futures[oldest_idx].result()
-                except Exception as e:
-                    print(f"Error in async computation at step {oldest_idx}: {e}")
-                del futures[oldest_idx]
+                # Clean up completed futures to maintain memory efficiency
+                # Only keep the most recent futures to avoid memory buildup
+                completed_futures = [idx for idx, fut in list(futures.items()) if fut.done()]
+                for idx in completed_futures:
+                    # Get the result to raise exceptions if there were any
+                    try:
+                        futures[idx].result()
+                    except Exception as e:
+                        print(f"Error in async computation at step {idx}: {e}")
+                    del futures[idx]
+                    
+                # If there are too many pending futures, wait for some to complete
+                if len(futures) > 2:  # Adjust this number based on your system resources
+                    # Wait for the oldest future to complete
+                    oldest_idx = min(futures.keys())
+                    try:
+                        futures[oldest_idx].result()
+                    except Exception as e:
+                        print(f"Error in async computation at step {oldest_idx}: {e}")
+                    del futures[oldest_idx]
 
-            self.step += 1
-            self.cur_step += 1
-            cnt_stream_write += 1
+                # Iteration stepping
+                self.step += 1
+                self.cur_step += 1
+                cnt_stream_write += 1
 
-            # ================ stats =============== #
-            # stream writing
-            # if cnt_stream_write % self.stream_write_rate == 0:
-            #     data_folder = script_path + "/check_points/hmc_check_point/"
-            #     file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
-            #     self.save_to_file(self.boson_seq[:cnt_stream_write].cpu(), data_folder, file_name)  
+                if enable_chrome_trace:
+                    prof.step()
 
-            #     cnt_stream_write = 0
+                # ================ stats =============== #
+                # stream writing
+                # if cnt_stream_write % self.stream_write_rate == 0:
+                #     data_folder = script_path + "/check_points/hmc_check_point/"
+                #     file_name = f"stream_ckpt_N_{self.specifics}_step_{self.N_step}"
+                #     self.save_to_file(self.boson_seq[:cnt_stream_write].cpu(), data_folder, file_name)  
 
-            # print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
-            # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
-            # with open(tmp_file_path, "a") as tmp_file:
-            #     tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
-                
-            if i % self.memory_check_rate == 0:
-                # Check memory usage
-                mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
-                max_mem_usage = torch.cuda.max_memory_allocated() / (1024 ** 2)
-                print(f"Memory usage at step {i}: {mem_usage:.2f} MB")
-                print(f"Max memory usage: {max_mem_usage:.2f} MB")
+                #     cnt_stream_write = 0
 
-                mem_mb = process.memory_info().rss / 1024**2
-                print(f"Current memory usage: {mem_mb:.2f} MB")
-
-                time.sleep(0.1)
-                
-                # Write memory usage to a temporary file
+                # print(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
                 # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
                 # with open(tmp_file_path, "a") as tmp_file:
-                #     tmp_file.write(f"Step {i}: Memory usage: {mem_usage:.2f} MB, Max memory usage: {max_mem_usage:.2f} MB\n")
-
-            # plotting
-            if i % self.plt_rate == 0 and i > 0:
-                plt.pause(0.1)
-                plt.close()
-                self.total_monitoring()
-                plt.show(block=False)
-                plt.pause(0.1)
-
-            # checkpointing
-            if i % self.ckp_rate == 0 and i > 0:
-                res = {'boson': boson,
-                        'step': self.step,
-                        'cur_step': self.cur_step,
-                        'G_list': self.G_list,
-                        'S_plaq_list': self.S_plaq_list,
-                        'S_tau_list': self.S_tau_list,
-                        'BB_r_list': self.BB_r_list,
-                        'B_r_list': self.B_r_list,
-                        'BB0_r_list': self.BB0_r_list,
-                        'spsm_r_list': self.spsm_r_list,
-                        'spsm_r_tau_list': self.spsm_r_tau_list,
-                        'cg_iter_list': self.cg_iter_list,
-                        'cg_r_err_list': self.cg_r_err_list,
-                        'delta_t_list': self.delta_t_list}
-                
-                data_folder = script_path + f"/check_points/hmc_check_point_{suffix}/"
-                file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
-                self.save_to_file(res, data_folder, file_name)  
-
-            if i % 20000 == 0 and i >= 4000:
-                # Save the boson sequence to file every 500 steps
-                data_folder = script_path + f"/check_points/boson_ensemble/"
-                file_name = f"boson_{self.specifics}_{self.step-1}"
-                
-                file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
-                file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
-                file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
-                file_name = file_name.replace(f"cmp_True", "cmp_False")
-                if self.Lx == 50:
-                    file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
-                if self.Lx == 60:
-                    file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
-                    file_name = file_name.replace(f"Nstp_10000", "Nstp_6800")
+                #     tmp_file.write(f"-----------> {torch.cuda.is_available()}, {i % self.memory_check_rate}, {i}\n")
                     
-                ckpt_data = {'boson': self.boson.cpu(),
-                             'delta_t_tensor': self.delta_t_tensor.cpu()}
-                self.save_to_file(ckpt_data, data_folder, file_name)
+                if i % self.memory_check_rate == 0:
+                    # Check memory usage
+                    mem_usage = torch.cuda.memory_allocated() / (1024 ** 2)
+                    max_mem_usage = torch.cuda.max_memory_allocated() / (1024 ** 2)
+                    print(f"Memory usage at step {i}: {mem_usage:.2f} MB")
+                    print(f"Max memory usage: {max_mem_usage:.2f} MB")
+
+                    mem_mb = process.memory_info().rss / 1024**2
+                    print(f"Current memory usage: {mem_mb:.2f} MB")
+
+                    time.sleep(0.1)
+                    
+                    # Write memory usage to a temporary file
+                    # tmp_file_path = os.path.join(script_path, "tmp_memory_usage.txt")
+                    # with open(tmp_file_path, "a") as tmp_file:
+                    #     tmp_file.write(f"Step {i}: Memory usage: {mem_usage:.2f} MB, Max memory usage: {max_mem_usage:.2f} MB\n")
+
+                # plotting
+                if i % self.plt_rate == 0 and i > 0:
+                    plt.pause(0.1)
+                    plt.close()
+                    self.total_monitoring()
+                    plt.show(block=False)
+                    plt.pause(0.1)
+
+                # checkpointing
+                if i % self.ckp_rate == 0 and i > 0:
+                    res = {'boson': boson,
+                            'step': self.step,
+                            'cur_step': self.cur_step,
+                            'G_list': self.G_list,
+                            'S_plaq_list': self.S_plaq_list,
+                            'S_tau_list': self.S_tau_list,
+                            'BB_r_list': self.BB_r_list,
+                            'B_r_list': self.B_r_list,
+                            'BB0_r_list': self.BB0_r_list,
+                            'spsm_r_list': self.spsm_r_list,
+                            'spsm_r_tau_list': self.spsm_r_tau_list,
+                            'cg_iter_list': self.cg_iter_list,
+                            'cg_r_err_list': self.cg_r_err_list,
+                            'delta_t_list': self.delta_t_list}
+                    
+                    data_folder = script_path + f"/check_points/hmc_check_point_{suffix}/"
+                    file_name = f"ckpt_N_{self.specifics}_step_{self.step-1}"
+                    self.save_to_file(res, data_folder, file_name)  
+
+                if i % 20000 == 0 and i >= 4000:
+                    # Save the boson sequence to file every 500 steps
+                    data_folder = script_path + f"/check_points/boson_ensemble/"
+                    file_name = f"boson_{self.specifics}_{self.step-1}"
+                    
+                    file_name = file_name.replace("cg_rtol_1e-15", "cg_rtol_1e-09")
+                    file_name = file_name.replace(f"_max_iter_{self.max_iter}", "")
+                    file_name = file_name.replace(f"Nstp_{Nstep}", "Nstp_10000")
+                    file_name = file_name.replace(f"cmp_True", "cmp_False")
+                    if self.Lx == 50:
+                        file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
+                    if self.Lx == 60:
+                        file_name = file_name.replace(f"Jtau_{self.J*self.dtau/self.Nf*4:.2g}", "Jtau_1")
+                        file_name = file_name.replace(f"Nstp_10000", "Nstp_6800")
+                        
+                    ckpt_data = {'boson': self.boson.cpu(),
+                                'delta_t_tensor': self.delta_t_tensor.cpu()}
+                    self.save_to_file(ckpt_data, data_folder, file_name)
 
         G_avg, G_std = self.G_list.mean(dim=0), self.G_list.std(dim=0)
         res = {'boson': boson,
@@ -3544,29 +3586,10 @@ if __name__ == '__main__':
     # asym = float(os.environ.get("asym", '1'))
     # Ltau = int(asym*Lx * 10) # dtau=0.1
 
-    enable_chrome_trace = int(os.getenv("enable_chrome_trace", "0")) != 0
-    trace_dir = os.getenv("trace_dir", os.path.expanduser("~/profile_result"))
-    trace_label = os.getenv("trace_label", "hmc_measure")
-
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
-    # Measure (optionally under torch profiler for Chrome trace export)
-    if enable_chrome_trace:
-        from torch.profiler import profile, ProfilerActivity
-        os.makedirs(trace_dir, exist_ok=True)
-        trace_path = os.path.join(trace_dir, f"trace_{trace_label}_{Lx}_{Ltau}_{Nstep}.json")
-        with profile(
-            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-            record_shapes=False,
-            profile_memory=True,
-            with_stack=False,
-        ) as prof:
-            G_avg, G_std = hmc.measure()
-        prof.export_chrome_trace(trace_path)
-        print(f"Chrome trace exported to: {trace_path}")
-    else:
-        G_avg, G_std = hmc.measure()
+    G_avg, G_std = hmc.measure()
 
     mem_mb = process.memory_info().rss / 1024**2
     print(f"Current memory usage: {mem_mb:.2f} MB")

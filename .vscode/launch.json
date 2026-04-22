@@ -25,4 +25,4 @@
     ]
 }
 
-// enable_chrome_trace=0 trace_label=run1 L=10 Nstep=10 bs=1 cuda_graph=0 cuda_graph_se=0 python qed_fermion/hmc_sampler_batch.py
+// enable_chrome_trace=1 trace_label=run1 L=10 Nstep=10 bs=1 cuda_graph=1 cuda_graph_se=1 python qed_fermion/hmc_sampler_batch.py
