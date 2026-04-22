@@ -133,7 +133,6 @@ def _nvtx_range(range_name):
     else:
         yield
 
-
 def _call_cuda_kernel(kernel_fn, *args, **kwargs):
     """Run a CUDA extension call wrapped by an NVTX range."""
     module_name = getattr(kernel_fn, "__module__", "")
@@ -141,6 +140,7 @@ def _call_cuda_kernel(kernel_fn, *args, **kwargs):
     kernel_name = f"{module_name}.{func_name}" if module_name else func_name
     with _nvtx_range(kernel_name):
         return kernel_fn(*args, **kwargs)
+
 print(f"device: {device}")
 
 dtype = torch.float32
@@ -328,7 +328,7 @@ class HmcSampler(object):
         self.cuda_graph = cuda_graph and torch.cuda.is_available()
         self.force_graph_runners = {}
         self.metropolis_graph_runners = {}
-        self.leapfrog_cmp_graph_runners = None
+        self.leapfrog_graph_runners = None
         self.graph_memory_pool = None
         # self._MAX_ITERS_TO_CAPTURE = [400, 800, 1200]
         # self._MAX_ITERS_TO_CAPTURE = [100, 200, 400] # [100] will lead 10^-2 rtol
@@ -460,8 +460,8 @@ class HmcSampler(object):
 
         # Store the graph runner and memory pool
         if not hasattr(self, "leapfrog_cmp_graph_runners"):
-            self.leapfrog_cmp_graph_runners = None
-        self.leapfrog_cmp_graph_runners = graph_runner
+            self.leapfrog_graph_runners = None
+        self.leapfrog_graph_runners = graph_runner
         self.graph_memory_pool = graph_memory_pool
 
         print(
@@ -2360,7 +2360,7 @@ class HmcSampler(object):
 
         return Ft, xi_t.view(-1), cg_converge_iter
 
-    def leapfrog_cmp(self, x, p, dt, tau_mask, force_b_plaq, force_b_tau):
+    def leapfrog(self, x, p, dt, tau_mask, force_b_plaq, force_b_tau):
         M = 5
         for _ in range(M):
             # p = p + force(x) * dt/2
@@ -2537,10 +2537,10 @@ class HmcSampler(object):
 
             # Update (p, x)
             if self.cuda_graph:
-                x, p, force_b_plaq, force_b_tau = self.leapfrog_cmp_graph_runners(
+                x, p, force_b_plaq, force_b_tau = self.leapfrog_graph_runners(
                     x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             else:
-                x, p, force_b_plaq, force_b_tau = self.leapfrog_cmp(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+                x, p, force_b_plaq, force_b_tau = self.leapfrog(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             
             if not self.use_cuda_kernel:
                 result = self.get_M_sparse(x)
