@@ -3533,14 +3533,13 @@ def load_visualize_final_obsr(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '5000'))
-    enable_chrome_trace = int(os.getenv("enable_chrome_trace", "0")) != 0
-    trace_dir = os.getenv("trace_dir", "./trace_folder")
-    trace_label = os.getenv("trace_label", "hmc_measure")
     # Lx = int(os.getenv("L", '6'))
-
     # asym = float(os.environ.get("asym", '1'))
-
     # Ltau = int(asym*Lx * 10) # dtau=0.1
+
+    enable_chrome_trace = int(os.getenv("enable_chrome_trace", "0")) != 0
+    trace_dir = os.getenv("trace_dir", os.path.expanduser("~/profile_result"))
+    trace_label = os.getenv("trace_label", "hmc_measure")
 
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
