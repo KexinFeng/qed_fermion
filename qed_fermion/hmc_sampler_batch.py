@@ -3380,7 +3380,14 @@ def load_visualize_final_obsr(Lsize=(20, 20, 20), step=1000001,
     start = start_load
     end = step
     sample_step = 1
-    seq_idx = torch.arange(start, end, sample_step)
+
+    try:
+        seq_idx = torch.arange(start, end, sample_step)
+    except Exception as err:
+        print(err)
+        print(f"start:{start}, end:{end}, step:{step}")
+        return
+
     # batch_idx = torch.tensor([0, 1, 2, 3, 4])
     batch_size = G_list.size(1)
     batch_idx = torch.arange(batch_size)
