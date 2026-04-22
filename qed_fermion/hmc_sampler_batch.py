@@ -2,6 +2,7 @@ import collections
 import gc
 import json
 import math
+from contextlib import contextmanager
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
@@ -118,6 +119,28 @@ print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cpu')
+
+
+@contextmanager
+def _nvtx_range(range_name):
+    """Create an NVTX range only when CUDA is available."""
+    if torch.cuda.is_available():
+        torch.cuda.nvtx.range_push(range_name)
+        try:
+            yield
+        finally:
+            torch.cuda.nvtx.range_pop()
+    else:
+        yield
+
+
+def _call_cuda_kernel(kernel_fn, *args, **kwargs):
+    """Run a CUDA extension call wrapped by an NVTX range."""
+    module_name = getattr(kernel_fn, "__module__", "")
+    func_name = getattr(kernel_fn, "__name__", str(kernel_fn))
+    kernel_name = f"{module_name}.{func_name}" if module_name else func_name
+    with _nvtx_range(kernel_name):
+        return kernel_fn(*args, **kwargs)
 print(f"device: {device}")
 
 dtype = torch.float32
@@ -777,8 +800,8 @@ class HmcSampler(object):
 
         # Initialize variables
         x = torch.zeros_like(b).view(self.bs, -1)
-        r = b.view(self.bs, -1) - _C.mhm_vec(boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
-        z = _C.precon_vec(r, self.precon_csr, self.Lx) if self.dtau <= 0.1 and precon_on else r
+        r = b.view(self.bs, -1) - _call_cuda_kernel(_C.mhm_vec, boson, x, self.Lx, self.dtau, *BLOCK_SIZE)
+        z = _call_cuda_kernel(_C.precon_vec, r, self.precon_csr, self.Lx) if self.dtau <= 0.1 and precon_on else r
 
         p = z
         rz_old = torch.einsum('bj,bj->b', r.conj(), z).real
@@ -804,7 +827,7 @@ class HmcSampler(object):
 
         for i in range(self.max_iter):
             # Matrix-vector product with M'M
-            Op = _C.mhm_vec(boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
+            Op = _call_cuda_kernel(_C.mhm_vec, boson, p, self.Lx, self.dtau, *BLOCK_SIZE)
 
             alpha = (rz_old / torch.einsum('bj,bj->b', p.conj(), Op).real).unsqueeze(-1)
             x += alpha * p * active_bs
@@ -843,7 +866,7 @@ class HmcSampler(object):
                 iterations += (active_bs == 1).view(-1).long()
 
             # z = torch.sparse.mm(MhM_inv, r) if MhM_inv is not None else r  # Apply preconditioner to rtL)
-            z = _C.precon_vec(r, self.precon_csr, self.Lx) if self.dtau <= 0.1 and precon_on else r
+            z = _call_cuda_kernel(_C.precon_vec, r, self.precon_csr, self.Lx) if self.dtau <= 0.1 and precon_on else r
             rz_new = torch.einsum('bj,bj->b', r.conj(), z).real
             beta = rz_new / rz_old
             p = z + beta.unsqueeze(-1) * p * active_bs
@@ -2186,15 +2209,15 @@ class HmcSampler(object):
                 xi_c = xi_t[b, tau].view(-1) # col
                 xi_n = xi_t[b, (tau + 1) % Ltau].view(-1) # col
 
-                B_xi_5 = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, False, *BLOCK_SIZE)
+                B_xi_5 = _call_cuda_kernel(_C.b_vec_per_tau, boson_in, xi_c, Lx, self.dtau, False, *BLOCK_SIZE)
 
                 xi_n_conj = xi_n.conj()   # row
-                xi_n_lft_conj = _C.b_vec_per_tau(boson_in, xi_n_conj, Lx, self.dtau, True, *BLOCK_SIZE)
+                xi_n_lft_conj = _call_cuda_kernel(_C.b_vec_per_tau, boson_in, xi_n_conj, Lx, self.dtau, True, *BLOCK_SIZE)
 
-                xi_c_rgt = _C.b_vec_per_tau(boson_in, xi_c, Lx, self.dtau, True, *BLOCK_SIZE)
+                xi_c_rgt = _call_cuda_kernel(_C.b_vec_per_tau, boson_in, xi_c, Lx, self.dtau, True, *BLOCK_SIZE)
 
                 B_xi_5_conj = B_xi_5.conj()  # row
-                B_xi_conj = _C.b_vec_per_tau(boson_in, B_xi_5_conj, Lx, self.dtau, True, *BLOCK_SIZE)
+                B_xi_conj = _call_cuda_kernel(_C.b_vec_per_tau, boson_in, B_xi_5_conj, Lx, self.dtau, True, *BLOCK_SIZE)
 
 
                 sign_B = -1 if tau < Ltau - 1 else 1
@@ -2411,7 +2434,7 @@ class HmcSampler(object):
 
             r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
         else:
-            psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
+            psi_u = _call_cuda_kernel(_C.mh_vec, x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
             # Use CUDA graph if available
@@ -2672,7 +2695,7 @@ class HmcSampler(object):
 
             r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
         else:
-            psi_u = _C.mh_vec(x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
+            psi_u = _call_cuda_kernel(_C.mh_vec, x.permute([0, 4, 3, 2, 1]).reshape(self.bs, -1), R_u.view(self.bs, -1), self.Lx, self.dtau, *BLOCK_SIZE)
             # torch.testing.assert_close(psi_u, psi_u_ref, atol=1e-3, rtol=1e-3)
 
             # Use CUDA graph if available
@@ -3505,6 +3528,9 @@ def load_visualize_final_obsr(Lsize=(20, 20, 20), step=1000001,
 if __name__ == '__main__':
     J = float(os.getenv("J", '1.0'))
     Nstep = int(os.getenv("Nstep", '5000'))
+    enable_chrome_trace = int(os.getenv("enable_chrome_trace", "0")) != 0
+    trace_dir = os.getenv("trace_dir", "./trace_folder")
+    trace_label = os.getenv("trace_label", "hmc_measure")
     # Lx = int(os.getenv("L", '6'))
 
     # asym = float(os.environ.get("asym", '1'))
@@ -3514,30 +3540,25 @@ if __name__ == '__main__':
     print(f'J={J} \nNstep={Nstep} \nLx={Lx} \nLtau={Ltau}')
     hmc = HmcSampler(Lx=Lx, Ltau=Ltau, J=J, Nstep=Nstep)
 
-    # Measure
-    G_avg, G_std = hmc.measure()
+    # Measure (optionally under torch profiler for Chrome trace export)
+    if enable_chrome_trace:
+        from torch.profiler import profile, ProfilerActivity
+        os.makedirs(trace_dir, exist_ok=True)
+        trace_path = os.path.join(trace_dir, f"trace_{trace_label}_{Lx}_{Ltau}_{Nstep}.json")
+        with profile(
+            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            record_shapes=False,
+            profile_memory=True,
+            with_stack=False,
+        ) as prof:
+            G_avg, G_std = hmc.measure()
+        prof.export_chrome_trace(trace_path)
+        print(f"Chrome trace exported to: {trace_path}")
+    else:
+        G_avg, G_std = hmc.measure()
 
     mem_mb = process.memory_info().rss / 1024**2
     print(f"Current memory usage: {mem_mb:.2f} MB")
-
-    # from torch.profiler import profile, record_function, ProfilerActivity
-    # with profile(
-    #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-    #     record_shapes=False,       # Records input shapes of operators
-    #     profile_memory=True,      # Tracks memory allocations and releases
-    #     with_stack=False           # Records Python call stacks for operations
-    # ) as prof:
-    #     with record_function("model_inference"):
-    #         for _ in range(1):
-    #             G_avg, G_std = hmc.measure()
-
-    # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-    # print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
-
-    # trace_folder = f"./trace_folder/"
-    # os.makedirs(trace_folder, exist_ok=True)
-    # prof.export_chrome_trace(trace_folder + f"trace_{Lx}_{Ltau}_{Nstep}.json")
-
 
     Lx, Ly, Ltau = hmc.Lx, hmc.Ly, hmc.Ltau
     load_visualize_final_obsr((Lx, Ly, Ltau), hmc.N_step, hmc.specifics, False)
