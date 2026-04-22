@@ -115,6 +115,7 @@ from qed_fermion.utils.util import unravel_index
 
 # BLOCK_SIZE = (4, 8)
 BLOCK_SIZE = (16, 32) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block
+BLOCK_SIZE = (8, 16) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -139,7 +140,7 @@ if enable_chrome_trace:
     def _trace_handler(prof):
         trace_path = os.path.join(
             trace_dir,
-            f"trace_{trace_label}_Lx{Lx}_Ltau{Ltau}_Nstep{Nstep}_cudagraph_{cuda_graph}.json",
+            f"trace_{trace_label}_Lx{Lx}_Ltau{Ltau}_Nstep{Nstep}_cudagraph_{cuda_graph}_BLOCK_{BLOCK_SIZE}.json",
         )
         prof.export_chrome_trace(trace_path)
         print(f"Chrome trace exported to: {trace_path}")
