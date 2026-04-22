@@ -113,7 +113,7 @@ from qed_fermion.preconditioners_orig.precon_manual import get_precon_man
 from qed_fermion.utils.util import unravel_index
 
 # BLOCK_SIZE = (4, 8)
-BLOCK_SIZE = (16, 32) # min (8, 16) -> 128 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block
+BLOCK_SIZE = (16, 32) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
