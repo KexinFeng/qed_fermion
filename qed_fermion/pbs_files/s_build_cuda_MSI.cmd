@@ -10,7 +10,7 @@
 #SBATCH --error=./report/%x_%j.err             #    Standard error log as $job_name_$job_id.errs
 
 cd ${SLURM_SUBMIT_DIR}
-module load python3/3.10.9_anaconda2023.03_libmamba
+module load python3/3.9.3_anaconda2021.11_mamba
 module load matlab/R2023b
 module load gcc/9.2.0
 module load cuda/12.1.1
