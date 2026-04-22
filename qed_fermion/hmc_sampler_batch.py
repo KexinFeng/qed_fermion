@@ -2439,7 +2439,8 @@ class HmcSampler(object):
 
             # Use CUDA graph if available
             if self.cuda_graph and self.max_iter in self.force_graph_runners:
-                force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                with _nvtx_range(f"cuda_graph.force_graph_runners[{self.max_iter}].replay"):
+                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
                 cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             else:
                 force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
@@ -2537,8 +2538,9 @@ class HmcSampler(object):
 
             # Update (p, x)
             if self.cuda_graph:
-                x, p, force_b_plaq, force_b_tau = self.leapfrog_graph_runners(
-                    x, p, dt, tau_mask, force_b_plaq, force_b_tau)
+                with _nvtx_range("cuda_graph.leapfrog_graph_runners.replay"):
+                    x, p, force_b_plaq, force_b_tau = self.leapfrog_graph_runners(
+                        x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             else:
                 x, p, force_b_plaq, force_b_tau = self.leapfrog(x, p, dt, tau_mask, force_b_plaq, force_b_tau)
             
@@ -2552,7 +2554,8 @@ class HmcSampler(object):
                 r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
             else:
                 if self.cuda_graph and self.max_iter in self.force_graph_runners:
-                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                    with _nvtx_range(f"cuda_graph.force_graph_runners[{self.max_iter}].replay"):
+                        force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
                     cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
@@ -2700,7 +2703,8 @@ class HmcSampler(object):
 
             # Use CUDA graph if available
             if self.cuda_graph and self.max_iter in self.force_graph_runners:
-                force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                with _nvtx_range(f"cuda_graph.force_graph_runners[{self.max_iter}].replay"):
+                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
                 cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
             else:
                 force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
@@ -2811,7 +2815,8 @@ class HmcSampler(object):
                 r_err = torch.full((self.bs,), self.cg_rtol, dtype=dtype, device=device)
             else:
                 if self.cuda_graph and self.max_iter in self.force_graph_runners:
-                    force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
+                    with _nvtx_range(f"cuda_graph.force_graph_runners[{self.max_iter}].replay"):
+                        force_f_u, xi_t_u, r_err = self.force_graph_runners[self.max_iter](psi_u, x)
                     cg_converge_iter = torch.full((self.bs,), self.max_iter, dtype=dtype, device=device)
                 else:
                     force_f_u, xi_t_u, cg_converge_iter, r_err = self.force_f_fast(psi_u, x, None)
