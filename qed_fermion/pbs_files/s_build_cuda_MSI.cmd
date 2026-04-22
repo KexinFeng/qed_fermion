@@ -14,6 +14,7 @@ module load python3/3.9.3_anaconda2021.11_mamba
 module load matlab/R2023b
 module load gcc/9.2.0
 module load cuda/12.1.1
+module load ninja/1.11.1-gcc-8.2.0-4drwoye
 ## export PATH=/share1/cuda/12.4/bin/:$PATH
 ## export LD_LIBRARY_PATH=/share1/cuda/12.4/lib64:$LD_LIBRARY_PATH
 ## ## export LD_LIBRARY_PATH=/home/fengx463/Downloads:$LD_LIBRARY_PATH
