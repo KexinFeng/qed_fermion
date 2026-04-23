@@ -114,8 +114,17 @@ from qed_fermion.preconditioners_orig.precon_manual import get_precon_man
 from qed_fermion.utils.util import unravel_index
 
 # BLOCK_SIZE = (4, 8)
-BLOCK_SIZE = (16, 32) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block
-BLOCK_SIZE = (8, 16) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block
+BLOCK_SIZE = (16, 32) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block ## 5-6 mu_s; ocpy 23%
+BLOCK_SIZE = (8, 16) # min (8, 16) -> 128 threads/block, max 1024 threads/block; max 16 blocks/SM, 2048 threads/SM on L40s; SRAM 128 KB/SM, 48 KB/block ## 4-5 mu_s; ocpy 6%
+BLOCK_SIZE = (4, 8) ## 15-16 mu_s; ocpy 3%
+BLOCK_SIZE = (8, 8) ## 9-10 mu_s; ocpy 1%
+# shared memory is invariant with BLOCK_SIZE: 1600 for Lx=10
+
+BLOCK_WIDTH = 128 ## 4.8-5.1 mu_s; ocpy 6%; sram 27744 for Lx=10
+BLOCK_WIDTH = 64 ## 4.8-5.1 mu_s; ocpy 6%; sram 13920 for Lx=10
+BLOCK_WIDTH = 32 ## 4.8-5.1 mu_s; ocpy 6%; sram 7008 for Lx=10
+BLOCK_WIDTH = 8 ## 4.9-5.1 mu_s; ocpy 5%; sram 1824 for Lx=10
+# shared memory increases with BLOCK_WIDTH
 print(f"BLOCK_SIZE: {BLOCK_SIZE}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -129,7 +138,7 @@ trace_label = os.getenv("trace_label", "hmc_measure")
 profile_memory = int(os.getenv("profile_memory", "0")) != 0
 profile_wait = int(os.getenv("profile_wait", "5"))
 profile_warmup = int(os.getenv("profile_warmup", "1"))
-profile_active = int(os.getenv("profile_active", "2"))
+profile_active = int(os.getenv("profile_active", "1"))
 profile_repeat = int(os.getenv("profile_repeat", "1"))
 
 if enable_chrome_trace:
@@ -140,7 +149,7 @@ if enable_chrome_trace:
     def _trace_handler(prof):
         trace_path = os.path.join(
             trace_dir,
-            f"trace_{trace_label}_Lx{Lx}_Ltau{Ltau}_Nstep{Nstep}_cudagraph_{cuda_graph}_BLOCK_{BLOCK_SIZE}.json",
+            f"trace_{trace_label}_Lx{Lx}_Ltau{Ltau}_Nstep{Nstep}_cudagraph_{cuda_graph}_BLOCK_{BLOCK_SIZE}_BLOCK_WIDTH_{BLOCK_WIDTH}.json",
         )
         prof.export_chrome_trace(trace_path)
         print(f"Chrome trace exported to: {trace_path}")
