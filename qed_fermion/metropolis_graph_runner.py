@@ -96,7 +96,7 @@ class LeapfrogCmpGraphRunner:
         graph_memory_pool=None,
         n_warmups=3
     ):
-        """Capture the leapfrog_cmp_graph function execution as a CUDA graph."""
+        """Capture the leapfrog_graph function execution as a CUDA graph."""
 
         input_buffers = {
             "x": x,
@@ -116,7 +116,7 @@ class LeapfrogCmpGraphRunner:
         s.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(s):
             for _ in range(n_warmups):
-                static_outputs = self.hmc_sampler.leapfrog_cmp(
+                static_outputs = self.hmc_sampler.leapfrog(
                     input_buffers['x'],
                     input_buffers['p'],
                     input_buffers['dt'],
@@ -131,7 +131,7 @@ class LeapfrogCmpGraphRunner:
         # Capture the graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph, pool=graph_memory_pool):
-            static_outputs = self.hmc_sampler.leapfrog_cmp(
+            static_outputs = self.hmc_sampler.leapfrog(
                 input_buffers['x'],
                 input_buffers['p'],
                 input_buffers['dt'],
@@ -141,7 +141,7 @@ class LeapfrogCmpGraphRunner:
             )
 
         end_mem = device_mem()[1]
-        print(f"leapfrog_cmp_graph CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
+        print(f"leapfrog_graph CUDA Graph diff: {end_mem - start_mem:.2f} MB\n")
 
         self.graph = graph
         self.input_buffers = input_buffers
